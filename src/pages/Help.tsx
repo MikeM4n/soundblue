@@ -218,8 +218,10 @@ export function Help() {
             Sin los filtros, en Chrome o con youtube-nocookie.com, ese ▶ no la reanudó en nuestras pruebas.
           </li>
           <li>
-            La notificación sale <B>simple</B> (solo reproducir/pausar, sin anterior ni siguiente): el sonido viene del reproductor de
-            YouTube y Android le da la notificación a él, no a SoundBlue. Para cambiar de canción, abre la app o usa la mini‑barra.
+            <B>Anterior y Siguiente en la notificación:</B> SoundBlue los tiene listos, pero con canciones de YouTube no aparecen. El
+            sonido sale del reproductor de YouTube y Android le da la notificación a él, no a SoundBlue; esa notificación es{' '}
+            <B>simple</B> (solo reproducir/pausar), como lo comprobamos en un Android 10. Para cambiar de canción, vuelve a SoundBlue y
+            usa ⏮ ⏭ en «Sonando ahora» o en la mini‑barra.
           </li>
           <li>
             Sal con el <B>botón de inicio (○)</B>. Con «atrás» o cerrándola desde las apps recientes, el navegador cierra la página y
