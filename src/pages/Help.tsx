@@ -158,6 +158,14 @@ export function Help() {
         </ul>
       </Section>
 
+      <Section id="ayuda-catalogo" title="Catálogo de YouTube Music">
+        <p>
+          Las funciones de búsqueda completa y radios dependen de un proxy no oficial. Pueden dejar de funcionar si YouTube cambia su
+          API. Audius sigue siendo la fuente más estable.
+        </p>
+        <p>Si un día no carga, la app sigue funcionando con Audius y la lista de prueba.</p>
+      </Section>
+
       <Section id="ayuda-no-disponible" title="Si muchas canciones dicen «no disponible»">
         <p>
           Abre SoundBlue desde su dirección <B>https</B>. Desde una dirección de la red local (<B>http://192.168…</B>), YouTube

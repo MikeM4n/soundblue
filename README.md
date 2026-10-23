@@ -8,7 +8,9 @@ App web de música con el estilo de los reproductores modernos (barra lateral, r
 
 > Funciona mejor con Brave y Shields activos. La reproducción en segundo plano de YouTube depende del navegador y de YouTube; Audius es más fiable para segundo plano.
 
-**Pendiente para la versión publicada**: GitHub Pages solo sirve archivos, así que el catálogo de YouTube Music (Inicio, búsqueda completa, radios, «Para ti») y Jam necesitan un intermediario aparte (un Cloudflare Worker gratis, ver «YouTube Music» y «Jam»). Mientras no exista, la versión publicada usa los respaldos: lista de prueba, Audius y, si hay clave, la Data API. Las canciones de YouTube suenan igual.
+> Las funciones de búsqueda completa y radios dependen de un proxy no oficial. Pueden dejar de funcionar si YouTube cambia su API. Audius sigue siendo la fuente más estable.
+
+GitHub Pages solo sirve archivos, así que en la versión publicada el catálogo de YouTube Music (Inicio, búsqueda completa, radios, «Para ti») pasa por un **Cloudflare Worker** gratis (`worker/ytm-proxy.js`, ver «YouTube Music»). Si el Worker falla, la app usa los respaldos: lista de prueba, Audius y, si hay clave, la Data API. **Jam** todavía necesita su propio servidor (ver «Jam»).
 
 **Antes se llamaba «Blue Music».** Al abrir la versión nueva, `src/lib/storageMigration.ts` pasa los datos guardados de `bluemusic:*` a `soundblue:*` (favoritos, playlists, historial y ajustes), y el service worker borra sus copias viejas `bluemusic-*`.
 
@@ -60,6 +62,7 @@ Toda la paleta está en `src/index.css`, dentro de `@theme`. Cada color crea sus
 | `src/data` | Catálogo de prueba verificado, Audius y categorías de Buscar |
 | `public` | Manifest, service worker (`sw.js`) e íconos |
 | `scripts/iconos.ts` | Genera los íconos PNG y el favicon |
+| `worker/` | Intermediario de YouTube Music para la versión publicada (Cloudflare Worker) |
 
 ## App instalable (PWA)
 
@@ -120,7 +123,13 @@ Con Brave y Shields en «Agresivo», la mayoría de anuncios antes y durante los
 
 **«No disponible» (error 150)**: desde una dirección de la red local (`http://192.168…`, la de `npm run dev:red`) YouTube bloquea casi toda la música de sellos; desde https casi todo suena (medido: 0 de 56 frente a 55 de 56 en modo Android). Para probar en el teléfono, usa la versión publicada (<https://mikem4n.github.io/soundblue/>). Si una canción sigue bloqueada, la app prueba otra versión de la misma (video oficial, con letra…) y la recuerda (`soundblue:versiones`).
 
-El navegador no puede llamar a YouTube Music directamente (CORS). Al probar (`npm run dev`, `npm run dev:red`, `npm run preview`), el propio servidor de Vite hace de intermediario en `/ytm-api` (ver `vite.config.ts`). **GitHub Pages no puede hacerlo**: para la versión publicada hace falta un intermediario aparte (por ejemplo un Cloudflare Worker gratis) cuya dirección va en el secreto `VITE_YTM_PROXY`; sin él, la versión publicada usa los respaldos.
+El navegador no puede llamar a YouTube Music directamente (CORS). Al probar (`npm run dev`, `npm run dev:red`, `npm run preview`), el propio servidor de Vite hace de intermediario en `/ytm-api` (ver `vite.config.ts`). **GitHub Pages no puede hacerlo**, así que la versión publicada usa un **Cloudflare Worker** (`worker/ytm-proxy.js`, plan gratis: 100 000 peticiones al día):
+
+- Recibe las mismas peticiones que `/ytm-api` (`POST /search`, `/browse` y `/next`: búsqueda; Inicio, playlists, álbumes y artistas; radio) y las reenvía a `music.youtube.com/youtubei/v1` con cabeceras de navegador. No reenvía `player`: solo datos, nunca audio.
+- CORS solo para `https://mikem4n.github.io` (y `localhost:5173`/`4173` para probar); otros sitios reciben 403. Rechaza cuerpos que no sean de InnerTube o de más de 32 KB.
+- Su dirección va en la variable del repositorio `VITE_YTM_PROXY` (Settings → Secrets and variables → Actions → Variables). Sin ella, o si el Worker falla, la app usa los respaldos sin mostrar errores.
+- Probarlo en el PC: `npm run worker:dev` (en `http://localhost:8787`, sin cuenta). Publicarlo o actualizarlo: `npm run worker:publicar` (la primera vez abre el navegador para iniciar sesión en Cloudflare).
+- **Riesgo**: es una API no oficial; puede dejar de funcionar si YouTube la cambia. Audius sigue siendo la fuente más estable.
 
 ## Tus gustos y «Para ti»
 
@@ -223,7 +232,7 @@ Primera vez:
 
 Para publicar cambios: `git add .`, `git commit -m "..."` y `git push`.
 
-Secretos del repositorio (Settings → Secrets and variables → Actions), nunca en el código: `VITE_YT_API_KEY` (clave de YouTube, opcional), `VITE_YTM_PROXY` y `VITE_JAM_API` (direcciones de los intermediarios, cuando existan).
+En GitHub (Settings → Secrets and variables → Actions): el **secreto** `VITE_YT_API_KEY` (clave de YouTube, opcional, nunca en el código) y las **variables** `VITE_YTM_PROXY` y `VITE_JAM_API` (direcciones de los intermediarios; no son secretas).
 
 ## Privacidad
 

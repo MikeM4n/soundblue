@@ -1,0 +1,9 @@
+// Configuración del Worker de Cloudflare (intermediario de YouTube Music). Ver ytm-proxy.js y el README.
+// Publicar: `npm run worker:publicar` (la primera vez abre el navegador para iniciar sesión en Cloudflare).
+{
+  "name": "soundblue-ytm",
+  "main": "ytm-proxy.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "observability": { "enabled": false }
+}
