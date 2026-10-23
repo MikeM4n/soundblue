@@ -1,14 +1,15 @@
 // Motor de reproducción de SoundBlue, con la cola de Spotify:
 // - «Siguiente en la cola»: las canciones que agregas tú, en el orden en que las agregaste. Suenan primero.
 // - «Siguiente de: …»: el resto de la lista, álbum o búsqueda desde donde diste play.
-// Usa el reproductor oficial de YouTube para los videos y un <audio> para Audius, y recuerda la sesión.
+// Usa el reproductor oficial de YouTube y recuerda la sesión.
 import { listening } from '../data/history'
 import { ytmAlternatives } from '../data/ytmusic'
 import { isLocalNetworkAddress } from '../lib/platform'
+import { openInYouTubeMusic } from '../lib/youtubeMusicLink'
 import { showToast } from '../ui/toast'
-import { AudioBackend } from './audio'
 import { setupMediaSession, updateMetadata, updatePlaybackState, updatePosition } from './mediaSession'
-import { isTrack, sourceOf, type BackendEvents, type BackendState, type MediaBackend, type Repeat, type Source, type Status, type Track } from './types'
+import { isTrack, type BackendState, type Repeat, type Status, type Track } from './types'
+import { onlyInYouTubeMusic } from './unavailable'
 import { YouTubeBackend } from './youtube'
 
 const SESSION_KEY = 'soundblue:reproductor'
@@ -62,6 +63,7 @@ interface Step {
 const HISTORY_LIMIT = 50
 
 const UNAVAILABLE = new Set([100, 101, 150]) // borrado/privado o el dueño no permite incrustarlo
+const ONLY_IN_YTM = 'Esta canción solo se puede escuchar en la app de YouTube Music.'
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
 const range = (n: number) => Array.from({ length: n }, (_, i) => i)
@@ -81,8 +83,7 @@ function move<T>(list: T[], from: number, to: number) {
 }
 
 export class PlayerEngine {
-  readonly youtube: YouTubeBackend // el ÚNICO reproductor de YouTube de la app (lo coloca VideoStage)
-  private readonly audio: AudioBackend
+  readonly youtube: YouTubeBackend // el ÚNICO reproductor de la app (lo coloca VideoStage)
   private context: Context | null = null
   private order: number[] = [] // índices de context.tracks en orden de reproducción
   private pos = -1 // posición en `order` de la canción de la lista que va sonando
@@ -114,8 +115,11 @@ export class PlayerEngine {
   private snapshot: PlayerSnapshot
 
   constructor() {
-    this.youtube = new YouTubeBackend(this.eventsFor('youtube'))
-    this.audio = new AudioBackend(this.eventsFor('audius'))
+    this.youtube = new YouTubeBackend({
+      onReady: () => this.applyVolume(),
+      onState: (state) => this.current && this.onBackendState(state),
+      onError: (code) => this.current && this.onBackendError(code),
+    })
     this.restore()
     this.snapshot = this.buildSnapshot()
     setupMediaSession(this)
@@ -178,10 +182,22 @@ export class PlayerEngine {
     this.backend.pause()
   }
 
-  /** Pasa a la siguiente: primero tu cola, después la lista (con aleatorio y repetir). False si no hay más. */
+  /**
+   * Pasa a la siguiente: primero tu cola, después la lista (con aleatorio y repetir). False si no hay más.
+   * Se salta las que ya se sabe que solo suenan en la app de YouTube Music (sin esperar el error del reproductor).
+   */
   next(): boolean {
-    const target = this.peekNext()
-    if (!target) return false
+    const before = { pos: this.pos, queue: this.queue }
+    let target = this.peekNext()
+    for (let skipped = 0; target && this.knownUnplayable(target.track) && skipped < 50; skipped++) {
+      if (target.fromQueue) this.queue = this.queue.slice(1)
+      this.pos = target.pos
+      target = this.peekNext()
+    }
+    if (!target) {
+      ;({ pos: this.pos, queue: this.queue } = before) // no quedó ninguna que suene: todo sigue como estaba
+      return false
+    }
     if (target.fromQueue) this.queue.shift()
     this.pushHistory()
     this.pos = target.pos
@@ -352,21 +368,13 @@ export class PlayerEngine {
 
   // ---- Internos ----
 
-  // Cada reproductor avisa sus cambios; solo cuentan los del que corresponde a la canción actual.
-  private eventsFor(source: Source): BackendEvents {
-    return {
-      onReady: () => this.applyVolume(),
-      onState: (state) => this.activeSource() === source && this.onBackendState(state),
-      onError: (code) => this.activeSource() === source && this.onBackendError(code),
-    }
+  private get backend(): YouTubeBackend {
+    return this.youtube
   }
 
-  private activeSource(): Source | null {
-    return this.current ? sourceOf(this.current) : null
-  }
-
-  private get backend(): MediaBackend {
-    return this.activeSource() === 'audius' ? this.audio : this.youtube
+  /** Ya se sabe que solo suena en la app de YouTube Music (y no hay otra versión que sí se deje incrustar). */
+  private knownUnplayable(track: Track): boolean {
+    return onlyInYouTubeMusic.has(track.id) && !this.substitutes.has(track.id)
   }
 
   private contextTrack(position: number): Track {
@@ -430,16 +438,22 @@ export class PlayerEngine {
     this.time = start
     this.startedId = this.countedId = null
     this.duration = this.durations[track.id] ?? track.duration ?? 0
-    // Solo suena un reproductor a la vez.
-    const isYouTube = sourceOf(track) === 'youtube'
-    if (isYouTube) this.audio.stop()
-    else this.youtube.pause()
-    this.loadedId = track.id
     updateMetadata(track, this.context?.name)
+    // Ya se sabe que no se deja reproducir aquí: no se intenta; «Sonando ahora» ofrece abrirla en YouTube Music.
+    if (this.knownUnplayable(track)) {
+      this.youtube.pause()
+      this.loadedId = null
+      this.status = 'error'
+      this.error = ONLY_IN_YTM
+      updatePlaybackState(this.status)
+      this.changed()
+      return
+    }
+    this.loadedId = track.id
     updatePlaybackState(this.status)
     this.changed()
     // Si antes hubo que usar otra versión de esta canción (la original no se deja incrustar), se usa esa.
-    const playId = isYouTube ? (this.substitutes.get(track.id) ?? track.id) : track.id
+    const playId = this.substitutes.get(track.id) ?? track.id
     this.backend.load(playId, { autoplay, start }).catch(() => {
       this.loadedId = null
       this.status = 'error'
@@ -509,7 +523,7 @@ export class PlayerEngine {
     const track = this.current
     // Si el dueño no deja incrustar esta versión, se prueba otra de la misma canción (video oficial, con letra…).
     // Desde una dirección de red local YouTube las bloquea todas: ahí no vale la pena buscar.
-    if (track && sourceOf(track) === 'youtube' && UNAVAILABLE.has(code) && !isLocalNetworkAddress()) {
+    if (track && UNAVAILABLE.has(code) && !isLocalNetworkAddress()) {
       void this.tryAlternative(track, code)
       return
     }
@@ -530,7 +544,9 @@ export class PlayerEngine {
     }
     const candidate = recovery.candidates.find((id) => !recovery.tried.has(id))
     if (!candidate) {
+      // Ninguna versión se deja reproducir fuera de YouTube: se recuerda para no volver a intentarlo.
       this.forgetSubstitute(track.id)
+      onlyInYouTubeMusic.add(track.id)
       this.skipFailed(code)
       return
     }
@@ -544,26 +560,21 @@ export class PlayerEngine {
     // Si no se puede reproducir, salta a la siguiente con un aviso corto (máximo 10 seguidos).
     if (this.failures <= 10 && this.hasNext()) {
       const skipped = this.current
-      // Si YouTube no deja reproducirla aquí, se puede escuchar en YouTube Music.
-      const openInYtm =
-        skipped && sourceOf(skipped) === 'youtube' && UNAVAILABLE.has(code)
-          ? { label: 'Abrir en YouTube Music', run: () => window.open(`https://music.youtube.com/watch?v=${encodeURIComponent(skipped.id)}`, '_blank', 'noopener') }
-          : undefined
+      // Si YouTube no deja reproducirla aquí, se puede escuchar en la app de YouTube Music.
+      const openInYtm = skipped && UNAVAILABLE.has(code) ? { label: 'Abrir en YouTube Music', run: () => openInYouTubeMusic(skipped.id) } : undefined
       showToast(
         !UNAVAILABLE.has(code)
           ? 'No se pudo reproducir esta canción, pasando a la siguiente'
           : isLocalNetworkAddress()
             ? 'YouTube bloquea esta canción desde la red local (http://192.168…): ábrela con https. Pasando a la siguiente'
-            : 'Esta canción no está disponible, pasando a la siguiente',
+            : 'Esta canción solo está en la app de YouTube Music, pasando a la siguiente',
         openInYtm,
       )
       this.next()
       return
     }
     this.status = 'error'
-    this.error = UNAVAILABLE.has(code)
-      ? 'Esta canción no está disponible fuera de YouTube.'
-      : 'No se pudo reproducir esta canción.'
+    this.error = UNAVAILABLE.has(code) ? ONLY_IN_YTM : 'No se pudo reproducir esta canción.'
     updatePlaybackState(this.status)
     this.emit()
   }
@@ -634,7 +645,6 @@ export class PlayerEngine {
 
   private applyVolume() {
     this.youtube.setVolume(this.volume, this.muted)
-    this.audio.setVolume(this.volume, this.muted)
   }
 
   // ---- Sesión: se guarda en el navegador y se restaura al abrir (sin reproducir sola) ----
@@ -643,11 +653,15 @@ export class PlayerEngine {
       this.durations = JSON.parse(localStorage.getItem(DURATIONS_KEY) || '{}')
       const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null')
       if (!saved) return
-      const tracks: Track[] = Array.isArray(saved.context?.tracks) ? saved.context.tracks.filter(isTrack) : []
+      const saveds: unknown[] = Array.isArray(saved.context?.tracks) ? saved.context.tracks : []
+      const tracks: Track[] = saveds.filter(isTrack)
       if (tracks.length) {
         this.context = { name: String(saved.context.name || 'Tu música'), tracks }
-        this.order = Array.isArray(saved.order) ? saved.order.filter((i: unknown) => Number.isInteger(i) && (i as number) >= 0 && (i as number) < tracks.length) : range(tracks.length)
-        this.pos = clamp(Number(saved.pos) || 0, 0, Math.max(0, this.order.length - 1))
+        // Si se descartaron canciones (las de la fuente retirada), el orden guardado ya no corresponde: se empieza la lista.
+        const sameList = tracks.length === saveds.length
+        this.order =
+          sameList && Array.isArray(saved.order) ? saved.order.filter((i: unknown) => Number.isInteger(i) && (i as number) >= 0 && (i as number) < tracks.length) : range(tracks.length)
+        this.pos = sameList ? clamp(Number(saved.pos) || 0, 0, Math.max(0, this.order.length - 1)) : 0
       }
       this.queue = Array.isArray(saved.queue) ? saved.queue.filter(isTrack) : []
       this.history = Array.isArray(saved.history)

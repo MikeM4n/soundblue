@@ -78,6 +78,19 @@ const notEmpty = <T>(value: T | null | undefined): value is T => value != null
 /** Solo portadas de YouTube Music (cuadradas); las miniaturas de video (i.ytimg.com) se arman aparte. */
 const squareArt = (url: string | undefined) => (url && /googleusercontent\.com/.test(url) ? url : undefined)
 
+// «(Official Video)», «[Video Oficial]», «(Lyric Video)», «| Audio Oficial»…: es la etiqueta del video, no parte del
+// nombre de la canción. Se quita al mostrarla («(Remix)», «(En Vivo)» o «(feat. …)» se quedan).
+const VIDEO_TAG =
+  /^(?:official\s+|oficial\s+)?(?:con\s+)?(?:(?:music|lyric|4k|hd)\s+)*(?:video(?:clip)?|vídeo|audio|visuali[sz]er|lyrics?|letra)(?:\s+(?:oficial|official|lyrics?))?(?:\s+(?:4k|hd))?$/i
+
+function cleanTitle(title: string): string {
+  const cleaned = title
+    .replace(/\s*[([]([^()[\]]+)[)\]]/g, (whole, inner: string) => (VIDEO_TAG.test(inner.trim()) ? '' : whole))
+    .replace(/\s+\|\s+([^|]+)$/, (whole, tail: string) => (VIDEO_TAG.test(tail.trim()) ? '' : whole))
+    .trim()
+  return cleaned || title
+}
+
 /** «3:26» o «1:02:03» → segundos. */
 function seconds(text: string | undefined): number | undefined {
   if (!text || !/^\d+(:\d{2})+$/.test(text)) return undefined
@@ -120,7 +133,7 @@ function fromListItem(r: Json, defaults: Defaults = {}): Track | null {
   const durationText = plain(r?.fixedColumns?.[0]?.musicResponsiveListItemFixedColumnRenderer?.text) || joined(line.at(-1) ?? [])
   return {
     id: videoId,
-    title,
+    title: cleanTitle(title),
     artist: (artistGroup && joined(artistGroup)) || defaults.artist || 'YouTube Music',
     artistId: artistIdOf(artistGroup ?? []) ?? defaults.artistId,
     album: albumRun?.text ?? defaults.album,
@@ -136,7 +149,7 @@ function fromPanelItem(r: Json): Track | null {
   const line = groups(r.longBylineText)
   return {
     id: r.videoId,
-    title: plain(r.title),
+    title: cleanTitle(plain(r.title)),
     artist: joined(line[0] ?? []) || 'YouTube Music',
     artistId: artistIdOf(line[0] ?? []),
     album: runsOf(r.longBylineText).find((run) => pageType(run.navigationEndpoint) === 'MUSIC_PAGE_TYPE_ALBUM')?.text,
@@ -169,7 +182,7 @@ function fromTwoRow(r: Json): YtmCard | Track | null {
   if (watch?.videoId && title) {
     const line = groups(r.subtitle)
     const artistGroup = line.find((group) => group.some((run) => pageType(run.navigationEndpoint) === 'MUSIC_PAGE_TYPE_ARTIST')) ?? line.at(-1)
-    return { id: watch.videoId, title, artist: joined(artistGroup ?? []) || 'YouTube Music', artistId: artistIdOf(artistGroup ?? []), artwork: squareArt(image), ytMusic: true }
+    return { id: watch.videoId, title: cleanTitle(title), artist: joined(artistGroup ?? []) || 'YouTube Music', artistId: artistIdOf(artistGroup ?? []), artwork: squareArt(image), ytMusic: true }
   }
   const kind = KINDS[pageType(r?.navigationEndpoint) ?? '']
   const id = r?.navigationEndpoint?.browseEndpoint?.browseId

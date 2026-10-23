@@ -33,6 +33,16 @@ const reply = (status, data, origin) =>
     headers: { 'content-type': 'application/json; charset=utf-8', ...(origin ? corsHeaders(origin) : {}) },
   })
 
+/** Reenvía a YouTube Music. A veces rechaza una petición suelta (403, 429 o 5xx): se reintenta una vez. */
+async function forward(endpoint, body) {
+  const send = () => fetch(`${UPSTREAM}/${endpoint}?prettyPrint=false`, { method: 'POST', headers: BROWSER_HEADERS, body })
+  const first = await send()
+  if (first.status !== 403 && first.status !== 429 && first.status < 500) return first
+  await first.body?.cancel()
+  await new Promise((resolve) => setTimeout(resolve, 400))
+  return send()
+}
+
 /** ¿Es una petición de InnerTube como las que arma la app (un objeto con context.client)? */
 function looksLikeInnerTube(text) {
   try {
@@ -56,7 +66,7 @@ export default {
     if (!looksLikeInnerTube(body)) return reply(400, { error: 'Petición no válida' }, origin)
 
     try {
-      const upstream = await fetch(`${UPSTREAM}/${endpoint}?prettyPrint=false`, { method: 'POST', headers: BROWSER_HEADERS, body })
+      const upstream = await forward(endpoint, body)
       return new Response(upstream.body, {
         status: upstream.status,
         headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...corsHeaders(origin) },

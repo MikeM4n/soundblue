@@ -3,12 +3,10 @@
 // recomendaciones y relatedToVideoId se eliminó). Se arman en capas:
 //   1. Lo tuyo, guardado aquí: artistas elegidos, favoritas e historial de escucha (funciona sin conexión).
 //   2. YouTube Music (API interna, NO oficial: puede fallar sin aviso): canciones de tus artistas y su radio.
-//   3. Audius (API pública y estable): tendencias para rellenar.
-//   4. La YouTube Data API oficial (solo si las anteriores fallan y hay clave; guarda 24 h para no gastar cuota).
+//   3. La YouTube Data API oficial (solo si la anterior falla y hay clave; guarda 24 h para no gastar cuota).
 // Si algo falla se usa lo anterior guardado o la siguiente capa: nunca se muestra un error.
 import { library } from '../library/store'
 import type { Track } from '../player/types'
-import { audiusTrending } from './audius'
 import { listening } from './history'
 import { readTastes } from './tastes'
 import { youtubeSearch, youtubeSearchEnabled } from './youtube'
@@ -157,11 +155,12 @@ export async function computeForYou({ rotate = false } = {}): Promise<ForYou> {
     if (tracks.length) shelves.push({ key: 'radio', title: `Radio de «${seed.title}»`, note: `A partir de ${seed.title}, de ${mainArtist(seed.artist)}`, tracks: tracks.slice(0, 20) })
   }
 
-  // 3) Muy sonadas: lo más escuchado de tu artista top + tendencias de Audius.
+  // 3) Muy sonadas: lo más escuchado en YouTube Music de tus artistas top (aunque ya las hayas escuchado).
   if (top[0]) {
-    const audius = await audiusTrending(12).catch(() => [])
-    const popular = unique(interleave([(topSongs[0] ?? []).filter(fresh), audius.filter(fresh)]))
-    if (popular.length) shelves.push({ key: 'sonadas', title: 'Muy sonadas', note: `Lo más escuchado de ${top[0].name} y tendencias de Audius`, tracks: popular.slice(0, 16) })
+    const popular = unique(interleave(topSongs.map((songs) => songs.slice(0, 8)))).filter(fresh)
+    const names = top.filter((_, i) => topSongs[i]?.length).map((artist) => artist.name)
+    const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} y ${names.at(-1)}` : names[0]
+    if (popular.length) shelves.push({ key: 'sonadas', title: 'Muy sonadas', note: `Lo más escuchado de ${who} en YouTube Music`, tracks: popular.slice(0, 16) })
   }
 
   // Sin YouTube Music (sin conexión o falló): de tus favoritas y lo que más escuchas.

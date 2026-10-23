@@ -3,7 +3,7 @@
 // Se guarda solo en este navegador (últimos 80 eventos), se lee en Ayuda y no se envía a ningún lado.
 import { player } from '../player/engine'
 import { sheetState, youtubeView } from '../player/stage'
-import { sourceOf, type Status } from '../player/types'
+import type { Status } from '../player/types'
 import { playerHost } from '../player/youtube'
 
 const KEY = 'soundblue:diagnostico'
@@ -50,7 +50,6 @@ const STATUS: Record<Status, string> = {
 function where(): string {
   const { current } = player.getSnapshot()
   if (!current) return 'sin canción'
-  if (sourceOf(current) === 'audius') return 'Audius'
   const view = youtubeView.get() === 'video' ? 'vista Video' : 'vista Canción'
   return `YouTube, ${view}, ${sheetState.get() === 'open' ? '«Sonando ahora» abierta' : 'minimizada'}`
 }

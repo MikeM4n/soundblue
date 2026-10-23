@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { player } from '../../player/engine'
 import { stageBox, stagePulse, stageSlots } from '../../player/stage'
-import { sourceOf } from '../../player/types'
 import { usePlayer } from '../../player/usePlayer'
 
 // El ÚNICO reproductor de YouTube de la app. Vive siempre en este mismo elemento (moverlo en la página
@@ -17,7 +16,7 @@ export function VideoStage() {
   const stageRef = useRef<HTMLDivElement>(null)
   const hostRef = useRef<HTMLDivElement>(null)
   const { current, status } = usePlayer()
-  const active = !!current && sourceOf(current) === 'youtube' && status !== 'idle' && status !== 'standby'
+  const active = !!current && status !== 'idle' && status !== 'standby'
 
   useEffect(() => {
     if (hostRef.current) player.youtube.attach(hostRef.current)

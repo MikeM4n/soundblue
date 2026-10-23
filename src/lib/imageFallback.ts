@@ -17,7 +17,7 @@ const firstUsable = (sources: readonly string[], from: number) => {
 }
 
 /**
- * Elige la primera imagen que cargue entre varias alternativas (p. ej. los espejos de Audius).
+ * Elige la primera imagen que cargue entre varias alternativas (p. ej. la portada y la imagen del video).
  * Con `timeoutMs`, si la imagen no termina de cargar en ese tiempo, se da su servidor por caído
  * y se prueba la siguiente. Úsalo solo en imágenes que se cargan de inmediato (no en las «lazy»).
  */

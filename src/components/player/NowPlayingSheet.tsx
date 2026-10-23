@@ -4,7 +4,9 @@ import { Link, useLocation, useNavigate } from 'react-router'
 import { useLibrary } from '../../library/store'
 import { usePreventTouchMove } from '../../lib/usePreventTouchMove'
 import { sheetState, stageBox, stagePulse, useStageSlot, youtubeView, type YouTubeView } from '../../player/stage'
-import { coverSources, sourceLabel, sourceOf, type Track } from '../../player/types'
+import { coverSources, sourceLabel, type Track } from '../../player/types'
+import { onlyInYouTubeMusic } from '../../player/unavailable'
+import { openInYouTubeMusic } from '../../lib/youtubeMusicLink'
 import { keepScreenOn } from '../../player/useKeepScreenOn'
 import { usePlayer } from '../../player/usePlayer'
 import { playerHost } from '../../player/youtube'
@@ -117,8 +119,7 @@ export function NowPlayingSheet() {
     )
   }
 
-  const isYouTube = sourceOf(current) === 'youtube'
-  const showVideo = isYouTube && view === 'video'
+  const showVideo = view === 'video'
   const liked = favorites.some((t) => t.id === current.id)
   // Un toque en el fondo oculta los controles para ver el video o la carátula; vuelven solos a los 5 s.
   const toggleControls = () => {
@@ -129,8 +130,8 @@ export function NowPlayingSheet() {
     })
   }
   const fade = `transition-opacity duration-300 ${controlsHidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`
-  // Con YouTube el panel de la cola sube solo hasta debajo del video: no puede taparlo.
-  const panelTop = isYouTube && video?.kind === 'pantalla' ? video.top + video.height + 8 : Math.round(window.innerHeight * 0.12)
+  // Con el video a la vista, el panel de la cola sube solo hasta debajo del video: no puede taparlo.
+  const panelTop = video?.kind === 'pantalla' ? video.top + video.height + 8 : Math.round(window.innerHeight * 0.12)
   const offset = !shown || closing ? '100%' : `${dragY ?? 0}px`
 
   return (
@@ -167,9 +168,9 @@ export function NowPlayingSheet() {
         </header>
 
         {/* Centro: la carátula nítida (como Spotify y YouTube Music) o, si eliges «Video», el reproductor oficial a
-            todo el ancho y sin nada encima. El selector ocupa siempre su sitio (vacío con Audius) para no mover nada. */}
+            todo el ancho y sin nada encima. */}
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-          {isYouTube ? <ViewToggle view={view} fade={fade} /> : <div className="h-9 shrink-0" aria-hidden="true" />}
+          <ViewToggle view={view} fade={fade} />
           {showVideo ? (
             <div className="flex min-h-0 w-full flex-1 items-center">
               {/* Espacio del video: VideoStage coloca aquí el reproductor oficial. */}
@@ -187,7 +188,7 @@ export function NowPlayingSheet() {
         </div>
         {/* Abajo, alto fijo: aviso de segundo plano, título, artista, progreso, controles y la pista de la cola. */}
         <div className="shrink-0">
-          <BackgroundNotice isYouTube={isYouTube} fade={fade} />
+          <BackgroundNotice fade={fade} />
           <TrackInfo track={current} liked={liked} fade={fade} error={error} />
           <QueueHint onOpen={() => setQueueOpen(true)} fade={fade} />
         </div>
@@ -199,11 +200,11 @@ export function NowPlayingSheet() {
 }
 
 /**
- * Aviso de segundo plano (alto fijo de dos líneas, para que nada salte). Con YouTube depende de dónde carga el
- * reproductor: desde youtube.com, en Brave con los filtros de la comunidad, el ▶ de la notificación lo reanuda al
- * salir; desde nocookie, no.
+ * Aviso de segundo plano (alto fijo de dos líneas, para que nada salte). Depende de dónde carga el reproductor:
+ * desde youtube.com, en Brave con los filtros de la comunidad, el ▶ de la notificación lo reanuda al salir; desde
+ * nocookie, no.
  */
-function BackgroundNotice({ isYouTube, fade }: { isYouTube: boolean; fade: string }) {
+function BackgroundNotice({ fade }: { fade: string }) {
   const [host] = useState(playerHost.get) // cambiarlo recarga la app
   const help = (
     <Link to="/ayuda" state={{ seccion: 'ayuda-brave-fondo' }} className="font-semibold text-white/80 underline underline-offset-2">
@@ -212,9 +213,7 @@ function BackgroundNotice({ isYouTube, fade }: { isYouTube: boolean; fade: strin
   )
   return (
     <p className={`mx-6 mt-3 line-clamp-2 h-7 text-center text-[11px] leading-[14px] text-white/55 ${fade}`}>
-      {!isYouTube ? (
-        'Audius: sigue sonando con la pantalla apagada, sin trucos.'
-      ) : host === 'youtube' ? (
+      {host === 'youtube' ? (
         <>Al salir, YouTube se pausa: pulsa ▶ en la notificación y sigue sonando (Brave con los filtros de la {help}).</>
       ) : (
         <>
@@ -271,6 +270,7 @@ function ViewToggle({ view, fade }: { view: YouTubeView; fade: string }) {
  * barra de progreso y controles. Su alto no cambia entre canciones.
  */
 function TrackInfo({ track, liked, fade, error }: { track: Track; liked: boolean; fade: string; error: string | null }) {
+  const onlyInYtm = useSyncExternalStore(onlyInYouTubeMusic.subscribe, onlyInYouTubeMusic.get).has(track.id)
   return (
     <div className={`px-6 pt-2 lg:px-10 ${fade}`}>
       <div className="flex items-end gap-3">
@@ -279,7 +279,15 @@ function TrackInfo({ track, liked, fade, error }: { track: Track; liked: boolean
             <h1 className="line-clamp-2 text-2xl leading-7 font-bold break-words">{track.title}</h1>
           </div>
           <p className="truncate text-texto-sec">{track.artist}</p>
-          {error ? (
+          {error && onlyInYtm ? (
+            // YouTube no la deja sonar fuera de sus apps: se ofrece abrirla en YouTube Music (en una línea, como el resto).
+            <p role="alert" aria-label={error} className="flex items-center gap-2 text-xs">
+              <span className="truncate text-red-300">Solo en YouTube Music</span>
+              <button type="button" onClick={() => openInYouTubeMusic(track.id)} className="shrink-0 font-semibold text-white underline underline-offset-2">
+                Abrir en YouTube Music
+              </button>
+            </p>
+          ) : error ? (
             <p role="alert" className="truncate text-xs text-red-300">
               {error}
             </p>

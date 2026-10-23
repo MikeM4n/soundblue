@@ -1,7 +1,7 @@
 {
   "name": "SoundBlue",
   "short_name": "SoundBlue",
-  "description": "Tu música, sin suscripción. Reproductor con el catálogo de YouTube Music y Audius. Funciona mejor con Brave.",
+  "description": "Tu música, sin suscripción. Reproductor con el catálogo de YouTube Music. Funciona mejor con Brave.",
   "lang": "es",
   "id": "./",
   "start_url": "./#/",

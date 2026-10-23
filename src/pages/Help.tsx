@@ -81,8 +81,8 @@ export function Help() {
           </li>
           <li>
             Prueba: pon una canción de YouTube y sal al inicio con el botón de inicio (○). YouTube se pausa en ese momento: abre las
-            notificaciones, pulsa <B>▶</B> y debe seguir sonando, también con la pantalla bloqueada. Con YouTube la notificación sale
-            simple (solo reproducir/pausar); con Audius no se pausa y trae también anterior y siguiente.
+            notificaciones, pulsa <B>▶</B> y debe seguir sonando, también con la pantalla bloqueada. La notificación sale simple
+            (solo reproducir/pausar).
           </li>
         </Steps>
       </Section>
@@ -160,10 +160,14 @@ export function Help() {
 
       <Section id="ayuda-catalogo" title="Catálogo de YouTube Music">
         <p>
-          Las funciones de búsqueda completa y radios dependen de un proxy no oficial. Pueden dejar de funcionar si YouTube cambia su
-          API. Audius sigue siendo la fuente más estable.
+          SoundBlue busca en el catálogo de YouTube Music. Algunas pistas solo están disponibles en la app oficial de YouTube Music;
+          para esas, usa el botón <B>«Abrir en YouTube Music»</B>. La búsqueda completa depende de un proxy no oficial que puede
+          dejar de funcionar si YouTube cambia su API.
         </p>
-        <p>Si un día no carga, la app sigue funcionando con Audius y la lista de prueba.</p>
+        <p>
+          Si un día no carga, la app sigue funcionando con la lista de prueba. Las canciones suenan en el reproductor oficial de
+          YouTube; los anuncios los bloquea Brave Shields (no todos).
+        </p>
       </Section>
 
       <Section id="ayuda-no-disponible" title="Si muchas canciones dicen «no disponible»">
@@ -210,10 +214,6 @@ export function Help() {
             Sal con el <B>botón de inicio (○)</B>. Con «atrás» o cerrándola desde las apps recientes, el navegador cierra la página y
             la música se detiene del todo.
           </li>
-          <li>
-            Con <B>Audius</B> el sonido es de SoundBlue: la notificación trae anterior y siguiente, y sigue sonando con la pantalla
-            apagada en cualquier navegador, sin trucos.
-          </li>
         </ul>
         <p>
           <B>No está garantizado:</B> YouTube y los navegadores cambian a menudo. Puede funcionar hoy y dejar de funcionar mañana, o
@@ -237,9 +237,6 @@ export function Help() {
           <li>
             Si se corta porque la pantalla se apaga sola, activa <B>☀ Pantalla encendida</B> en «Sonando ahora»: mientras suene
             música con SoundBlue abierta, el teléfono no apagará la pantalla (gasta más batería; puedes bajar el brillo).
-          </li>
-          <li>
-            Si aun así se detiene, usa canciones de <B>Audius</B>: son audio normal y siguen sonando con la pantalla apagada.
           </li>
         </ul>
         <p>
@@ -415,7 +412,6 @@ function DiagnosticsSection() {
       <Steps>
         <li>Canción de YouTube con «Sonando ahora» abierta en vista «Video». Bloquea la pantalla 30 segundos y desbloquéala.</li>
         <li>Lo mismo en vista «Canción».</li>
-        <li>Lo mismo con una canción de Audius (de control: esta debería seguir sonando).</li>
         <li>Repite con «Reproducción en segundo plano» de Brave activada y desactivada, y con el reproductor desde youtube.com y desde youtube-nocookie.com.</li>
       </Steps>
       <p>

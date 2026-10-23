@@ -37,7 +37,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
-  // Solo los archivos de la app (/soundblue/…). YouTube, Audius y las API del servidor (/jam-api, /ytm-api)
+  // Solo los archivos de la app (/soundblue/…). YouTube y las API de los intermediarios (/jam-api, /ytm-api)
   // van siempre a la red: guardarlas mostraría datos viejos (p. ej. una Jam que ya terminó).
   if (!request.url.startsWith(self.registration.scope)) return;
 

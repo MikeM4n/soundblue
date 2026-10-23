@@ -1,7 +1,7 @@
 // Historial de escucha (en este navegador): qué canciones sonaron, cuántas veces y cuándo. Alimenta «Para ti».
 // Una canción cuenta como escuchada a los 30 s (o al terminar, si es más corta), como en Spotify.
 // Se guarda en localStorage, como el resto de la biblioteca: son pocos datos (máx. 400 canciones).
-import type { Track } from '../player/types'
+import { isTrack, type Track } from '../player/types'
 
 const KEY = 'soundblue:historial'
 const MAX = 400
@@ -18,7 +18,7 @@ const listeners = new Set<() => void>()
 function read(): ListenEntry[] {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? '[]')
-    return Array.isArray(saved) ? saved.filter((e) => e?.track?.id && typeof e.count === 'number' && typeof e.last === 'number') : []
+    return Array.isArray(saved) ? saved.filter((e) => isTrack(e?.track) && typeof e.count === 'number' && typeof e.last === 'number') : []
   } catch {
     return []
   }
@@ -35,7 +35,7 @@ function commit(next: ListenEntry[], notify: boolean) {
 }
 
 /** Solo lo que sirve para recomendar (sin datos del reproductor). */
-const plain = (t: Track): Track => ({ id: t.id, title: t.title, artist: t.artist, artistId: t.artistId, album: t.album, duration: t.duration, source: t.source, ytMusic: t.ytMusic, artwork: t.artwork, artworkMirrors: t.artworkMirrors })
+const plain = (t: Track): Track => ({ id: t.id, title: t.title, artist: t.artist, artistId: t.artistId, album: t.album, duration: t.duration, ytMusic: t.ytMusic, artwork: t.artwork })
 
 export const listening = {
   /** Empezó a sonar: se anota la hora (para no repetirla en «Para ti» durante 24 h). */

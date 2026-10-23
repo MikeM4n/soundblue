@@ -1,7 +1,8 @@
 import { AudioLines, ListEnd, Trash } from 'lucide-react'
-import type { CSSProperties, ReactNode } from 'react'
+import { useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { formatDuration } from '../../lib/format'
 import { coverSources, sourceLabel, type Track } from '../../player/types'
+import { onlyInYouTubeMusic } from '../../player/unavailable'
 import { Cover } from '../ui/Cover'
 import { TrackMenu } from './TrackMenu'
 import { addToSiguientes, removeWithUndo, type RemoveAction } from './trackActions'
@@ -29,6 +30,8 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
     onRight: removeAction ? () => removeWithUndo(removeAction) : undefined,
   })
   const shownDuration = duration ?? track.duration
+  // YouTube no deja reproducirla fuera de sus apps: se avisa antes de tocarla (al tocarla se ofrece abrirla allá).
+  const onlyInYtm = useSyncExternalStore(onlyInYouTubeMusic.subscribe, onlyInYouTubeMusic.get).has(track.id)
 
   return (
     <li className="relative overflow-hidden rounded-md" style={style}>
@@ -65,8 +68,8 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
               <span className="truncate">{track.title}</span>
             </span>
             <span className="flex items-center gap-1.5 text-sm text-texto-sec">
-              <span className="shrink-0 rounded bg-white/10 px-1 text-[10px] leading-4 font-semibold tracking-wide uppercase">
-                {sourceLabel(track)}
+              <span className={`shrink-0 rounded px-1 text-[10px] leading-4 font-semibold tracking-wide uppercase ${onlyInYtm ? 'bg-red-500/20 text-red-200' : 'bg-white/10'}`}>
+                {onlyInYtm ? 'Solo en YouTube Music' : sourceLabel(track)}
               </span>
               <span className="truncate">
                 {track.artist}

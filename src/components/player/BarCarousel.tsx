@@ -25,7 +25,7 @@ interface Gesture {
 
 interface BarCarouselProps {
   onOpen: () => void // tocar o deslizar hacia arriba
-  showCover: boolean // carátula pequeña (Audius); con YouTube el video ya está al lado
+  showCover: boolean // carátula pequeña a la izquierda del título
   className?: string
 }
 

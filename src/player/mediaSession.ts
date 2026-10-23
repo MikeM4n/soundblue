@@ -1,9 +1,9 @@
 // Controles del sistema: pantalla de bloqueo, notificación y teclas multimedia (Media Session API).
-// Con Audius el audio es de la página y estos controles funcionan siempre; con YouTube el sonido sale
-// del iframe y cada navegador decide si muestra estos controles o los de YouTube.
+// El sonido sale del iframe de YouTube y cada navegador decide si muestra estos controles o los de YouTube
+// (en Android sale la notificación simple del navegador). Las teclas multimedia del PC sí los usan.
 // El estado (sonando/en pausa) sigue al reproductor real: si YouTube se pausa solo, la notificación lo muestra; si
 // se pulsa ▶ en la notificación, la app reproduce (es una orden del usuario; la app nunca reanuda por su cuenta).
-import { sizedArtwork, sourceOf, thumbnail, type Status, type Track } from './types'
+import { sizedArtwork, thumbnail, type Status, type Track } from './types'
 
 interface Controls {
   play(): void
@@ -61,11 +61,6 @@ const YTM_SIZES = [302, 544]
 
 /** Carátulas cuadradas en varios tamaños: el sistema elige la que mejor le quede. */
 function artworkFor(track: Track): MediaImage[] {
-  if (sourceOf(track) === 'audius') {
-    if (!track.artwork) return []
-    const big = track.artwork.replace('480x480', '1000x1000') // Audius también la tiene a 1000 px
-    return [{ src: track.artwork, sizes: '480x480', type: 'image/jpeg' }, ...(big !== track.artwork ? [{ src: big, sizes: '1000x1000', type: 'image/jpeg' }] : [])]
-  }
   if (track.artwork) return YTM_SIZES.map((px) => ({ src: sizedArtwork(track.artwork!, px), sizes: `${px}x${px}`, type: 'image/jpeg' }))
   return [{ src: thumbnail(track.id, 'hq'), sizes: '480x360', type: 'image/jpeg' }] // enseguida se cambia por un recorte cuadrado
 }
@@ -86,7 +81,7 @@ export function updateMetadata(track: Track | null, contextName?: string | null)
   }
   const info = { title: track.title, artist: track.artist, album: track.album || contextName || 'SoundBlue' }
   navigator.mediaSession.metadata = new MediaMetadata({ ...info, artwork: artworkFor(track) })
-  if (sourceOf(track) !== 'youtube' || track.artwork) return // ya es cuadrada
+  if (track.artwork) return // ya es cuadrada
   squareCover(thumbnail(track.id, 'maxres'))
     .catch(() => squareCover(thumbnail(track.id, 'mq')))
     .then((src) => {

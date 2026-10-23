@@ -3,22 +3,16 @@ import { Link } from 'react-router'
 import { LibraryList, useCreatePlaylist } from '../components/library/LibraryList'
 import { IconButton } from '../components/ui/IconButton'
 
-/** Qué pasa al apagar la pantalla, según de dónde viene la canción. Sin promesas para YouTube. */
+/** Qué pasa al apagar la pantalla. Sin promesas: depende de Brave y de YouTube. */
 function PlaybackInfo() {
   return (
     <section aria-labelledby="segundo-plano" className="mx-2 mt-8 rounded-lg bg-tarjeta p-4 text-sm">
       <h2 id="segundo-plano" className="font-bold">Escuchar con la pantalla apagada</h2>
-      <ul className="mt-2 space-y-2 text-texto-sec">
-        <li>
-          <span className="font-semibold text-texto">Audius:</span> sigue sonando con la pantalla apagada o en otra app, porque es
-          audio normal.
-        </li>
-        <li>
-          <span className="font-semibold text-texto">YouTube:</span> usa el reproductor oficial de YouTube. Dentro de SoundBlue
-          sigue sonando al minimizar «Sonando ahora». Al salir de la app, YouTube se pausa; en Brave con dos filtros de su comunidad,
-          el ▶ de la notificación la reanuda y sigue con la pantalla apagada (así funcionó en un Android 10). No está garantizado.
-        </li>
-      </ul>
+      <p className="mt-2 text-texto-sec">
+        Las canciones suenan en el reproductor oficial de YouTube. Dentro de SoundBlue siguen sonando al minimizar «Sonando
+        ahora». Al salir de la app, YouTube se pausa; en Brave con dos filtros de su comunidad, el ▶ de la notificación la reanuda
+        y sigue con la pantalla apagada (así funcionó en un Android 10). No está garantizado.
+      </p>
       <Link to="/ayuda" className="mt-3 inline-flex items-center gap-1 font-semibold text-acento-texto hover:underline">
         Cómo dejar Brave listo (segundo plano y anuncios)
         <ChevronRight className="size-4" aria-hidden="true" />

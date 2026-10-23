@@ -9,7 +9,6 @@ import { MediaCard } from '../components/ui/MediaCard'
 import { PlayButton } from '../components/ui/PlayButton'
 import { CardRow, Section } from '../components/ui/Section'
 import { YtmCardRow, YtmShelf } from '../components/ui/YtmShelf'
-import { audiusTrending } from '../data/audius'
 import { catalog, TEST_LIST_NAME, testList } from '../data/catalog'
 import { computeForYou, type ForYou } from '../data/forYou'
 import { listening } from '../data/history'
@@ -22,26 +21,21 @@ import { coverSources, coverUrl, type Track } from '../player/types'
 import { useNowPlaying } from '../player/useNowPlaying'
 
 const CATALOG_NAME = 'Catálogo de prueba'
-const AUDIUS_NAME = 'Tendencias en Audius'
 
 /**
  * Inicio: saludo, accesos rápidos, «Para ti» (sugerencias según tus artistas, favoritas e historial; ver
- * data/forYou.ts), los estantes de YouTube Music (selecciones rápidas, playlists, lanzamientos…), tendencias de
- * Audius y, si YouTube Music no responde, la lista de prueba. La primera vez lleva a «¿Qué artistas te gustan?».
+ * data/forYou.ts) y los estantes de YouTube Music (selecciones rápidas, playlists, lanzamientos…). Si YouTube
+ * Music no responde, un aviso discreto y la lista de prueba. La primera vez lleva a «¿Qué artistas te gustan?».
  */
 export function Home() {
   const { open } = useNowPlaying()
   const [tastes] = useState(readTastes)
-  const [audius, setAudius] = useState<Track[] | null>(null)
   const [ytm, setYtm] = useState<YtmSection[] | 'error' | null>(null)
   const [mine, setMine] = useState<ForYou | null>(null)
 
   useEffect(() => {
     if (!tastes) return // primero elige sus artistas
     let alive = true
-    audiusTrending(12)
-      .then((tracks) => alive && setAudius(tracks))
-      .catch(() => alive && setAudius([]))
     ytmHome()
       .then((sections) => alive && setYtm(sections.length ? sections : 'error'))
       .catch(() => alive && setYtm('error'))
@@ -153,17 +147,6 @@ export function Home() {
           <TrackList tracks={testList} onPlay={(i) => play(TEST_LIST_NAME, testList, i)} />
         </Section>
       )}
-
-      <Section title={AUDIUS_NAME}>
-        <p className="-mt-2 mb-3 px-4 text-sm text-texto-sec md:px-6">Música libre que sigue sonando con la pantalla apagada, sin trucos.</p>
-        {audius === null ? (
-          <p className="px-4 text-sm text-texto-sec md:px-6">Cargando canciones de Audius…</p>
-        ) : audius.length === 0 ? (
-          <p className="px-4 text-sm text-texto-sec md:px-6">No se pudo conectar con Audius. Revisa tu conexión.</p>
-        ) : (
-          <TrackList tracks={audius} numbered={false} onPlay={(i) => play(AUDIUS_NAME, audius, i)} />
-        )}
-      </Section>
 
       {ytmFailed && (
         <Section title="Más para probar">

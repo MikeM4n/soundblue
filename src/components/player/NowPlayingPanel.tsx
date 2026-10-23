@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import { useLibrary } from '../../library/store'
 import { player } from '../../player/engine'
 import { sheetState, useStageSlot, youtubeView } from '../../player/stage'
-import { coverSources, coverUrl, sourceOf } from '../../player/types'
+import { coverSources, coverUrl } from '../../player/types'
 import { useNowPlaying } from '../../player/useNowPlaying'
 import { usePlayer } from '../../player/usePlayer'
 import { toggleFavorite } from '../tracks/trackActions'
@@ -23,7 +23,7 @@ export function NowPlayingPanel() {
   if (!current || sheet === 'open') return null
 
   // Con «Video» elegido en «Sonando ahora», aquí también se ve el reproductor; si no, la carátula.
-  const showVideo = sourceOf(current) === 'youtube' && view === 'video'
+  const showVideo = view === 'video'
   const liked = favorites.some((t) => t.id === current.id)
   const next = [...queue, ...upcoming].slice(0, 4)
 
