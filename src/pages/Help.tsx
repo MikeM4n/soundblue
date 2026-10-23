@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useLocation, useSearchParams } from 'react-router'
 import { copyText } from '../lib/clipboard'
 import { clearDiagnostics, formatEvent, markTest, readDiagnostics } from '../lib/diagnostics'
+import { TAB_SWITCHER_TIP } from '../lib/tabSwitcherTip'
 import { BRAVE_LINKS } from '../lib/platform'
 import { playerHost, type PlayerHost } from '../player/youtube'
 import { showToast } from '../ui/toast'
@@ -199,6 +200,17 @@ export function Help() {
 
       <BraveBackgroundSection />
 
+      <Section id="ayuda-truco-pestanas" title="Para que la música siga sonando al salir (Chrome)">
+        <p>
+          <B>{TAB_SWITCHER_TIP}</B>
+        </p>
+        <p>
+          Lo que mostraron los registros del teléfono (23 oct.): saliendo directo a Inicio, YouTube o Chrome pausan la música y no
+          la dejan volver sola (con ▶ en la notificación sí vuelve). Si primero abres el selector de pestañas, la app logra que
+          vuelva a sonar. Sirve en una pestaña de Chrome; la app instalada no tiene selector de pestañas.
+        </p>
+      </Section>
+
       <Section id="ayuda-notificacion" title="La notificación con canciones de YouTube">
         <p>
           <B>
@@ -218,8 +230,8 @@ export function Help() {
           </li>
           <li>
             <B>Auto‑reanudación (experimental):</B> si la canción sonaba y no la pausaste tú, SoundBlue le pide ▶ al reproductor de
-            YouTube 1,5 s después de que YouTube o Chrome la pausen (en silencio y con el volumen de vuelta a los 0,8 s); si 3 s
-            después sigue en pausa, una vez más y nada más. Al salir, la app no toca el sonido. Al volver a la app, si
+            YouTube en cuanto YouTube o Chrome la pausan, otra vez a los 0,5 s y una última a los 1,5 s (en silencio y con el
+            volumen de vuelta a los 0,8 s); nada más. Al salir, la app no toca el sonido. Al volver a la app, si
             YouTube la había pausado, vuelve a sonar sola; y al abrir la app, si la última canción sonaba cuando la cerraste,
             también (en una pestaña normal el navegador puede pedirte que toques ▶). Si pausas con ⏸ en la app, lo respeta siempre;
             con ⏸ en la notificación, lo respeta si no hubo un intento en los últimos 15 s. YouTube puede bloquearlo en cualquier
@@ -274,7 +286,7 @@ export function Help() {
         <p>
           Que una canción de YouTube siga con la pantalla bloqueada depende de Brave y de YouTube: es una carrera entre los dos, no un
           fallo de SoundBlue, y puede funcionar en un teléfono y en otro no. La app nunca pausa por su cuenta: al salir, si
-          YouTube o Chrome la pausan, 1,5 s después intenta que vuelva a sonar; al volver, sigue sola. Al minimizar «Sonando ahora»
+          YouTube o Chrome la pausan, intenta en el acto que vuelva a sonar; al volver, sigue sola. Al minimizar «Sonando ahora»
           no se pausa nunca.
         </p>
         <p>

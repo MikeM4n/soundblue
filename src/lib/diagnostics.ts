@@ -69,6 +69,7 @@ const AUTO_RESUME_LOG: Record<AutoResumeEvent, (detail: string) => string> = {
   volumen: () => 'Volumen devuelto (unMute)',
   volver: () => 'De vuelta en la app: estaba en pausa por haber salido, ▶ automático',
   abrir: () => 'App abierta: la última canción sonaba al cerrar, ▶ automático',
+  pagehide: () => 'pagehide: playVideo() como último intento',
 }
 
 /** Qué suena y cómo se está viendo, para saber qué combinación mantiene el audio. */

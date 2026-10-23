@@ -10,6 +10,8 @@ import { coverSources, sourceLabel, type Track } from '../../player/types'
 import { onlyInYouTubeMusic } from '../../player/unavailable'
 import { usePlayer } from '../../player/usePlayer'
 import { playerHost } from '../../player/youtube'
+import { inBrowserTab, TAB_SWITCHER_TIP } from '../../lib/tabSwitcherTip'
+import { showToast } from '../../ui/toast'
 import { TrackMenu } from '../tracks/TrackMenu'
 import { toggleFavorite } from '../tracks/trackActions'
 import { Cover } from '../ui/Cover'
@@ -200,11 +202,14 @@ export function NowPlayingSheet() {
 }
 
 /**
- * Aviso de segundo plano (alto fijo de dos líneas, para que nada salte). Al salir, la app intenta reanudar sola lo que
- * YouTube pausó (experimental); si no lo logra, queda el ▶ de la notificación (Brave con los filtros, desde youtube.com).
+ * Aviso de segundo plano (alto fijo de dos líneas, para que nada salte). En una pestaña de Chrome: el truco del selector
+ * de pestañas (ℹ️ muestra el texto completo). Instalada: la app intenta reanudar sola lo que YouTube pausó (experimental)
+ * y, si no lo logra, queda el ▶ de la notificación.
  */
 function BackgroundNotice({ fade }: { fade: string }) {
   const [host] = useState(playerHost.get) // cambiarlo recarga la app
+  const [tab] = useState(inBrowserTab)
+  const navigate = useNavigate()
   const { status, pausedOnExit } = usePlayer()
   const help = (
     <Link to="/ayuda" state={{ seccion: 'ayuda-notificacion' }} className="font-semibold text-white/80 underline underline-offset-2">
@@ -218,6 +223,18 @@ function BackgroundNotice({ fade }: { fade: string }) {
         <span>YouTube pausó la música al salir.</span>
         <button type="button" onClick={() => player.play()} className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-bold text-black">
           ▶ Reanudar
+        </button>
+      </p>
+    )
+  }
+  if (host === 'youtube' && tab) {
+    const showTip = () =>
+      showToast(TAB_SWITCHER_TIP, { label: 'Ayuda', run: () => navigate('/ayuda', { state: { seccion: 'ayuda-truco-pestanas' } }) }, 15000)
+    return (
+      <p className={`mx-6 mt-3 flex h-7 items-center justify-center gap-1.5 text-center text-[11px] leading-[14px] text-white/55 ${fade}`}>
+        <span className="line-clamp-2">💡 Para que no se pause, sal por las pestañas de Chrome (el número arriba) y de ahí a Inicio.</span>
+        <button type="button" aria-label="Cómo salir sin que se pause la música" onClick={showTip} className="shrink-0 text-base leading-none">
+          ℹ️
         </button>
       </p>
     )
