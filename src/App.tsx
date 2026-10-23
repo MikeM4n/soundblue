@@ -4,7 +4,6 @@ import { hostJam } from './jam/hostJam'
 import { startDiagnostics } from './lib/diagnostics'
 import { AppLayout } from './components/layout/AppLayout'
 import { NowPlayingSheet } from './components/player/NowPlayingSheet'
-import { useKeepScreenOn } from './player/useKeepScreenOn'
 import { usePlayerShortcuts } from './player/usePlayerShortcuts'
 import { useResumePrompt } from './player/useResumePrompt'
 import { Collection } from './pages/Collection'
@@ -21,7 +20,6 @@ import { YtmPage } from './pages/YtmPage'
 export default function App() {
   const location = useLocation()
   usePlayerShortcuts()
-  useKeepScreenOn() // opción «Pantalla encendida» (en «Sonando ahora»)
   useResumePrompt() // «▶ Reanudar» al volver, si YouTube pausó la música al salir
   useEffect(() => {
     startDiagnostics() // registro de segundo plano (Ayuda → Diagnóstico)

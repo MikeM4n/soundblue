@@ -180,7 +180,13 @@ export function Help() {
 
       <Section id="ayuda-ventana" title="Ventana flotante y notificación">
         <p>
-          La ventana flotante real no está disponible en navegadores móviles. Para controlar la reproducción fuera de la app, usa la
+          <B>Pantalla flotante (experimental):</B> en el computador (Chrome, Edge o Brave), el botón de pantalla flotante de «Sonando
+          ahora» abre una ventanita que queda encima de las demás, con la carátula, el progreso y los controles. El video no va dentro:
+          el reproductor de YouTube no deja sacarlo de la página. Si quieres el video flotando, haz clic derecho dos veces sobre el
+          video y elige «Imagen en imagen» (lo ofrece el navegador, no SoundBlue).
+        </p>
+        <p>
+          La ventana flotante no está disponible en navegadores móviles. Para controlar la reproducción fuera de la app, usa la
           notificación de tu sistema Android (panel de notificaciones o pantalla de bloqueo). La reproducción en segundo plano de
           YouTube puede pausarse por decisiones de YouTube; si ocurre, actualiza Brave y verifica que su opción «Reproducción en
           segundo plano» esté activa.
@@ -254,10 +260,6 @@ export function Help() {
           <li>
             En los ajustes del teléfono: <B>Apps → Brave → Batería</B> y quita las restricciones; el ahorro de batería puede cortar el
             sonido.
-          </li>
-          <li>
-            Si se corta porque la pantalla se apaga sola, activa <B>☀ Pantalla encendida</B> en «Sonando ahora»: mientras suene
-            música con SoundBlue abierta, el teléfono no apagará la pantalla (gasta más batería; puedes bajar el brillo).
           </li>
         </ul>
         <p>

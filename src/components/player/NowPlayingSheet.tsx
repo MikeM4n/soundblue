@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Heart, Sun } from 'lucide-react'
+import { ChevronDown, ChevronUp, Heart, PictureInPicture2 } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useLibrary } from '../../library/store'
@@ -8,16 +8,15 @@ import { player } from '../../player/engine'
 import { sheetState, stageBox, stagePulse, useStageSlot, youtubeView, type YouTubeView } from '../../player/stage'
 import { coverSources, sourceLabel, type Track } from '../../player/types'
 import { onlyInYouTubeMusic } from '../../player/unavailable'
-import { keepScreenOn } from '../../player/useKeepScreenOn'
 import { usePlayer } from '../../player/usePlayer'
 import { playerHost } from '../../player/youtube'
-import { showToast } from '../../ui/toast'
 import { TrackMenu } from '../tracks/TrackMenu'
 import { toggleFavorite } from '../tracks/trackActions'
 import { Cover } from '../ui/Cover'
 import { IconButton } from '../ui/IconButton'
 import { Backdrop } from './Backdrop'
 import { CoverSwipe } from './CoverSwipe'
+import { toggleFloatingPlayer } from './FloatingPlayer'
 import { QueuePanel } from './QueuePanel'
 import { SeekBar } from './SeekBar'
 import { TransportControls } from './TransportControls'
@@ -164,7 +163,7 @@ export function NowPlayingSheet() {
             <p className="text-[11px] font-semibold tracking-wider text-white/70 uppercase">Sonando desde</p>
             <p className="truncate text-sm font-bold">{contextName ?? 'Tu música'}</p>
           </div>
-          <ScreenOnButton />
+          <FloatingButton />
           <TrackMenu track={current} />
         </header>
 
@@ -237,20 +236,11 @@ function BackgroundNotice({ fade }: { fade: string }) {
   )
 }
 
-/**
- * «Pantalla encendida» (☀): mientras suena música con SoundBlue a la vista, el teléfono no apaga la pantalla solo,
- * así la música no se corta cuando se bloquearía por inactividad. Gasta más batería; se puede bajar el brillo.
- */
-function ScreenOnButton() {
-  const on = useSyncExternalStore(keepScreenOn.subscribe, keepScreenOn.get)
-  if (!keepScreenOn.supported()) return null
-  const toggle = () => {
-    keepScreenOn.set(!on)
-    showToast(on ? 'La pantalla se apagará como siempre' : 'Pantalla encendida: no se apagará sola mientras suene música (gasta más batería)')
-  }
+/** Pantalla flotante (experimental): ventanita con la carátula y los controles en el PC; en el celular, un aviso. */
+function FloatingButton() {
   return (
-    <IconButton label={on ? 'Pantalla encendida (activada)' : 'Mantener la pantalla encendida mientras suena'} active={on} onClick={toggle} className={on ? '' : 'text-white'}>
-      <Sun className="size-6" />
+    <IconButton label="Pantalla flotante" onClick={() => void toggleFloatingPlayer()} className="text-white">
+      <PictureInPicture2 className="size-6" />
     </IconButton>
   )
 }

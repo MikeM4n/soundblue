@@ -17,6 +17,7 @@ export function migrateStorage() {
       if (value !== null && localStorage.getItem(newKey) === null) localStorage.setItem(newKey, value)
       localStorage.removeItem(oldKey)
     }
+    localStorage.removeItem(`${NEW_PREFIX}pantalla-encendida`) // la opción «Pantalla encendida» ya no existe
   } catch {
     /* sin almacenamiento (modo privado estricto): no hay nada que pasar */
   }
