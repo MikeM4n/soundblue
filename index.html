@@ -9,8 +9,71 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Pantalla de carga: aparece al instante (antes de que cargue la app); src/lib/splash.ts la desvanece. -->
+    <style>
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: #000;
+        transition: opacity 450ms ease;
+      }
+      #splash.splash-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #splash svg {
+        width: 96px;
+        height: 96px;
+      }
+      /* Las ondas suben y bajan sobre el mismo eje, como si ondearan (la forma se invierte y vuelve). */
+      #splash .splash-wave {
+        animation: splash-wave 1.4s ease-in-out infinite;
+      }
+      @keyframes splash-wave {
+        0%,
+        100% {
+          d: path('M6 16 Q8.5 9.5 11 16 T16 16 T21 16 T26 16');
+        }
+        50% {
+          d: path('M6 16 Q8.5 22.5 11 16 T16 16 T21 16 T26 16');
+        }
+      }
+      #splash p {
+        margin: 0;
+        color: #fff;
+        font: 700 28px / 1 'Inter Variable', system-ui, sans-serif;
+        letter-spacing: -0.02em;
+        opacity: 0;
+        animation: splash-fade 900ms ease 250ms forwards;
+      }
+      @keyframes splash-fade {
+        to {
+          opacity: 1;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #splash .splash-wave,
+        #splash p {
+          animation: none;
+          opacity: 1;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-hidden="true">
+      <svg viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="16" fill="#4169E1" />
+        <path class="splash-wave" d="M6 16 Q8.5 9.5 11 16 T16 16 T21 16 T26 16" fill="none" stroke="#fff" stroke-width="2.75" stroke-linecap="round" />
+      </svg>
+      <p>SoundBlue</p>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

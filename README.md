@@ -71,6 +71,10 @@ Toda la paleta está en `src/index.css`, dentro de `@theme`. Cada color crea sus
 - HTTPS: GitHub Pages lo da automáticamente (un service worker solo funciona con HTTPS o en `localhost`).
 - YouTube: IFrame Player API oficial (`enablejsapi=1`, `playsinline=1`; desde `www.youtube.com` por defecto, o `youtube-nocookie.com` si el usuario lo elige; ver «Brave: segundo plano y filtros»). El video se ve entero, nunca oculto ni recortado.
 
+## Pantalla de carga
+
+Al abrir la app sale una pantalla negra con el logo: las ondas suben y bajan sobre el mismo eje en bucle (CSS `@keyframes` sobre el trazo, `d: path(…)`) y el nombre «SoundBlue» aparece gradualmente. Está en `index.html` (aparece al instante, antes de que cargue la app) y `src/lib/splash.ts` la desvanece a los ~2,4 s desde que se abrió (o cuando la app termina de cargar, si tarda más). Con «reducir movimiento» del teléfono, sin animación y solo 0,6 s.
+
 ## Controles del sistema (Media Session)
 
 `src/player/mediaSession.ts` publica título, artista, álbum (la lista desde donde suena) y carátula, y responde a reproducir, pausar, anterior, siguiente y mover la barra (`seekto`) desde la notificación, la pantalla de bloqueo o las teclas multimedia. El estado (sonando/pausa y posición) se actualiza con el estado real del reproductor. Con YouTube el sonido sale del iframe, así que cada navegador decide si muestra estos controles o los de YouTube.

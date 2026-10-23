@@ -5,6 +5,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router'
 import App from './App'
+import { hideSplash } from './lib/splash'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -14,6 +15,7 @@ createRoot(document.getElementById('root')!).render(
     </HashRouter>
   </StrictMode>,
 )
+hideSplash() // la pantalla de carga se desvanece cuando ya pasó su tiempo y la app está lista
 
 // El service worker solo se registra en la versión compilada, para no guardar copias mientras desarrollas.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
