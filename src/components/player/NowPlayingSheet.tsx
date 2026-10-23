@@ -1,0 +1,316 @@
+import { ChevronDown, ChevronUp, Heart, Sun } from 'lucide-react'
+import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router'
+import { useLibrary } from '../../library/store'
+import { usePreventTouchMove } from '../../lib/usePreventTouchMove'
+import { sheetState, stageBox, stagePulse, useStageSlot, youtubeView, type YouTubeView } from '../../player/stage'
+import { coverSources, sourceLabel, sourceOf, type Track } from '../../player/types'
+import { keepScreenOn } from '../../player/useKeepScreenOn'
+import { usePlayer } from '../../player/usePlayer'
+import { playerHost } from '../../player/youtube'
+import { showToast } from '../../ui/toast'
+import { TrackMenu } from '../tracks/TrackMenu'
+import { toggleFavorite } from '../tracks/trackActions'
+import { Cover } from '../ui/Cover'
+import { IconButton } from '../ui/IconButton'
+import { Backdrop } from './Backdrop'
+import { CoverSwipe } from './CoverSwipe'
+import { QueuePanel } from './QueuePanel'
+import { SeekBar } from './SeekBar'
+import { TransportControls } from './TransportControls'
+
+const SLIDE_MS = 300
+const INTERACTIVE = 'button, a, input, [role="menu"], [data-queue-panel]'
+
+/**
+ * «Sonando ahora» en pantalla completa, como Spotify. Sube deslizándose al tocar una canción.
+ * Fondo: la imagen de la canción en alta resolución, muy difuminada y oscurecida. Al centro: la carátula
+ * nítida; con YouTube se puede cambiar a «Video» (reproductor oficial a todo el ancho, sin nada encima).
+ * Debajo: título, artista, favorito, progreso y controles. Un toque en el fondo los oculta o muestra.
+ * Gestos: hacia abajo = minimizar (si el panel de la cola está cerrado) · hacia arriba = «Próximas en sonar».
+ * Ojo: los toques sobre el video los recibe YouTube, así que los gestos se hacen fuera del video.
+ */
+export function NowPlayingSheet() {
+  const { current, contextName, error } = usePlayer()
+  const { favorites } = useLibrary()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const videoSlot = useStageSlot('pantalla')
+  const video = useSyncExternalStore(stageBox.subscribe, stageBox.get)
+  const view = useSyncExternalStore(youtubeView.subscribe, youtubeView.get)
+  const [shown, setShown] = useState(false) // para la animación de entrada
+  const [closing, setClosing] = useState(false)
+  const [dragY, setDragY] = useState<number | null>(null)
+  const [queueOpen, setQueueOpen] = useState(false)
+  const [controlsHidden, setControlsHidden] = useState(false)
+  const drag = useRef<{ pointerId: number; startY: number; startX: number; axis: 'x' | 'y' | null; dy: number } | null>(null)
+  const showTimer = useRef<number | undefined>(undefined)
+  const rootRef = useRef<HTMLDivElement>(null)
+  usePreventTouchMove(rootRef, () => drag.current?.axis === 'y')
+
+  // Entrada: empieza abajo y sube.
+  useEffect(() => {
+    sheetState.set('open')
+    const frame = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)))
+    stagePulse.emit()
+    return () => {
+      cancelAnimationFrame(frame)
+      window.clearTimeout(showTimer.current)
+      sheetState.set('closed')
+    }
+  }, [])
+
+  const close = () => {
+    if (closing) return
+    setClosing(true)
+    sheetState.set('closing')
+    stagePulse.emit()
+    window.setTimeout(() => {
+      const background = (location.state as { background?: unknown } | null)?.background
+      if (background) navigate(-1)
+      else navigate('/', { replace: true })
+    }, SLIDE_MS)
+  }
+
+  // Deslizar: hacia abajo minimiza; hacia arriba abre «Próximas en sonar». La dirección dominante decide.
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (queueOpen || (e.target as Element).closest(INTERACTIVE)) return
+    drag.current = { pointerId: e.pointerId, startY: e.clientY, startX: e.clientX, axis: null, dy: 0 }
+  }
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    const d = drag.current
+    if (!d || e.pointerId !== d.pointerId) return
+    const dy = e.clientY - d.startY
+    const dx = e.clientX - d.startX
+    if (!d.axis) {
+      if (Math.abs(dy) < 8 && Math.abs(dx) < 8) return
+      d.axis = Math.abs(dy) > Math.abs(dx) ? 'y' : 'x'
+      if (d.axis === 'y') e.currentTarget.setPointerCapture(e.pointerId)
+    }
+    if (d.axis !== 'y') return
+    d.dy = dy
+    if (dy > 0) {
+      setDragY(dy) // la pantalla sigue al dedo hacia abajo
+      stagePulse.emit() // y el video con ella
+    }
+  }
+  const onPointerUp = () => {
+    const d = drag.current
+    drag.current = null
+    if (!d || d.axis !== 'y') return
+    setDragY(null)
+    if (d.dy > window.innerHeight * 0.18) close()
+    else if (d.dy < -60) setQueueOpen(true)
+    else stagePulse.emit()
+  }
+
+  if (!current) {
+    return (
+      <div className="fixed inset-x-0 top-0 bottom-[var(--nav-h,0px)] z-30 grid place-items-center bg-fondo p-8 text-center">
+        <div>
+          <p className="text-lg font-semibold">No hay nada sonando</p>
+          <button type="button" onClick={close} className="mt-2 text-acento-texto hover:underline">
+            Volver
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const isYouTube = sourceOf(current) === 'youtube'
+  const showVideo = isYouTube && view === 'video'
+  const liked = favorites.some((t) => t.id === current.id)
+  // Un toque en el fondo oculta los controles para ver el video o la carátula; vuelven solos a los 5 s.
+  const toggleControls = () => {
+    window.clearTimeout(showTimer.current)
+    setControlsHidden((hidden) => {
+      if (!hidden) showTimer.current = window.setTimeout(() => setControlsHidden(false), 5000)
+      return !hidden
+    })
+  }
+  const fade = `transition-opacity duration-300 ${controlsHidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`
+  // Con YouTube el panel de la cola sube solo hasta debajo del video: no puede taparlo.
+  const panelTop = isYouTube && video?.kind === 'pantalla' ? video.top + video.height + 8 : Math.round(window.innerHeight * 0.12)
+  const offset = !shown || closing ? '100%' : `${dragY ?? 0}px`
+
+  return (
+    <div
+      ref={rootRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Sonando ahora"
+      // Toda la pantalla menos la barra inferior del celular (--nav-h, la publica MobileNav): esa barra sigue a la vista.
+      className="fixed inset-x-0 top-0 bottom-[var(--nav-h,0px)] z-30 touch-none overflow-hidden overscroll-contain bg-fondo text-white select-none"
+      style={{ transform: `translateY(${offset})`, transition: dragY === null ? `transform ${SLIDE_MS}ms cubic-bezier(.2,.8,.2,1)` : 'none' }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onClick={(e) => !queueOpen && !(e.target as Element).closest(INTERACTIVE) && toggleControls()}
+    >
+      <Backdrop track={current} />
+
+      {/* Tres partes: encabezado arriba, controles abajo con ALTO FIJO (título en 2 líneas como máximo) y, en medio,
+          el espacio que sobra para la carátula o el video, centrados. Nada entra ni sale del flujo al deslizar o al
+          cambiar de canción, así que el conjunto no salta y nunca hay scroll. */}
+      <div className="relative mx-auto flex h-full max-w-5xl flex-col pt-[env(safe-area-inset-top)] pb-2">
+        <header className={`flex shrink-0 items-center gap-2 px-2 py-2 ${fade}`}>
+          <IconButton label="Minimizar" onClick={close} className="text-white">
+            <ChevronDown className="size-7" />
+          </IconButton>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="text-[11px] font-semibold tracking-wider text-white/70 uppercase">Sonando desde</p>
+            <p className="truncate text-sm font-bold">{contextName ?? 'Tu música'}</p>
+          </div>
+          <ScreenOnButton />
+          <TrackMenu track={current} />
+        </header>
+
+        {/* Centro: la carátula nítida (como Spotify y YouTube Music) o, si eliges «Video», el reproductor oficial a
+            todo el ancho y sin nada encima. El selector ocupa siempre su sitio (vacío con Audius) para no mover nada. */}
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
+          {isYouTube ? <ViewToggle view={view} fade={fade} /> : <div className="h-9 shrink-0" aria-hidden="true" />}
+          {showVideo ? (
+            <div className="flex min-h-0 w-full flex-1 items-center">
+              {/* Espacio del video: VideoStage coloca aquí el reproductor oficial. */}
+              <div ref={closing ? undefined : videoSlot} className="aspect-video w-full" />
+            </div>
+          ) : (
+            // La carátula mide lo que quepa: 82 % del ancho, máx. 26 rem, y nunca más que el alto libre (100cqh).
+            <div className="grid min-h-0 w-full flex-1 place-items-center [container-type:size]">
+              {/* Deslizar la carátula: izquierda = siguiente, derecha = anterior (o reiniciar si lleva más de 3 s). */}
+              <CoverSwipe className="w-[min(82vw,26rem,100cqh)]">
+                <Cover seed={current.id} src={coverSources(current, 'large')} eager className="aspect-square w-full rounded-lg shadow-2xl shadow-black/60" />
+              </CoverSwipe>
+            </div>
+          )}
+        </div>
+        {/* Abajo, alto fijo: aviso de segundo plano, título, artista, progreso, controles y la pista de la cola. */}
+        <div className="shrink-0">
+          <BackgroundNotice isYouTube={isYouTube} fade={fade} />
+          <TrackInfo track={current} liked={liked} fade={fade} error={error} />
+          <QueueHint onOpen={() => setQueueOpen(true)} fade={fade} />
+        </div>
+      </div>
+
+      <QueuePanel open={queueOpen} top={panelTop} onClose={() => setQueueOpen(false)} />
+    </div>
+  )
+}
+
+/**
+ * Aviso de segundo plano (alto fijo de dos líneas, para que nada salte). Con YouTube depende de dónde carga el
+ * reproductor: desde youtube.com, en Brave con los filtros de la comunidad, el ▶ de la notificación lo reanuda al
+ * salir; desde nocookie, no.
+ */
+function BackgroundNotice({ isYouTube, fade }: { isYouTube: boolean; fade: string }) {
+  const [host] = useState(playerHost.get) // cambiarlo recarga la app
+  const help = (
+    <Link to="/ayuda" state={{ seccion: 'ayuda-brave-fondo' }} className="font-semibold text-white/80 underline underline-offset-2">
+      Ayuda
+    </Link>
+  )
+  return (
+    <p className={`mx-6 mt-3 line-clamp-2 h-7 text-center text-[11px] leading-[14px] text-white/55 ${fade}`}>
+      {!isYouTube ? (
+        'Audius: sigue sonando con la pantalla apagada, sin trucos.'
+      ) : host === 'youtube' ? (
+        <>Al salir, YouTube se pausa: pulsa ▶ en la notificación y sigue sonando (Brave con los filtros de la {help}).</>
+      ) : (
+        <>
+          Segundo plano: con el reproductor «más privado», YouTube se pausa al salir. Para que siga sonando, mira la {help}.
+        </>
+      )}
+    </p>
+  )
+}
+
+/**
+ * «Pantalla encendida» (☀): mientras suena música con SoundBlue a la vista, el teléfono no apaga la pantalla solo,
+ * así la música no se corta cuando se bloquearía por inactividad. Gasta más batería; se puede bajar el brillo.
+ */
+function ScreenOnButton() {
+  const on = useSyncExternalStore(keepScreenOn.subscribe, keepScreenOn.get)
+  if (!keepScreenOn.supported()) return null
+  const toggle = () => {
+    keepScreenOn.set(!on)
+    showToast(on ? 'La pantalla se apagará como siempre' : 'Pantalla encendida: no se apagará sola mientras suene música (gasta más batería)')
+  }
+  return (
+    <IconButton label={on ? 'Pantalla encendida (activada)' : 'Mantener la pantalla encendida mientras suena'} active={on} onClick={toggle} className={on ? '' : 'text-white'}>
+      <Sun className="size-6" />
+    </IconButton>
+  )
+}
+
+/** «Canción | Video», como en YouTube Music: carátula o reproductor oficial. La música sigue igual al cambiar. */
+function ViewToggle({ view, fade }: { view: YouTubeView; fade: string }) {
+  const options: [YouTubeView, string][] = [
+    ['cancion', 'Canción'],
+    ['video', 'Video'],
+  ]
+  return (
+    <div role="group" aria-label="Qué ver" className={`flex h-9 shrink-0 rounded-full bg-black/40 p-1 text-sm font-semibold ${fade}`}>
+      {options.map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          aria-pressed={view === value}
+          onClick={() => youtubeView.set(value)}
+          className={`rounded-full px-4 py-1 transition-colors ${view === value ? 'bg-white text-black' : 'text-white/80 hover:text-white'}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Título (máx. 2 líneas, alto reservado para 2), artista, álbum o aviso de error (siempre una línea), favorito,
+ * barra de progreso y controles. Su alto no cambia entre canciones.
+ */
+function TrackInfo({ track, liked, fade, error }: { track: Track; liked: boolean; fade: string; error: string | null }) {
+  return (
+    <div className={`px-6 pt-2 lg:px-10 ${fade}`}>
+      <div className="flex items-end gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex h-[3.5rem] items-end">
+            <h1 className="line-clamp-2 text-2xl leading-7 font-bold break-words">{track.title}</h1>
+          </div>
+          <p className="truncate text-texto-sec">{track.artist}</p>
+          {error ? (
+            <p role="alert" className="truncate text-xs text-red-300">
+              {error}
+            </p>
+          ) : (
+            <p className="truncate text-xs text-white/50">{[track.album, sourceLabel(track)].filter(Boolean).join(' · ')}</p>
+          )}
+        </div>
+        <IconButton label={liked ? 'Quitar de favoritos' : 'Agregar a favoritos'} active={liked} onClick={() => toggleFavorite(track)} className={liked ? '' : 'text-white'}>
+          <Heart className={`size-7 ${liked ? 'fill-current' : ''}`} />
+        </IconButton>
+      </div>
+      <div className="mt-3">
+        <SeekBar />
+      </div>
+      <div className="mt-2 flex justify-center">
+        <TransportControls large />
+      </div>
+    </div>
+  )
+}
+
+/** Pista del gesto para abrir la cola (también se puede tocar, para quien no usa gestos). */
+function QueueHint({ onOpen, fade }: { onOpen: () => void; fade: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`mx-auto mt-3 flex items-center gap-1 text-xs font-semibold tracking-wide text-white/60 uppercase ${fade}`}
+    >
+      <ChevronUp className="size-4" aria-hidden="true" />
+      Desliza hacia arriba: próximas en sonar
+    </button>
+  )
+}

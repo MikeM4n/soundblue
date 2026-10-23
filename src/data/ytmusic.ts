@@ -1,0 +1,348 @@
+// YouTube Music: búsqueda y listas (inicio, explorar, playlists, álbumes, artistas y radio) con la API interna
+// de su web («InnerTube»), la misma que usan InnerTune, OuterTune y SimpMusic. Solo se usan los DATOS: la música
+// suena siempre en el reproductor oficial de YouTube.
+// Ojo: no es una API publicada. Puede cambiar sin aviso y usarla va contra los términos de YouTube.
+// El navegador no puede llamarla directamente (CORS), así que pasa por un intermediario: al probar, el propio
+// servidor de Vite (/ytm-api, ver vite.config.ts); publicada, la dirección de VITE_YTM_PROXY.
+import type { Track } from '../player/types'
+
+// Las respuestas de InnerTube son estructuras profundas que cambian a menudo: se leen con «?.» y se descarta lo que no encaje.
+type Json = any
+
+const ENDPOINT = (import.meta.env.VITE_YTM_PROXY?.trim() || '/ytm-api').replace(/\/$/, '')
+const CLIENT = { clientName: 'WEB_REMIX', clientVersion: '1.20251015.01.00', hl: 'es', gl: 'CO' }
+
+// Filtros de búsqueda de YouTube Music (los mismos de InnerTune).
+const FILTER = {
+  songs: 'EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D',
+  albums: 'EgWKAQIYAWoKEAkQChAFEAMQBA%3D%3D',
+  artists: 'EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D',
+}
+
+/** Playlist, álbum o artista: se abre en su propia página (/ytm/:id). */
+export interface YtmCard {
+  id: string // browseId
+  kind: 'playlist' | 'album' | 'artist'
+  title: string
+  subtitle: string
+  image?: string
+}
+
+/** Un estante: canciones en lista o tarjetas en fila. */
+export interface YtmSection {
+  title: string
+  tracks: Track[]
+  cards: YtmCard[]
+}
+
+export interface YtmPage {
+  kind: string // «Álbum • 2020», «Playlist», «Artista»
+  title: string
+  subtitle: string
+  image?: string
+  tracks: Track[] // playlist o álbum
+  sections: YtmSection[] // artista
+}
+
+export interface YtmSearchResults {
+  songs: Track[]
+  albums: YtmCard[]
+  artists: YtmCard[]
+}
+
+async function call(endpoint: string, body: object, visitorData?: string): Promise<Json> {
+  const response = await fetch(`${ENDPOINT}/${endpoint}?prettyPrint=false`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ context: { client: { ...CLIENT, visitorData } }, ...body }),
+  })
+  if (!response.ok) throw new Error(`YouTube Music respondió ${response.status}`)
+  return response.json()
+}
+
+// ---- Lectura de las respuestas ----
+
+interface Run {
+  text: string
+  navigationEndpoint?: Json
+}
+
+const runsOf = (text: Json): Run[] => text?.runs ?? []
+const plain = (text: Json): string => runsOf(text).map((run) => run.text).join('')
+const joined = (runs: Run[]): string => runs.map((run) => run.text).join('')
+const pageType = (endpoint: Json): string | undefined =>
+  endpoint?.browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType
+const lastThumb = (thumbnail: Json): string | undefined => thumbnail?.thumbnails?.at(-1)?.url
+const notEmpty = <T>(value: T | null | undefined): value is T => value != null
+
+/** Solo portadas de YouTube Music (cuadradas); las miniaturas de video (i.ytimg.com) se arman aparte. */
+const squareArt = (url: string | undefined) => (url && /googleusercontent\.com/.test(url) ? url : undefined)
+
+/** «3:26» o «1:02:03» → segundos. */
+function seconds(text: string | undefined): number | undefined {
+  if (!text || !/^\d+(:\d{2})+$/.test(text)) return undefined
+  return text.split(':').reduce((total, part) => total * 60 + Number(part), 0)
+}
+
+/** «Bad Bunny y Jhayco • EL ÚLTIMO TOUR DEL MUNDO • 3:26» → grupos separados por « • ». */
+function groups(text: Json): Run[][] {
+  const result: Run[][] = [[]]
+  for (const run of runsOf(text)) {
+    if (run.text.trim() === '•') result.push([])
+    else result[result.length - 1].push(run)
+  }
+  return result.filter((group) => group.length)
+}
+
+const KINDS: Record<string, YtmCard['kind']> = {
+  MUSIC_PAGE_TYPE_PLAYLIST: 'playlist',
+  MUSIC_PAGE_TYPE_ALBUM: 'album',
+  MUSIC_PAGE_TYPE_ARTIST: 'artist',
+}
+
+interface Defaults {
+  album?: string
+  artist?: string
+  artistId?: string
+  artwork?: string
+}
+
+/** Canción de una lista (búsqueda, «Selecciones rápidas», playlist o álbum). */
+function fromListItem(r: Json, defaults: Defaults = {}): Track | null {
+  const videoId: string | undefined =
+    r?.playlistItemData?.videoId ?? r?.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.videoId
+  const columns: Json[] = (r?.flexColumns ?? []).map((column: Json) => column?.musicResponsiveListItemFlexColumnRenderer?.text)
+  const title = plain(columns[0])
+  if (!videoId || !title) return null
+  const line = groups(columns[1])
+  const artistGroup = line.find((group) => group.some((run) => pageType(run.navigationEndpoint) === 'MUSIC_PAGE_TYPE_ARTIST')) ?? line[0]
+  const albumRun = columns.slice(1).flatMap(runsOf).find((run) => pageType(run.navigationEndpoint) === 'MUSIC_PAGE_TYPE_ALBUM')
+  const durationText = plain(r?.fixedColumns?.[0]?.musicResponsiveListItemFixedColumnRenderer?.text) || joined(line.at(-1) ?? [])
+  return {
+    id: videoId,
+    title,
+    artist: (artistGroup && joined(artistGroup)) || defaults.artist || 'YouTube Music',
+    artistId: artistIdOf(artistGroup ?? []) ?? defaults.artistId,
+    album: albumRun?.text ?? defaults.album,
+    duration: seconds(durationText),
+    artwork: squareArt(lastThumb(r?.thumbnail?.musicThumbnailRenderer?.thumbnail)) ?? defaults.artwork,
+    ytMusic: true,
+  }
+}
+
+/** Canción de la radio («A continuación»). */
+function fromPanelItem(r: Json): Track | null {
+  if (!r?.videoId || !plain(r.title)) return null
+  const line = groups(r.longBylineText)
+  return {
+    id: r.videoId,
+    title: plain(r.title),
+    artist: joined(line[0] ?? []) || 'YouTube Music',
+    artistId: artistIdOf(line[0] ?? []),
+    album: runsOf(r.longBylineText).find((run) => pageType(run.navigationEndpoint) === 'MUSIC_PAGE_TYPE_ALBUM')?.text,
+    duration: seconds(plain(r.lengthText)),
+    artwork: squareArt(lastThumb(r.thumbnail)),
+    ytMusic: true,
+  }
+}
+
+/** Tarjeta de un resultado en lista (búsqueda de álbumes o artistas). */
+function cardFromListItem(r: Json): YtmCard | null {
+  const endpoint = r?.navigationEndpoint
+  const kind = KINDS[pageType(endpoint) ?? '']
+  const title = plain(r?.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text)
+  if (!kind || !endpoint.browseEndpoint.browseId || !title) return null
+  return {
+    id: endpoint.browseEndpoint.browseId,
+    kind,
+    title,
+    subtitle: plain(r.flexColumns[1]?.musicResponsiveListItemFlexColumnRenderer?.text),
+    image: lastThumb(r.thumbnail?.musicThumbnailRenderer?.thumbnail),
+  }
+}
+
+/** Tarjeta de un estante (playlist, álbum o artista) o, si es una canción suelta, la canción. */
+function fromTwoRow(r: Json): YtmCard | Track | null {
+  const title = plain(r?.title)
+  const image = lastThumb(r?.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail)
+  const watch = r?.navigationEndpoint?.watchEndpoint
+  if (watch?.videoId && title) {
+    const line = groups(r.subtitle)
+    const artistGroup = line.find((group) => group.some((run) => pageType(run.navigationEndpoint) === 'MUSIC_PAGE_TYPE_ARTIST')) ?? line.at(-1)
+    return { id: watch.videoId, title, artist: joined(artistGroup ?? []) || 'YouTube Music', artistId: artistIdOf(artistGroup ?? []), artwork: squareArt(image), ytMusic: true }
+  }
+  const kind = KINDS[pageType(r?.navigationEndpoint) ?? '']
+  const id = r?.navigationEndpoint?.browseEndpoint?.browseId
+  if (!kind || !id || !title) return null
+  return { id, kind, title, subtitle: plain(r.subtitle), image }
+}
+
+const isTrack = (item: YtmCard | Track): item is Track => !('kind' in item)
+
+/** Id del primer artista enlazado en una línea («Bad Bunny y Jhayco • …»). */
+const artistIdOf = (runs: Run[]): string | undefined =>
+  runs.find((run) => pageType(run.navigationEndpoint) === 'MUSIC_PAGE_TYPE_ARTIST')?.navigationEndpoint.browseEndpoint.browseId
+
+function sectionsOf(contents: Json[] | undefined): YtmSection[] {
+  return (contents ?? []).flatMap((content: Json) => {
+    const shelf = content?.musicCarouselShelfRenderer ?? content?.musicShelfRenderer
+    if (!shelf) return []
+    const section: YtmSection = { title: plain(shelf.header?.musicCarouselShelfBasicHeaderRenderer?.title ?? shelf.title), tracks: [], cards: [] }
+    for (const item of shelf.contents ?? []) {
+      if (item.musicResponsiveListItemRenderer) {
+        const track = fromListItem(item.musicResponsiveListItemRenderer)
+        if (track) section.tracks.push(track)
+      } else if (item.musicTwoRowItemRenderer) {
+        const entry = fromTwoRow(item.musicTwoRowItemRenderer)
+        if (entry && isTrack(entry)) section.tracks.push(entry)
+        else if (entry) section.cards.push(entry)
+      }
+    }
+    return section.title && (section.tracks.length || section.cards.length) ? [section] : []
+  })
+}
+
+const sectionListOf = (json: Json) => json?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer
+
+/** Los resultados de una búsqueda filtrada (canciones, álbumes, artistas o videos). */
+const searchShelf = (json: Json): Json[] =>
+  json?.contents?.tabbedSearchResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.find((c: Json) => c?.musicShelfRenderer)
+    ?.musicShelfRenderer?.contents ?? []
+
+// ---- Consultas (se guardan en memoria durante la sesión) ----
+
+const memo = new Map<string, Promise<unknown>>()
+function remember<T>(key: string, load: () => Promise<T>): Promise<T> {
+  if (!memo.has(key)) {
+    const promise = load()
+    promise.catch(() => memo.delete(key)) // si falló, se reintenta la próxima vez
+    memo.set(key, promise)
+  }
+  return memo.get(key) as Promise<T>
+}
+
+/** Inicio: «Selecciones rápidas», playlists por género y, de Explorar, lanzamientos y listas. */
+export function ytmHome(): Promise<YtmSection[]> {
+  return remember('inicio', async () => {
+    const [home, explore] = await Promise.all([call('browse', { browseId: 'FEmusic_home' }), call('browse', { browseId: 'FEmusic_explore' }).catch(() => null)])
+    const list = sectionListOf(home)
+    const sections = sectionsOf(list?.contents)
+    // Más estantes del inicio, si YouTube Music los da sin iniciar sesión.
+    const token = list?.continuations?.[0]?.nextContinuationData?.continuation
+    if (token) {
+      const more = await call('browse', { continuation: token }, home?.responseContext?.visitorData).catch(() => null)
+      sections.push(...sectionsOf(more?.continuationContents?.sectionListContinuation?.contents))
+    }
+    sections.push(...sectionsOf(sectionListOf(explore)?.contents))
+    return sections
+  })
+}
+
+/** Búsqueda como en YouTube Music: canciones, álbumes y artistas. */
+export function ytmSearch(query: string): Promise<YtmSearchResults> {
+  const q = query.trim().toLowerCase().replace(/\s+/g, ' ')
+  return remember(`buscar:${q}`, async () => {
+    const [songs, albums, artists] = await Promise.all([
+      call('search', { query: q, params: FILTER.songs }),
+      call('search', { query: q, params: FILTER.albums }).catch(() => null),
+      call('search', { query: q, params: FILTER.artists }).catch(() => null),
+    ])
+    return {
+      songs: searchShelf(songs).map((item) => fromListItem(item.musicResponsiveListItemRenderer)).filter(notEmpty),
+      albums: searchShelf(albums).map((item) => cardFromListItem(item.musicResponsiveListItemRenderer)).filter(notEmpty),
+      artists: searchShelf(artists).map((item) => cardFromListItem(item.musicResponsiveListItemRenderer)).filter(notEmpty),
+    }
+  })
+}
+
+/** Solo artistas (una consulta): para elegir tus gustos. */
+export function ytmSearchArtists(query: string): Promise<YtmCard[]> {
+  const q = query.trim().toLowerCase().replace(/\s+/g, ' ')
+  return remember(`artistas:${q}`, async () => {
+    const json = await call('search', { query: q, params: FILTER.artists })
+    return searchShelf(json)
+      .map((item) => cardFromListItem(item.musicResponsiveListItemRenderer))
+      .filter((card): card is YtmCard => card?.kind === 'artist')
+  })
+}
+
+/** Artistas parecidos («Puede que también te guste» en la página del artista). */
+export async function ytmSimilarArtists(artistId: string): Promise<YtmCard[]> {
+  const page = await ytmPage(artistId)
+  return page.sections.flatMap((section) => section.cards.filter((card) => card.kind === 'artist' && card.id !== artistId))
+}
+
+/** Página de una playlist, un álbum o un artista. */
+export function ytmPage(browseId: string): Promise<YtmPage> {
+  return remember(`pagina:${browseId}`, async () => {
+    const json = await call('browse', { browseId })
+    const two = json?.contents?.twoColumnBrowseResultsRenderer
+    if (two) {
+      const first = two.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]
+      const header = first?.musicResponsiveHeaderRenderer ?? first?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicResponsiveHeaderRenderer
+      const title = plain(header?.title)
+      const artist = plain(header?.straplineTextOne)
+      const image = lastThumb(header?.thumbnail?.musicThumbnailRenderer?.thumbnail)
+      const shelf = two.secondaryContents?.sectionListRenderer?.contents?.[0]
+      const items: Json[] = (shelf?.musicPlaylistShelfRenderer ?? shelf?.musicShelfRenderer)?.contents ?? []
+      // En un álbum las canciones no traen portada ni álbum: son los del propio álbum.
+      const defaults = browseId.startsWith('MPRE') ? { album: title, artist, artistId: artistIdOf(runsOf(header?.straplineTextOne)), artwork: squareArt(image) } : {}
+      return {
+        kind: plain(header?.subtitle) || 'Playlist',
+        title,
+        subtitle: [artist, plain(header?.secondSubtitle)].filter(Boolean).join(' • '),
+        image,
+        tracks: items.map((item) => fromListItem(item.musicResponsiveListItemRenderer, defaults)).filter(notEmpty),
+        sections: [],
+      }
+    }
+    const header = json?.header?.musicImmersiveHeaderRenderer ?? json?.header?.musicVisualHeaderRenderer
+    return {
+      kind: 'Artista',
+      title: plain(header?.title),
+      subtitle: '',
+      image: lastThumb((header?.thumbnail ?? header?.foregroundThumbnail)?.musicThumbnailRenderer?.thumbnail),
+      tracks: [],
+      sections: sectionsOf(sectionListOf(json)?.contents),
+    }
+  })
+}
+
+const VIDEOS_FILTER = 'EgWKAQIQAWoKEAkQChAFEAMQBA%3D%3D'
+const simplify = (text: string) =>
+  text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\(.*?\)|\[.*?\]/g, ' ')
+    .replace(/[^a-z0-9ñ]+/g, ' ')
+    .trim()
+
+/**
+ * Otras versiones de la misma canción (video oficial, con letra…), por si la original no se deja incrustar.
+ * Solo las que llevan el título de la canción; como mucho 3.
+ */
+export function ytmAlternatives(track: Track): Promise<string[]> {
+  return remember(`versiones:${track.id}`, async () => {
+    const artist = track.artist.split(/,| y | & /)[0]
+    const json = await call('search', { query: `${track.title} ${artist}`, params: VIDEOS_FILTER })
+    const wanted = simplify(track.title)
+    return searchShelf(json)
+      .map((item) => fromListItem(item.musicResponsiveListItemRenderer))
+      .filter((video): video is Track => !!video && video.id !== track.id && simplify(video.title).includes(wanted))
+      .slice(0, 3)
+      .map((video) => video.id)
+  })
+}
+
+/** Radio de una canción: lo que YouTube Music pone en «A continuación» a partir de ella. */
+export function ytmRadio(videoId: string): Promise<Track[]> {
+  return remember(`radio:${videoId}`, async () => {
+    const json = await call('next', { videoId, playlistId: `RDAMVM${videoId}`, isAudioOnly: true })
+    const tabs = json?.contents?.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs ?? []
+    const items: Json[] = tabs[0]?.tabRenderer?.content?.musicQueueRenderer?.content?.playlistPanelRenderer?.contents ?? []
+    return items
+      .map((item) => fromPanelItem(item.playlistPanelVideoRenderer ?? item.playlistPanelVideoWrapperRenderer?.primaryRenderer?.playlistPanelVideoRenderer))
+      .filter(notEmpty)
+  })
+}

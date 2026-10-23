@@ -1,0 +1,69 @@
+@import 'tailwindcss';
+
+/*
+ * Paleta de SoundBlue: todo negro con azul rey. Cada color crea sus clases de Tailwind (bg-fondo,
+ * text-acento, hover:bg-tarjeta…) y una variable CSS (var(--color-fondo)…). Cámbialos aquí y se
+ * actualiza toda la app.
+ */
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --color-fondo: #000000; /* fondo principal */
+  --color-panel: #121212; /* paneles y barra lateral */
+  --color-tarjeta: #1a1a1a; /* tarjetas y filas al pasar el dedo o el mouse */
+  --color-elevado: #242424; /* elementos elevados: barra del reproductor, menús, diálogos */
+  --color-acento: #4169e1; /* azul rey: botones, play/pausa, progreso, íconos activos, favoritos, switches */
+  --color-acento-hover: #5b82f0;
+  --color-texto: #ffffff;
+  --color-texto-sec: #a7a7a7;
+
+  /* Derivados, para accesibilidad y estados: */
+  --color-acento-texto: #7c9cf5; /* azul para TEXTO (la canción actual); el azul rey como texto pequeño no llega a 4.5:1 */
+  --color-tarjeta-claro: #242424; /* hover de elementos que ya usan «tarjeta» de fondo (= elevado) */
+  --color-acento-oscuro: #2b4fc2; /* azul para texto sobre fondos claros (avisos), contraste 6.4:1 */
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  /* Sin «jalar para recargar» del navegador: los gestos hacia abajo son de la app (minimizar, cerrar). */
+  html,
+  body,
+  #root {
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    background: var(--color-fondo);
+    color: var(--color-texto);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-acento-texto);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* Barra de desplazamiento fina y discreta. */
+@utility scroll-fino {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+}
+
+/* Oculta la barra en carruseles horizontales (se siguen pudiendo desplazar). */
+@utility sin-scroll {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

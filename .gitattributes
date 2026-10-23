@@ -1,0 +1,4 @@
+# Todo el texto del proyecto con saltos de línea LF (como ya están), también en Windows.
+* text=auto eol=lf
+*.png binary
+*.ico binary
