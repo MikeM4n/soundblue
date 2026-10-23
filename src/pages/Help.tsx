@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useLocation, useSearchParams } from 'react-router'
 import { copyText } from '../lib/clipboard'
-import { clearDiagnostics, readDiagnostics } from '../lib/diagnostics'
+import { clearDiagnostics, formatEvent, markTest, readDiagnostics } from '../lib/diagnostics'
 import { BRAVE_LINKS } from '../lib/platform'
 import { playerHost, type PlayerHost } from '../player/youtube'
 import { showToast } from '../ui/toast'
@@ -218,7 +218,8 @@ export function Help() {
           </li>
           <li>
             <B>Auto‑reanudación (experimental):</B> si la canción sonaba y no la pausaste tú, SoundBlue le pide ▶ al reproductor de
-            YouTube 1 s después de que salgas y, si 2,5 s después sigue en pausa, una vez más; nada más. Al volver a la app, si
+            YouTube en el mismo instante en que sales y otra vez en cuanto YouTube la pausa, sin esperas (siempre en silencio y con
+            el volumen de vuelta a los 0,8 s); si 2,5 s después sigue en pausa, una vez más y nada más. Al volver a la app, si
             YouTube la había pausado, vuelve a sonar sola; y al abrir la app, si la última canción sonaba cuando la cerraste,
             también (en una pestaña normal el navegador puede pedirte que toques ▶). Si pausas con ⏸ en la app, lo respeta siempre;
             con ⏸ en la notificación, lo respeta si no hubo un intento en los últimos 15 s. YouTube puede bloquearlo en cualquier
@@ -272,9 +273,9 @@ export function Help() {
         </ul>
         <p>
           Que una canción de YouTube siga con la pantalla bloqueada depende de Brave y de YouTube: es una carrera entre los dos, no un
-          fallo de SoundBlue, y puede funcionar en un teléfono y en otro no. Al salir de la app (pantalla apagada u otra app), si
-          sonaba, SoundBlue la pausa en el acto y 1 s después intenta que vuelva a sonar; al volver, sigue sola. Al minimizar
-          «Sonando ahora» no se pausa nunca.
+          fallo de SoundBlue, y puede funcionar en un teléfono y en otro no. La app nunca pausa por su cuenta: al salir, si
+          YouTube o Chrome la pausan, intenta en el acto que vuelva a sonar; al volver, sigue sola. Al minimizar «Sonando ahora»
+          no se pausa nunca.
         </p>
         <p>
           Cuando ves la carátula (vista «Canción») o minimizas, el reproductor de YouTube sigue sonando oculto. Es una decisión del
@@ -396,8 +397,6 @@ function BraveBackgroundSection() {
   )
 }
 
-const time = (t: number) => new Date(t).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-
 const isInstalled = () => window.matchMedia('(display-mode: standalone)').matches
 
 /** El registro como texto (con el navegador y si la app está instalada), para pegarlo en un chat o un correo. */
@@ -407,7 +406,7 @@ function diagnosticsReport(): string {
     `Navegador: ${navigator.userAgent}`,
     `Instalada: ${isInstalled() ? 'sí' : 'no'}`,
     '',
-    ...readDiagnostics().map((event) => `${time(event.t)}  ${event.msg}`),
+    ...readDiagnostics().map(formatEvent),
   ].join('\n')
 }
 
@@ -447,11 +446,38 @@ function DiagnosticsSection() {
         <li>Repite con «Reproducción en segundo plano» de Brave activada y desactivada, y con el reproductor desde youtube.com y desde youtube-nocookie.com.</li>
       </Steps>
       <p>
-        Cómo leerlo: si justo después de <B>«Página oculta»</B> aparece <B>«Reproductor: en pausa (con la página oculta)»</B>, quien pausó fue
-        el reproductor de YouTube. Si sigue diciendo «sonando» pero no se oye, fue el navegador. La app no pausa en ninguno de los dos
-        casos. Si después de esa pausa aparece <B>«sonando (con la página oculta)»</B>, el ▶ de la notificación la reanudó y el
-        segundo plano funciona.
+        Cómo leerlo: cada línea lleva los milisegundos desde que se abrió la página y lo que dice el navegador
+        (<B>hidden/true</B> = oculta, <B>visible/false</B> = a la vista). Si justo después de <B>«visibilitychange: hidden»</B> aparece{' '}
+        <B>«player.pauseVideo() detectado»</B>, quien pausó fue YouTube o Chrome: la app no pausa. Si después aparece{' '}
+        <B>«Reproducción confirmada con la página oculta»</B>, la app logró que volviera a sonar.
       </p>
+      <p>
+        <B>Comparar manual y automática:</B> toca «Prueba manual iniciada», pon una canción, abre el selector de pestañas de Chrome
+        y desde ahí ve a Inicio. Después toca «Prueba automática iniciada», pon una canción y sal directo a Inicio. Copia el
+        registro y compara los milisegundos entre «visibilitychange: hidden», la pausa y la reproducción confirmada.
+      </p>
+      <div className="flex flex-wrap gap-2 pt-1">
+        <button
+          type="button"
+          onClick={() => {
+            markTest('manual')
+            setEvents([...readDiagnostics()])
+          }}
+          className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-white/15"
+        >
+          Prueba manual iniciada
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            markTest('automática')
+            setEvents([...readDiagnostics()])
+          }}
+          className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-white/15"
+        >
+          Prueba automática iniciada
+        </button>
+      </div>
       <div className="flex flex-wrap gap-2 pt-1">
         <button type="button" onClick={() => setEvents([...readDiagnostics()])} className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-white/15">
           Actualizar
@@ -480,8 +506,8 @@ function DiagnosticsSection() {
       ) : (
         <ol aria-label="Registro de segundo plano" className="max-h-72 space-y-1 overflow-y-auto rounded-md bg-black/30 p-3 font-mono text-xs">
           {latest.map((event, i) => (
-            <li key={`${event.t}-${i}`}>
-              <span className="text-texto-sec">{time(event.t)}</span> <span className="text-texto">{event.msg}</span>
+            <li key={`${event.t}-${i}`} className="text-texto">
+              {formatEvent(event)}
             </li>
           ))}
         </ol>
