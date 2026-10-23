@@ -11,10 +11,17 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <!-- Pantalla de carga: aparece al instante (antes de que cargue la app); src/lib/splash.ts la desvanece. -->
     <style>
+      /* El mismo negro del manifiesto (background_color) desde el primer instante: sin destellos entre la pantalla de
+         arranque del sistema y esta animación. */
+      html,
+      body {
+        margin: 0;
+        background: #000;
+      }
       #splash {
         position: fixed;
         inset: 0;
-        z-index: 100;
+        z-index: 9999;
         display: flex;
         flex-direction: column;
         align-items: center;

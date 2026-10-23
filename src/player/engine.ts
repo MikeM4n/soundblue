@@ -67,13 +67,14 @@ const UNAVAILABLE = new Set([100, 101, 150]) // borrado/privado o el dueño no p
 const ONLY_IN_YTM = 'Esta canción solo se puede escuchar en la app de YouTube Music.'
 
 // Auto‑reanudación (experimental): YouTube pausa su reproductor en el mismo segundo en que la página se oculta.
-// Espera antes de cada ▶: el 1.º a 2 s de la pausa; el 2.º y el 3.º a 4 s y 6 s del fallo anterior (esperar más relaja
-// el bloqueo del navegador). Tras 3 fallos se detiene hasta que vuelvas a la app, la pauses tú o cambie la canción.
-const AUTO_RESUME_DELAYS_MS = [2000, 4000, 6000]
+// Un ▶ a 1,5 s de la pausa y, si a los 3 s sigue sin sonar, uno de respaldo; nada más, para no saturar al navegador.
+const AUTO_RESUME_DELAYS_MS = [1500, 3000]
 export const AUTO_RESUME_TRIES = AUTO_RESUME_DELAYS_MS.length
-const MUTE_TRICK_MS = 800 // «truco del silencio»: ▶ en silencio; si a los 0,8 s no suena, el intento falló
+const UNMUTE_AFTER_MS = 800 // el ▶ va en silencio y a los 0,8 s vuelve el volumen (así volvió a sonar en el teléfono)
+const RETURN_RESUME_MS = 300 // al volver a la app, si YouTube la había pausado (no tú), ▶ a los 0,3 s
+const START_BLOCKED_MS = 7000 // al abrir: si el navegador no la deja arrancar sola, a los 7 s queda en pausa (lista para ▶)
 /** Lo que se anota en el registro de diagnóstico. */
-export type AutoResumeEvent = 'temporizador' | 'play' | 'exito' | 'fallo'
+export type AutoResumeEvent = 'temporizador' | 'play' | 'exito' | 'volver' | 'abrir'
 // Solo se reanuda una pausa que llega justo después de salir o de un intento: una pausa más tarde puede ser tuya
 // (⏸ en la notificación de YouTube, que no pasa por la app) y esa se respeta.
 const EXIT_PAUSE_WINDOW_MS = 3000
@@ -134,8 +135,10 @@ export class PlayerEngine {
   private lastTryAt = 0
   private awaitingResume = false // se mandó ▶ y todavía no suena (para anotar «Reanudación exitosa»)
   private playedSinceTry = false // volvió a sonar tras el último intento: una pausa nueva arranca otro temporizador
-  private resumeMuted = false // un intento silenció el reproductor: se devuelve el volumen al sonar, al fallar o al volver
-  private trickTimer: number | undefined // los 0,8 s del truco del silencio
+  private resumeMuted = false // un intento silenció el reproductor: el volumen vuelve a los 0,8 s o al volver a la app
+  private unmuteTimer: number | undefined
+  private returnTimer: number | undefined
+  private resumeOnStart = false // al cerrar la app sonaba (no la pausaste tú): al abrirla vuelve a sonar sola
   private resumeListeners = new Set<(event: AutoResumeEvent, attempt: number, delayMs: number) => void>()
   private lastSave = 0
   private listeners = new Set<() => void>()
@@ -151,11 +154,41 @@ export class PlayerEngine {
     this.snapshot = this.buildSnapshot()
     setupMediaSession(this)
     window.addEventListener('pagehide', () => this.saveNow())
-    // Al salir se anota la hora (para reconocer la pausa de YouTube); al volver se cancelan los intentos pendientes.
+    // Al salir se anota la hora (para reconocer la pausa de YouTube); al volver se cancelan los intentos pendientes y,
+    // si YouTube la había pausado al salir, vuelve a sonar.
     document.addEventListener('visibilitychange', () => {
       this.cancelAutoResume()
+      window.clearTimeout(this.returnTimer)
       if (document.visibilityState === 'hidden') this.hiddenAt = Date.now()
+      else this.returnTimer = window.setTimeout(() => this.resumeOnReturn(), RETURN_RESUME_MS)
     })
+  }
+
+  /** Al volver a la app: si YouTube la pausó al salir (no fuiste tú) y sigue en pausa, ▶. */
+  private resumeOnReturn() {
+    if (document.visibilityState !== 'visible' || !this.pausedOnExit || this.userPaused || this.status !== 'paused') return
+    this.emitResume('volver', 0, RETURN_RESUME_MS)
+    this.play()
+  }
+
+  /**
+   * Al abrir la app (lo llama VideoStage cuando el reproductor ya tiene dónde vivir): si al cerrarla la última canción
+   * sonaba y no la pausaste tú, se carga y suena sola (el reproductor da ▶ en cuanto está listo). En una pestaña normal
+   * del celular el navegador puede no dejarla arrancar con sonido sin un toque: entonces queda en pausa, lista para ▶.
+   */
+  autoStart() {
+    if (!this.resumeOnStart) return
+    this.resumeOnStart = false
+    const track = this.current
+    if (!track || this.status !== 'standby') return
+    this.emitResume('abrir', 0, 0)
+    this.play()
+    window.setTimeout(() => {
+      if (this.current !== track || this.status !== 'loading') return
+      this.status = 'paused'
+      updatePlaybackState(this.status)
+      this.changed()
+    }, START_BLOCKED_MS)
   }
 
   /** Para el registro de diagnóstico: avisa cada paso de la auto‑reanudación, su número de intento y la espera. */
@@ -516,11 +549,9 @@ export class PlayerEngine {
       case 'playing':
         this.status = 'playing'
         this.userPaused = this.pausedOnExit = false
-        // Ya suena: se cancelan los temporizadores (si YouTube vuelve a pausar, arranca otro).
+        // Ya suena: se cancela el ▶ de respaldo (si YouTube vuelve a pausar, arranca otro temporizador).
         this.clearResumeTimers()
         this.playedSinceTry = true
-        // El ▶ en silencio arrancó (aunque sea un poco después de los 0,8 s): se devuelve el volumen enseguida.
-        this.restoreVolume()
         if (this.awaitingResume && document.visibilityState === 'hidden' && Date.now() - this.lastTryAt <= 3000) {
           this.emitResume('exito', this.resumeTries, 0)
         }
@@ -541,9 +572,10 @@ export class PlayerEngine {
           const now = Date.now()
           const byYouTube = this.status === 'loading' || now - this.hiddenAt <= EXIT_PAUSE_WINDOW_MS || now - this.lastTryAt <= RETRY_PAUSE_WINDOW_MS
           this.pausedOnExit = true
-          // Primera pausa, o una nueva después de haber vuelto a sonar. Si un ▶ no arrancó, del siguiente se encarga el truco.
-          const idle = this.resumeTimer === undefined && this.trickTimer === undefined
-          if (byYouTube && idle && (this.resumeTries === 0 || this.playedSinceTry)) this.startResumeTimer(AUTO_RESUME_DELAYS_MS[this.resumeTries])
+          // Primera pausa, o una nueva después de haber vuelto a sonar. Si un ▶ no arrancó, ya espera el de respaldo.
+          if (byYouTube && this.resumeTimer === undefined && (this.resumeTries === 0 || this.playedSinceTry)) {
+            this.startResumeTimer(AUTO_RESUME_DELAYS_MS[this.resumeTries])
+          }
         }
         this.status = 'paused'
         this.syncTime()
@@ -565,16 +597,16 @@ export class PlayerEngine {
   }
 
   /**
-   * Auto‑reanudación (experimental). Pasada la espera, «truco del silencio»: se silencia el reproductor, se le pide ▶
-   * (playVideo) y la Media Session pasa a «sonando». Si suena, se devuelve el volumen enseguida; si a los 0,8 s sigue en
-   * pausa, el intento falló: se devuelve el volumen y se programa el siguiente (4 s y luego 6 s). Se cancela si vuelves a
-   * la app o si la pausas tú. YouTube o el navegador pueden bloquearlo en cualquier momento: no está garantizado.
+   * Auto‑reanudación (experimental): a 1,5 s de la pausa de YouTube se le pide ▶ (playVideo) y, si a los 3 s sigue sin
+   * sonar, uno de respaldo; nada más. Como en la versión que volvió a sonar en el teléfono (23 oct., 03:41), el ▶ va en
+   * silencio con la Media Session en «sonando» y a los 0,8 s vuelve el volumen. Se cancela si suena, si vuelves a la app
+   * o si la pausas tú. YouTube o el navegador pueden bloquearlo en cualquier momento: no está garantizado.
    */
-  private startResumeTimer(delay: number) {
+  private startResumeTimer(delay: number, backup = false) {
     this.clearResumeTimers()
     if (this.resumeTries >= AUTO_RESUME_TRIES) return
     this.playedSinceTry = false
-    this.emitResume('temporizador', this.resumeTries + 1, delay)
+    if (!backup) this.emitResume('temporizador', this.resumeTries + 1, delay)
     this.resumeTimer = window.setTimeout(() => {
       this.resumeTimer = undefined
       if (!this.mayAutoResume()) return
@@ -586,21 +618,10 @@ export class PlayerEngine {
       this.youtube.setVolume(this.volume, true)
       this.backend.play()
       updatePlaybackState('playing')
-      this.trickTimer = window.setTimeout(() => this.checkMuteTrick(2), MUTE_TRICK_MS)
+      window.clearTimeout(this.unmuteTimer)
+      this.unmuteTimer = window.setTimeout(() => this.restoreVolume(), UNMUTE_AFTER_MS)
+      this.startResumeTimer(AUTO_RESUME_DELAYS_MS[this.resumeTries] ?? 0, true) // el de respaldo (si suena, se cancela)
     }, delay)
-  }
-
-  /** A los 0,8 s del ▶ en silencio. Si sigue «cargando», se le dan hasta 2 vistazos más (0,4 s cada uno). */
-  private checkMuteTrick(extraChecks: number) {
-    this.trickTimer = undefined
-    if (!this.awaitingResume || this.status === 'playing') return
-    if (this.status === 'buffering' && extraChecks > 0) {
-      this.trickTimer = window.setTimeout(() => this.checkMuteTrick(extraChecks - 1), MUTE_TRICK_MS / 2)
-      return
-    }
-    this.restoreVolume()
-    this.emitResume('fallo', this.resumeTries, MUTE_TRICK_MS)
-    if (this.mayAutoResume()) this.startResumeTimer(AUTO_RESUME_DELAYS_MS[this.resumeTries] ?? 0)
   }
 
   /** Sigue oculta, no la pausaste tú y YouTube la tiene pausada. */
@@ -614,8 +635,7 @@ export class PlayerEngine {
 
   private clearResumeTimers() {
     window.clearTimeout(this.resumeTimer)
-    window.clearTimeout(this.trickTimer)
-    this.resumeTimer = this.trickTimer = undefined
+    this.resumeTimer = undefined
   }
 
   private cancelAutoResume() {
@@ -627,6 +647,7 @@ export class PlayerEngine {
 
   /** Devuelve el volumen que tenías si un intento dejó el reproductor en silencio. */
   private restoreVolume() {
+    window.clearTimeout(this.unmuteTimer)
     if (!this.resumeMuted) return
     this.resumeMuted = false
     this.applyVolume()
@@ -784,7 +805,7 @@ export class PlayerEngine {
     this.youtube.setVolume(this.volume, this.muted)
   }
 
-  // ---- Sesión: se guarda en el navegador y se restaura al abrir (sin reproducir sola) ----
+  // ---- Sesión: se guarda en el navegador y se restaura al abrir (si sonaba al cerrar, vuelve a sonar: autoStart) ----
   private restore() {
     try {
       this.durations = JSON.parse(localStorage.getItem(DURATIONS_KEY) || '{}')
@@ -814,6 +835,7 @@ export class PlayerEngine {
       if (this.current) {
         this.status = 'standby'
         this.duration = this.durations[this.current.id] ?? this.current.duration ?? 0
+        this.resumeOnStart = saved.playing === true
         updateMetadata(this.current, this.context?.name)
       }
     } catch {
@@ -843,6 +865,8 @@ export class PlayerEngine {
           volume: this.volume,
           muted: this.muted,
           time: this.currentTime(),
+          // Sonaba (o YouTube la pausó al salir, no tú): al abrir la app vuelve a sonar sola.
+          playing: this.status === 'playing' || this.status === 'buffering' || this.status === 'loading' || this.pausedOnExit || this.resumeOnStart,
         }),
       )
     } catch {

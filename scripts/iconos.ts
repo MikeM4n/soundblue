@@ -15,15 +15,21 @@ const ondasDeSonido = (transform = '') =>
 
 const circulo = `<circle cx="16" cy="16" r="16" fill="${AZUL_REY}"/>`
 const cuadradoLleno = `<rect width="32" height="32" fill="${AZUL_REY}"/>`
+const fondoNegro = `<rect width="32" height="32" fill="#000"/>`
+const alCentro80 = 'translate(16 16) scale(0.8) translate(-16 -16)'
 
 // 'circulo': favicon e íconos normales (el logo tal cual).
-// 'lleno': maskable y Apple; el sistema recorta la forma, así que el azul llena todo y las ondas se
-// achican para quedar dentro de la zona segura (80 % central).
-function iconSvg(forma: 'circulo' | 'lleno'): string {
+// 'negro': maskable (Android). El sistema lo usa para el ícono de inicio y para la pantalla de arranque de la app
+// instalada, sobre el fondo negro del manifiesto: así no se ve un cuadrado azul, sino el logo redondo sobre negro.
+// El logo se achica al 80 % para quedar dentro de la zona segura (el círculo central).
+// 'lleno': Apple (iOS no usa transparencia; el azul llena todo y las ondas se achican al 80 %).
+function iconSvg(forma: 'circulo' | 'negro' | 'lleno'): string {
   const contenido =
     forma === 'circulo'
       ? circulo + ondasDeSonido()
-      : cuadradoLleno + ondasDeSonido('translate(16 16) scale(0.8) translate(-16 -16)')
+      : forma === 'negro'
+        ? fondoNegro + `<g transform="${alCentro80}">${circulo + ondasDeSonido()}</g>`
+        : cuadradoLleno + ondasDeSonido(alCentro80)
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">${contenido}</svg>`
 }
 
@@ -33,7 +39,7 @@ console.log('✓ public/favicon.svg')
 const iconos = [
   { archivo: 'icon-192.png', tamano: 192, forma: 'circulo' },
   { archivo: 'icon-512.png', tamano: 512, forma: 'circulo' },
-  { archivo: 'icon-maskable-512.png', tamano: 512, forma: 'lleno' },
+  { archivo: 'icon-maskable-512.png', tamano: 512, forma: 'negro' },
   { archivo: 'apple-touch-icon.png', tamano: 180, forma: 'lleno' },
 ] as const
 

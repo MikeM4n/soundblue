@@ -218,8 +218,9 @@ export function Help() {
           </li>
           <li>
             <B>Auto‑reanudación (experimental):</B> si la canción sonaba y no la pausaste tú, SoundBlue le pide ▶ al reproductor de
-            YouTube 2 s después de que se pause. Cada intento empieza en silencio y el volumen vuelve en cuanto suena; si no
-            suena, lo reintenta a los 4 s y luego a los 6 s (3 intentos como máximo). Si pausas con ⏸ en la app, lo respeta siempre;
+            YouTube 1,5 s después de que se pause y, si a los 3 s sigue en pausa, una vez más; nada más. Al volver a la app, si
+            YouTube la había pausado, vuelve a sonar sola; y al abrir la app, si la última canción sonaba cuando la cerraste,
+            también (en una pestaña normal el navegador puede pedirte que toques ▶). Si pausas con ⏸ en la app, lo respeta siempre;
             con ⏸ en la notificación, lo respeta si no hubo un intento en los últimos 15 s. YouTube puede bloquearlo en cualquier
             momento: en «Diagnóstico de segundo plano» verás cada intento y si volvió a sonar.
           </li>

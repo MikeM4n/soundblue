@@ -19,7 +19,11 @@ export function VideoStage() {
   const active = !!current && status !== 'idle' && status !== 'standby'
 
   useEffect(() => {
-    if (hostRef.current) player.youtube.attach(hostRef.current)
+    if (!hostRef.current) return
+    player.youtube.attach(hostRef.current)
+    // Si al cerrar la app sonaba, vuelve a sonar sola. Va después de que toda la app se monte (el registro ya escucha).
+    const start = window.setTimeout(() => player.autoStart(), 0)
+    return () => window.clearTimeout(start)
   }, [])
 
   useEffect(() => {
