@@ -110,6 +110,7 @@ export class PlayerEngine {
   private recovery: { trackId: string; tried: Set<string>; candidates: string[] | null } | null = null
   private ticker: number | undefined
   private saveTimer: number | undefined
+  private startTimer: number | undefined
   private lastSave = 0
   private listeners = new Set<() => void>()
   private snapshot: PlayerSnapshot
@@ -460,6 +461,14 @@ export class PlayerEngine {
       this.error = 'No se pudo cargar el reproductor. Revisa tu conexión.'
       this.emit()
     })
+    // A veces el reproductor de YouTube se queda sin arrancar aunque se pidió reproducir: a los 5 s, si sigue igual y la
+    // app está a la vista, se le repite la orden una vez (lo mismo que tocar ▶). Nunca reanuda algo que YouTube pausó.
+    window.clearTimeout(this.startTimer)
+    if (autoplay) {
+      this.startTimer = window.setTimeout(() => {
+        if (this.current === track && this.status === 'loading' && document.visibilityState === 'visible') this.backend.play()
+      }, 5000)
+    }
   }
 
   private onBackendState(state: BackendState) {
