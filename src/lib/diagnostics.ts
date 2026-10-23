@@ -46,9 +46,9 @@ const STATUS: Record<Status, string> = {
   standby: 'lista para sonar',
 }
 
-const AUTO_RESUME_LOG: Record<AutoResumeEvent, (attempt: number) => string> = {
-  temporizador: (n) => `Iniciando temporizador de reanudación (2s)... (intento ${n} de ${AUTO_RESUME_TRIES})`,
-  play: () => 'Ejecutando playVideo() tras 2s de espera.',
+const AUTO_RESUME_LOG: Record<AutoResumeEvent, (attempt: number, seconds: number) => string> = {
+  temporizador: (n, s) => `Iniciando temporizador de reanudación (${s}s)... (intento ${n} de ${AUTO_RESUME_TRIES})`,
+  play: (_n, s) => `Ejecutando playVideo() tras ${s}s de espera.`,
   exito: () => 'Reanudación exitosa (con la página oculta)',
 }
 
@@ -70,7 +70,7 @@ export function startDiagnostics() {
   window.addEventListener('pagehide', () => log('El navegador guardó la página (pagehide)'))
   document.addEventListener('freeze', () => log('El navegador congeló la página'))
   document.addEventListener('resume', () => log('El navegador reanudó la página'))
-  player.onAutoResume((event, attempt) => log(AUTO_RESUME_LOG[event](attempt)))
+  player.onAutoResume((event, attempt, delayMs) => log(AUTO_RESUME_LOG[event](attempt, delayMs / 1000)))
   let last = player.getSnapshot().status
   player.subscribe(() => {
     const { status } = player.getSnapshot()
