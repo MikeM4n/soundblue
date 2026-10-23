@@ -17,7 +17,9 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(VERSION).then((cache) => cache.addAll(SHELL)));
+  // { cache: 'reload' }: copias recién bajadas del servidor, no las que el navegador tenga guardadas
+  // (GitHub Pages deja guardar cada archivo 10 minutos y podía quedar una versión vieja).
+  event.waitUntil(caches.open(VERSION).then((cache) => cache.addAll(SHELL.map((url) => new Request(url, { cache: 'reload' })))));
   self.skipWaiting();
 });
 
@@ -40,14 +42,20 @@ self.addEventListener('fetch', (event) => {
   // Solo los archivos de la app (/soundblue/…). YouTube y las API de los intermediarios (/jam-api, /ytm-api)
   // van siempre a la red: guardarlas mostraría datos viejos (p. ej. una Jam que ya terminó).
   if (!request.url.startsWith(self.registration.scope)) return;
+  // version.json dice cuál es la última versión publicada: siempre a la red, nunca de una copia.
+  if (new URL(request.url).pathname.endsWith('/version.json')) return;
 
-  // Páginas: primero la red (para tener la última versión) y, sin conexión, la copia guardada.
+  // Páginas: primero la red, preguntando SIEMPRE al servidor si cambió (cache: 'no-cache'); sin conexión, la copia
+  // guardada. Antes se pedía sin eso y el navegador podía entregar una página vieja: GitHub Pages deja guardarla
+  // 10 minutos y, al reabrir una pestaña, Chrome usa la que tenga aunque sea más vieja.
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
+      fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' })
         .then((response) => {
-          const copy = response.clone();
-          caches.open(VERSION).then((cache) => cache.put('./index.html', copy));
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(VERSION).then((cache) => cache.put('./index.html', copy));
+          }
           return response;
         })
         .catch(() => caches.match('./index.html'))

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Route, Routes, useLocation, type Location } from 'react-router'
 import { hostJam } from './jam/hostJam'
 import { startDiagnostics } from './lib/diagnostics'
+import { startUpdateChecks } from './lib/updates'
 import { AppLayout } from './components/layout/AppLayout'
 import { NowPlayingSheet } from './components/player/NowPlayingSheet'
 import { usePlayerShortcuts } from './player/usePlayerShortcuts'
@@ -23,6 +24,7 @@ export default function App() {
   useResumePrompt() // «▶ Reanudar» al volver, si YouTube pausó la música al salir
   useEffect(() => {
     startDiagnostics() // registro de segundo plano (Ayuda → Diagnóstico)
+    if (import.meta.env.PROD) startUpdateChecks() // si hay una versión más nueva publicada, se actualiza
     hostJam.resume() // si cerraste la app con una Jam abierta, sigue recibiendo canciones
   }, [])
   // «Sonando ahora» (/reproduciendo) se abre ENCIMA de la página donde estabas: esa sigue dibujada debajo.

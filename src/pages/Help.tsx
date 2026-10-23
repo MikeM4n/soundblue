@@ -218,8 +218,8 @@ export function Help() {
           </li>
           <li>
             <B>Auto‑reanudación (experimental):</B> si la canción sonaba y no la pausaste tú, SoundBlue le pide ▶ al reproductor de
-            YouTube en el mismo instante en que sales y otra vez en cuanto YouTube la pausa, sin esperas (siempre en silencio y con
-            el volumen de vuelta a los 0,8 s); si 2,5 s después sigue en pausa, una vez más y nada más. Al volver a la app, si
+            YouTube 1,5 s después de que YouTube o Chrome la pausen (en silencio y con el volumen de vuelta a los 0,8 s); si 3 s
+            después sigue en pausa, una vez más y nada más. Al salir, la app no toca el sonido. Al volver a la app, si
             YouTube la había pausado, vuelve a sonar sola; y al abrir la app, si la última canción sonaba cuando la cerraste,
             también (en una pestaña normal el navegador puede pedirte que toques ▶). Si pausas con ⏸ en la app, lo respeta siempre;
             con ⏸ en la notificación, lo respeta si no hubo un intento en los últimos 15 s. YouTube puede bloquearlo en cualquier
@@ -274,7 +274,7 @@ export function Help() {
         <p>
           Que una canción de YouTube siga con la pantalla bloqueada depende de Brave y de YouTube: es una carrera entre los dos, no un
           fallo de SoundBlue, y puede funcionar en un teléfono y en otro no. La app nunca pausa por su cuenta: al salir, si
-          YouTube o Chrome la pausan, intenta en el acto que vuelva a sonar; al volver, sigue sola. Al minimizar «Sonando ahora»
+          YouTube o Chrome la pausan, 1,5 s después intenta que vuelva a sonar; al volver, sigue sola. Al minimizar «Sonando ahora»
           no se pausa nunca.
         </p>
         <p>
@@ -453,8 +453,9 @@ function DiagnosticsSection() {
         <B>«Reproducción confirmada con la página oculta»</B>, la app logró que volviera a sonar.
       </p>
       <p>
-        Versión de la app: <B>{__APP_VERSION__}</B>. El registro guarda también las pruebas anteriores: las líneas sin «[… ms]»
-        son de una versión vieja. Para una prueba limpia, toca «Borrar registro» antes de empezar.
+        Versión de la app: <B>{__APP_VERSION__}</B>. Si hay una más nueva publicada, la app se actualiza sola al abrirla o al
+        volver a ella (si está sonando, te ofrece «Actualizar»). El registro guarda también las pruebas anteriores: las líneas
+        sin «[… ms]» son de una versión vieja. Para una prueba limpia, toca «Borrar registro» antes de empezar.
       </p>
       <p>
         <B>Comparar manual y automática:</B> toca «Prueba manual iniciada», pon una canción, abre el selector de pestañas de Chrome

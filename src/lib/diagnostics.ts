@@ -61,10 +61,10 @@ const STATUS: Record<Status, string> = {
 }
 
 const AUTO_RESUME_LOG: Record<AutoResumeEvent, (detail: string) => string> = {
-  ocultar: (d) => `Ejecutando Mute-Trick inmediato (${d}): silencio + playVideo()`,
-  resultado: (d) => `Resultado a los 0,8 s del Mute-Trick: ${d}`,
   pausa: (d) => `player.pauseVideo() detectado: ${d}`,
-  play: (d) => `Iniciando playVideo() con Mute-Trick (${d})`,
+  temporizador: (d) => `Iniciando temporizador de reanudación (${d})...`,
+  play: (d) => `Ejecutando Mute-Trick (${d}): silencio + playVideo()`,
+  resultado: (d) => `Resultado a los 0,8 s del Mute-Trick: ${d}`,
   exito: (d) => `Reproducción confirmada con la página oculta (${d})`,
   volumen: () => 'Volumen devuelto (unMute)',
   volver: () => 'De vuelta en la app: estaba en pausa por haber salido, ▶ automático',

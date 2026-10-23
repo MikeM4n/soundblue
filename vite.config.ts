@@ -18,9 +18,14 @@ const youtubeMusicProxy: Record<string, ProxyOptions> = {
   },
 }
 
+// Versión que se ve en el registro de diagnóstico (Ayuda) y en version.json: el commit (GitHub Actions lo da en
+// GITHUB_SHA) y la hora de compilación, para saber con qué versión se hizo cada prueba en el teléfono.
+const APP_VERSION = `${(process.env.GITHUB_SHA ?? 'local').slice(0, 7)} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`
+
 /**
  * Completa public/sw.js al compilar: le pasa la lista de archivos generados (con su hash)
  * y una versión nueva, para que la interfaz funcione sin conexión y se actualice sola.
+ * Escribe también version.json: la app lo consulta para saber si hay una versión más nueva publicada.
  */
 function serviceWorkerPrecache(): Plugin {
   let outDir = 'dist'
@@ -41,6 +46,7 @@ function serviceWorkerPrecache(): Plugin {
         .replace('self.__ARCHIVOS__', JSON.stringify(files.map((name) => `./${name}`)))
         .replace('__VERSION__', version)
       writeFileSync(swPath, source)
+      writeFileSync(resolve(outDir, 'version.json'), JSON.stringify({ version: APP_VERSION }) + '\n')
     },
   }
 }
@@ -52,11 +58,7 @@ export default defineConfig({
   // jamDevServer: las Jams (escuchar en grupo) mientras se prueba; ver server/jamDevServer.ts.
   // diagDevServer: recibe el registro de segundo plano del teléfono en la red local; ver server/diagDevServer.ts.
   plugins: [react(), tailwindcss(), serviceWorkerPrecache(), jamDevServer(), diagDevServer()],
-  // Versión que se ve en el registro de diagnóstico (Ayuda): el commit (GitHub Actions lo da en GITHUB_SHA) y la hora de
-  // compilación, para saber con qué versión se hizo cada prueba en el teléfono.
-  define: {
-    __APP_VERSION__: JSON.stringify(`${(process.env.GITHUB_SHA ?? 'local').slice(0, 7)} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`),
-  },
+  define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   server: { proxy: youtubeMusicProxy },
   preview: { proxy: youtubeMusicProxy },
 })
