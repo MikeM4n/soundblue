@@ -67,8 +67,8 @@ const UNAVAILABLE = new Set([100, 101, 150]) // borrado/privado o el dueño no p
 const ONLY_IN_YTM = 'Esta canción solo se puede escuchar en la app de YouTube Music.'
 
 // Auto‑reanudación (experimental): YouTube pausa su reproductor en el mismo segundo en que la página se oculta.
-// Un ▶ a 1,5 s de la pausa y, si a los 3 s sigue sin sonar, uno de respaldo; nada más, para no saturar al navegador.
-const AUTO_RESUME_DELAYS_MS = [1500, 3000]
+// Un ▶ a 1 s de salir y, si a los 2,5 s sigue sin sonar, uno de respaldo; nada más, para no saturar al navegador.
+const AUTO_RESUME_DELAYS_MS = [1000, 2500]
 export const AUTO_RESUME_TRIES = AUTO_RESUME_DELAYS_MS.length
 const UNMUTE_AFTER_MS = 800 // el ▶ va en silencio y a los 0,8 s vuelve el volumen (así volvió a sonar en el teléfono)
 const START_BLOCKED_MS = 7000 // al abrir: si el navegador no la deja arrancar sola, a los 7 s queda en pausa (lista para ▶)
@@ -153,26 +153,32 @@ export class PlayerEngine {
     this.snapshot = this.buildSnapshot()
     setupMediaSession(this)
     window.addEventListener('pagehide', () => this.saveNow())
-    // Al salir: corte inmediato (ver pauseOnExit) y, a los 1,5 s, ▶. Al volver: se cancelan los intentos pendientes y,
-    // si quedó en pausa por haber salido (no la pausaste tú), ▶ enseguida.
+    // Al salir: lo PRIMERO es cortar el sonido (antes de cualquier otra cosa) y luego arranca el ▶ de 1 s. Al volver: se
+    // cancelan los intentos pendientes y, si quedó en pausa por haber salido (no la pausaste tú), ▶ enseguida.
+    // Este oyente se registra al cargar el motor, antes que los demás de la app: es el primero en enterarse.
     document.addEventListener('visibilitychange', () => {
-      this.cancelAutoResume()
       if (document.visibilityState === 'hidden') {
+        const cut = !this.userPaused && (this.status === 'playing' || this.status === 'buffering')
+        if (cut) this.backend.pause()
+        this.cancelAutoResume()
         this.hiddenAt = Date.now()
-        this.pauseOnExit()
-      } else this.resumeOnReturn()
+        if (cut) this.afterExitCut()
+      } else {
+        this.cancelAutoResume()
+        this.resumeOnReturn()
+      }
     })
   }
 
   /**
-   * Al salir de la app, si sonaba y no la pausaste tú, se pausa en el acto: sin la «cola» de ~1 s que se oía hasta que
-   * YouTube la pausaba. Esa pausa la anota onBackendState como pausa al salir y arranca el ▶ de 1,5 s.
+   * Después del corte al salir (sin la «cola» de ~1 s que se oía hasta que YouTube pausaba): queda anotado como pausa al
+   * salir (no tuya) y arranca ya el temporizador del ▶, contado desde el momento en que saliste.
    */
-  private pauseOnExit() {
-    if (this.userPaused || (this.status !== 'playing' && this.status !== 'buffering')) return
+  private afterExitCut() {
     this.exitPausePending = true
+    this.pausedOnExit = true
     this.emitResume('salir', 0, AUTO_RESUME_DELAYS_MS[0])
-    this.backend.pause()
+    this.startResumeTimer(AUTO_RESUME_DELAYS_MS[0])
   }
 
   /** Al volver a la app: si quedó en pausa por haber salido (no fuiste tú), ▶ sin esperar. */
@@ -614,8 +620,8 @@ export class PlayerEngine {
   }
 
   /**
-   * Auto‑reanudación (experimental): a 1,5 s de la pausa de YouTube se le pide ▶ (playVideo) y, si a los 3 s sigue sin
-   * sonar, uno de respaldo; nada más. Como en la versión que volvió a sonar en el teléfono (23 oct., 03:41), el ▶ va en
+   * Auto‑reanudación (experimental): a 1 s de salir (o de la pausa de YouTube) se le pide ▶ (playVideo) y, si 2,5 s
+   * después sigue sin sonar, uno de respaldo; nada más. Como en la versión que volvió a sonar en el teléfono (23 oct., 03:41), el ▶ va en
    * silencio con la Media Session en «sonando» y a los 0,8 s vuelve el volumen. Se cancela si suena, si vuelves a la app
    * o si la pausas tú. YouTube o el navegador pueden bloquearlo en cualquier momento: no está garantizado.
    */
