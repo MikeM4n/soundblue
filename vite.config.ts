@@ -52,6 +52,11 @@ export default defineConfig({
   // jamDevServer: las Jams (escuchar en grupo) mientras se prueba; ver server/jamDevServer.ts.
   // diagDevServer: recibe el registro de segundo plano del teléfono en la red local; ver server/diagDevServer.ts.
   plugins: [react(), tailwindcss(), serviceWorkerPrecache(), jamDevServer(), diagDevServer()],
+  // Versión que se ve en el registro de diagnóstico (Ayuda): el commit (GitHub Actions lo da en GITHUB_SHA) y la hora de
+  // compilación, para saber con qué versión se hizo cada prueba en el teléfono.
+  define: {
+    __APP_VERSION__: JSON.stringify(`${(process.env.GITHUB_SHA ?? 'local').slice(0, 7)} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`),
+  },
   server: { proxy: youtubeMusicProxy },
   preview: { proxy: youtubeMusicProxy },
 })

@@ -61,7 +61,8 @@ const STATUS: Record<Status, string> = {
 }
 
 const AUTO_RESUME_LOG: Record<AutoResumeEvent, (detail: string) => string> = {
-  ocultar: (d) => `${d}: silencio + playVideo()`,
+  ocultar: (d) => `Ejecutando Mute-Trick inmediato (${d}): silencio + playVideo()`,
+  resultado: (d) => `Resultado a los 0,8 s del Mute-Trick: ${d}`,
   pausa: (d) => `player.pauseVideo() detectado: ${d}`,
   play: (d) => `Iniciando playVideo() con Mute-Trick (${d})`,
   exito: (d) => `Reproducción confirmada con la página oculta (${d})`,
@@ -112,7 +113,7 @@ function stopKeepAlive(report = true) {
 export function startDiagnostics() {
   if (started) return
   started = true
-  log(`App abierta · reproductor de YouTube desde ${playerHost.get() === 'youtube' ? 'youtube.com' : 'youtube-nocookie.com'}`)
+  log(`App abierta · versión ${__APP_VERSION__} · reproductor de YouTube desde ${playerHost.get() === 'youtube' ? 'youtube.com' : 'youtube-nocookie.com'}`)
   // En la fase de captura de window: se anota antes que cualquier otra reacción de la app, con la hora exacta del evento.
   window.addEventListener(
     'visibilitychange',

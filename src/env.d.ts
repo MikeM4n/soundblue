@@ -1,3 +1,6 @@
+/** Commit y hora de compilación (vite.config.ts), para el registro de diagnóstico. */
+declare const __APP_VERSION__: string
+
 interface ImportMetaEnv {
   /** Clave de la YouTube Data API v3 (en .env y como secreto de GitHub). Sin ella, Buscar usa el catálogo de prueba. */
   readonly VITE_YT_API_KEY?: string

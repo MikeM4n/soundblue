@@ -74,7 +74,9 @@ export const AUTO_RESUME_TRIES = 2 // por canción, cada vez que sales de la app
 const UNMUTE_AFTER_MS = 800 // el ▶ va en silencio y a los 0,8 s vuelve el volumen (así volvió a sonar en el teléfono)
 const START_BLOCKED_MS = 7000 // al abrir: si el navegador no la deja arrancar sola, a los 7 s queda en pausa (lista para ▶)
 /** Lo que se anota en el registro de diagnóstico (con un detalle en texto). */
-export type AutoResumeEvent = 'ocultar' | 'pausa' | 'play' | 'exito' | 'volumen' | 'volver' | 'abrir'
+export type AutoResumeEvent = 'ocultar' | 'pausa' | 'play' | 'resultado' | 'exito' | 'volumen' | 'volver' | 'abrir'
+
+const RESULT: Partial<Record<Status, string>> = { playing: 'Sonando', paused: 'En pausa', buffering: 'Cargando', loading: 'Cargando' }
 // Solo se reanuda una pausa que llega justo después de salir o de un intento: una pausa más tarde puede ser tuya
 // (⏸ en la notificación de YouTube, que no pasa por la app) y esa se respeta.
 const EXIT_PAUSE_WINDOW_MS = 3000
@@ -168,18 +170,21 @@ export class PlayerEngine {
   /** Al ocultarse la página, si sonaba y no la pausaste tú: Mute‑Trick en el acto, sin temporizador. */
   private muteTrickOnHide() {
     if (this.userPaused || (this.status !== 'playing' && this.status !== 'buffering')) return
-    this.emitResume('ocultar', 'Mute-Trick inmediato al ocultarse')
+    this.emitResume('ocultar', 'al ocultarse, sin esperar')
     this.muteTrick()
   }
 
-  /** Mute‑Trick: silencio → ▶ (playVideo) → Media Session en «sonando»; a los 0,8 s vuelve el volumen. */
+  /** Mute‑Trick: silencio → ▶ (playVideo) → Media Session en «sonando»; a los 0,8 s se anota cómo quedó y vuelve el volumen. */
   private muteTrick() {
     this.resumeMuted = true
     this.youtube.setVolume(this.volume, true)
     this.backend.play()
     updatePlaybackState('playing')
     window.clearTimeout(this.unmuteTimer)
-    this.unmuteTimer = window.setTimeout(() => this.restoreVolume(), UNMUTE_AFTER_MS)
+    this.unmuteTimer = window.setTimeout(() => {
+      this.emitResume('resultado', RESULT[this.status] ?? this.status)
+      this.restoreVolume()
+    }, UNMUTE_AFTER_MS)
   }
 
   /** Al volver a la app: si quedó en pausa por haber salido (no fuiste tú), ▶ sin esperar. */

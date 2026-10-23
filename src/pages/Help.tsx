@@ -403,6 +403,7 @@ const isInstalled = () => window.matchMedia('(display-mode: standalone)').matche
 function diagnosticsReport(): string {
   return [
     `SoundBlue · ${window.location.href}`,
+    `Versión: ${__APP_VERSION__}`,
     `Navegador: ${navigator.userAgent}`,
     `Instalada: ${isInstalled() ? 'sí' : 'no'}`,
     '',
@@ -450,6 +451,10 @@ function DiagnosticsSection() {
         (<B>hidden/true</B> = oculta, <B>visible/false</B> = a la vista). Si justo después de <B>«visibilitychange: hidden»</B> aparece{' '}
         <B>«player.pauseVideo() detectado»</B>, quien pausó fue YouTube o Chrome: la app no pausa. Si después aparece{' '}
         <B>«Reproducción confirmada con la página oculta»</B>, la app logró que volviera a sonar.
+      </p>
+      <p>
+        Versión de la app: <B>{__APP_VERSION__}</B>. El registro guarda también las pruebas anteriores: las líneas sin «[… ms]»
+        son de una versión vieja. Para una prueba limpia, toca «Borrar registro» antes de empezar.
       </p>
       <p>
         <B>Comparar manual y automática:</B> toca «Prueba manual iniciada», pon una canción, abre el selector de pestañas de Chrome
