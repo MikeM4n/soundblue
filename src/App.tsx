@@ -6,6 +6,7 @@ import { AppLayout } from './components/layout/AppLayout'
 import { NowPlayingSheet } from './components/player/NowPlayingSheet'
 import { useKeepScreenOn } from './player/useKeepScreenOn'
 import { usePlayerShortcuts } from './player/usePlayerShortcuts'
+import { useResumePrompt } from './player/useResumePrompt'
 import { Collection } from './pages/Collection'
 import { Help } from './pages/Help'
 import { Home } from './pages/Home'
@@ -21,6 +22,7 @@ export default function App() {
   const location = useLocation()
   usePlayerShortcuts()
   useKeepScreenOn() // opción «Pantalla encendida» (en «Sonando ahora»)
+  useResumePrompt() // «▶ Reanudar» al volver, si YouTube pausó la música al salir
   useEffect(() => {
     startDiagnostics() // registro de segundo plano (Ayuda → Diagnóstico)
     hostJam.resume() // si cerraste la app con una Jam abierta, sigue recibiendo canciones

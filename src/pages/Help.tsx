@@ -194,6 +194,17 @@ export function Help() {
       <BraveBackgroundSection />
 
       <Section id="ayuda-notificacion" title="La notificación con canciones de YouTube">
+        <p>
+          <B>
+            Al salir de la app, YouTube pausa la música. Si la notificación de Android aparece, pulsa ▶ en ella para reanudar. Si la
+            notificación no aparece, vuelve a abrir SoundBlue y pulsa ▶ en el reproductor. Esto es una restricción de YouTube, no un
+            fallo de la app.
+          </B>
+        </p>
+        <p>
+          Al volver, SoundBlue te muestra <B>«▶ Reanudar»</B> (en «Sonando ahora» o en un aviso abajo). La notificación no siempre
+          aparece: depende de YouTube, del navegador y de Android.
+        </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
             <B>Al salir de la app, YouTube se pausa</B> en el mismo segundo. Lo hace el reproductor de YouTube (escuchar con la
@@ -213,6 +224,14 @@ export function Help() {
           <li>
             Sal con el <B>botón de inicio (○)</B>. Con «atrás» o cerrándola desde las apps recientes, el navegador cierra la página y
             la música se detiene del todo.
+          </li>
+          <li>
+            Si Android cierra la app al salir: <B>Ajustes del teléfono → Apps → Brave (o Chrome) → Batería → Sin restricciones</B>.
+          </li>
+          <li>
+            Si borraste los datos del navegador: abre de nuevo el link de SoundBlue, vuelve a instalarla (⋮ → «Instalar app») y revisa
+            que los dos filtros sigan en Brave. Tus favoritos y playlists se guardan en el navegador, así que borrar sus datos también
+            los borra.
           </li>
         </ul>
         <p>

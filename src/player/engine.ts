@@ -43,6 +43,7 @@ export interface PlayerSnapshot {
   muted: boolean
   error: string | null
   durations: Readonly<Record<string, number>>
+  pausedOnExit: boolean // YouTube la pausó al salir de la app (no fuiste tú): la app ofrece «Reanudar»
 }
 
 // 'lista': no sonaba nada, así que quedó como canción actual, en pausa (los gestos no reproducen solos).
@@ -111,6 +112,9 @@ export class PlayerEngine {
   private ticker: number | undefined
   private saveTimer: number | undefined
   private startTimer: number | undefined
+  // Para distinguir la pausa de YouTube al salir de la app (se ofrece «Reanudar») de la que pide el usuario.
+  private userPaused = false
+  private pausedOnExit = false
   private lastSave = 0
   private listeners = new Set<() => void>()
   private snapshot: PlayerSnapshot
@@ -180,6 +184,7 @@ export class PlayerEngine {
   }
 
   pause() {
+    this.userPaused = true
     this.backend.pause()
   }
 
@@ -435,6 +440,7 @@ export class PlayerEngine {
     const track = this.current
     if (!track) return
     this.status = autoplay ? 'loading' : 'paused'
+    this.userPaused = this.pausedOnExit = false
     this.error = null
     this.time = start
     this.startedId = this.countedId = null
@@ -475,6 +481,7 @@ export class PlayerEngine {
     switch (state) {
       case 'playing':
         this.status = 'playing'
+        this.userPaused = this.pausedOnExit = false
         this.failures = 0
         this.syncTime()
         this.startTicker()
@@ -485,6 +492,8 @@ export class PlayerEngine {
         break
       case 'paused':
       case 'cued':
+        // Sonaba, la página está oculta y no la pausaste tú: la pausó YouTube al salir. Solo se anota; la app no la reanuda.
+        if (document.visibilityState === 'hidden' && !this.userPaused && (this.status === 'playing' || this.status === 'buffering')) this.pausedOnExit = true
         this.status = 'paused'
         this.syncTime()
         this.stopTicker()
@@ -750,6 +759,7 @@ export class PlayerEngine {
       muted: this.muted,
       error: this.error,
       durations: this.durations,
+      pausedOnExit: this.pausedOnExit,
     }
   }
 }

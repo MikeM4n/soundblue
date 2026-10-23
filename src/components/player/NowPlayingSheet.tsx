@@ -3,10 +3,11 @@ import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } 
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useLibrary } from '../../library/store'
 import { usePreventTouchMove } from '../../lib/usePreventTouchMove'
+import { openInYouTubeMusic } from '../../lib/youtubeMusicLink'
+import { player } from '../../player/engine'
 import { sheetState, stageBox, stagePulse, useStageSlot, youtubeView, type YouTubeView } from '../../player/stage'
 import { coverSources, sourceLabel, type Track } from '../../player/types'
 import { onlyInYouTubeMusic } from '../../player/unavailable'
-import { openInYouTubeMusic } from '../../lib/youtubeMusicLink'
 import { keepScreenOn } from '../../player/useKeepScreenOn'
 import { usePlayer } from '../../player/usePlayer'
 import { playerHost } from '../../player/youtube'
@@ -206,11 +207,23 @@ export function NowPlayingSheet() {
  */
 function BackgroundNotice({ fade }: { fade: string }) {
   const [host] = useState(playerHost.get) // cambiarlo recarga la app
+  const { status, pausedOnExit } = usePlayer()
   const help = (
-    <Link to="/ayuda" state={{ seccion: 'ayuda-brave-fondo' }} className="font-semibold text-white/80 underline underline-offset-2">
+    <Link to="/ayuda" state={{ seccion: 'ayuda-notificacion' }} className="font-semibold text-white/80 underline underline-offset-2">
       Ayuda
     </Link>
   )
+  // YouTube la pausó al salir de la app: el respaldo por si la notificación no aparece (lo pulsa el usuario).
+  if (pausedOnExit && status === 'paused') {
+    return (
+      <p className={`mx-6 mt-3 flex h-7 items-center justify-center gap-2 text-center text-[11px] leading-[14px] text-white/70 ${fade}`}>
+        <span>YouTube pausó la música al salir.</span>
+        <button type="button" onClick={() => player.play()} className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-bold text-black">
+          ▶ Reanudar
+        </button>
+      </p>
+    )
+  }
   return (
     <p className={`mx-6 mt-3 line-clamp-2 h-7 text-center text-[11px] leading-[14px] text-white/55 ${fade}`}>
       {host === 'youtube' ? (
