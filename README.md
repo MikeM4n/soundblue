@@ -73,7 +73,7 @@ Toda la paleta está en `src/index.css`, dentro de `@theme`. Cada color crea sus
 
 ## Pantalla de carga
 
-Al abrir la app sale una pantalla negra con el logo: las ondas suben y bajan sobre el mismo eje en bucle (CSS `@keyframes` sobre el trazo, `d: path(…)`) y el nombre «SoundBlue» aparece gradualmente. Está en `index.html` (aparece al instante, antes de que cargue la app) y `src/lib/splash.ts` la desvanece a los ~2,4 s desde que se abrió (o cuando la app termina de cargar, si tarda más). Con «reducir movimiento» del teléfono, sin animación y solo 0,6 s.
+Al abrir la app sale una pantalla negra con el logo: la onda se mueve como una serpiente (una onda que avanza por la línea con los extremos quietos, en bucle) y el nombre «SoundBlue» aparece gradualmente, sin moverse. La animación es un `<animate attributeName="d">` del SVG con 8 cuadros de una onda desplazada (y = 16 − 3,6 · sin(π·t)^0,7 · sin(2π(x−6)/10 − φ), curva suave por 11 puntos); misma estructura de trazo en todos los cuadros para que el navegador interpole. Está en `index.html` (aparece al instante, antes de que cargue la app) y `src/lib/splash.ts` la desvanece a los ~2,4 s desde que se abrió (o cuando la app termina de cargar, si tarda más). Con «reducir movimiento» del teléfono, sin animación y solo 0,6 s.
 
 ## Controles del sistema (Media Session)
 
