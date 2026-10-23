@@ -1,5 +1,5 @@
 // Al volver a SoundBlue después de que YouTube pausó la música al salir: un aviso con «▶ Reanudar», por si la
-// auto‑reanudación no lo logró. Al volver, la app ya da ▶ sola a los 0,3 s: el aviso solo sale si a los 2 s sigue en pausa.
+// auto‑reanudación no lo logró. Al volver, la app ya da ▶ sola: el aviso solo sale si a los 2 s sigue en pausa.
 import { useEffect } from 'react'
 import { showToast } from '../ui/toast'
 import { player } from './engine'

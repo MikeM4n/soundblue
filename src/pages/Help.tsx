@@ -272,8 +272,9 @@ export function Help() {
         </ul>
         <p>
           Que una canción de YouTube siga con la pantalla bloqueada depende de Brave y de YouTube: es una carrera entre los dos, no un
-          fallo de SoundBlue, y puede funcionar en un teléfono y en otro no. La app nunca pausa por su cuenta: ni al minimizar
-          «Sonando ahora», ni al bloquear la pantalla, ni al cambiar de app.
+          fallo de SoundBlue, y puede funcionar en un teléfono y en otro no. Al salir de la app (pantalla apagada u otra app), si
+          sonaba, SoundBlue la pausa en el acto y 1,5 s después intenta que vuelva a sonar; al volver, sigue sola. Al minimizar
+          «Sonando ahora» no se pausa nunca.
         </p>
         <p>
           Cuando ves la carátula (vista «Canción») o minimizas, el reproductor de YouTube sigue sonando oculto. Es una decisión del

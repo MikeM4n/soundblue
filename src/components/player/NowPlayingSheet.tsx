@@ -225,7 +225,7 @@ function BackgroundNotice({ fade }: { fade: string }) {
   return (
     <p className={`mx-6 mt-3 line-clamp-2 h-7 text-center text-[11px] leading-[14px] text-white/55 ${fade}`}>
       {host === 'youtube' ? (
-        <>Al salir, YouTube se pausa: la app intenta reanudarla sola y, si no lo logra, pulsa ▶ en la notificación ({help}).</>
+        <>Al salir se pausa un instante y la app intenta reanudarla sola; si no lo logra, pulsa ▶ en la notificación ({help}).</>
       ) : (
         <>
           Segundo plano: con el reproductor «más privado», YouTube se pausa al salir. Para que siga sonando, mira la {help}.

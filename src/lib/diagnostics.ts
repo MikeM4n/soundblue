@@ -47,10 +47,11 @@ const STATUS: Record<Status, string> = {
 }
 
 const AUTO_RESUME_LOG: Record<AutoResumeEvent, (attempt: number, seconds: number) => string> = {
+  salir: () => 'Pausa inmediata al salir (la app)',
   temporizador: (_n, s) => `Iniciando temporizador de reanudación (${s}s)...`,
   play: (n, s) => `Ejecutando playVideo() tras ${s}s de espera${n > 1 ? ' (respaldo)' : ''}.`,
   exito: () => 'Reanudación exitosa (con la página oculta)',
-  volver: () => 'De vuelta en la app: YouTube la había pausado, ▶ automático',
+  volver: () => 'De vuelta en la app: estaba en pausa por haber salido, ▶ automático',
   abrir: () => 'App abierta: la última canción sonaba al cerrar, ▶ automático',
 }
 
