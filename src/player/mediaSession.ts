@@ -2,7 +2,7 @@
 // El sonido sale del iframe de YouTube y cada navegador decide si muestra estos controles o los de YouTube
 // (en Android sale la notificación simple del navegador). Las teclas multimedia del PC sí los usan.
 // El estado (sonando/en pausa) sigue al reproductor real: si YouTube se pausa solo, la notificación lo muestra; si
-// se pulsa ▶ en la notificación, la app reproduce (es una orden del usuario; la app nunca reanuda por su cuenta).
+// se pulsa ▶ en la notificación, la app reproduce. La auto‑reanudación al salir está en engine.ts, no aquí.
 import { sizedArtwork, thumbnail, type Status, type Track } from './types'
 
 interface Controls {

@@ -1,7 +1,7 @@
 // Registro de segundo plano, para averiguar EN EL TELÉFONO por qué se detiene la música al bloquear la pantalla:
 // anota cuándo se oculta o se muestra la página y qué reporta el reproductor en ese momento (y en qué vista).
 // Se guarda solo en este navegador (últimos 80 eventos), se lee en Ayuda y no se envía a ningún lado.
-import { player } from '../player/engine'
+import { AUTO_RESUME_TRIES, player } from '../player/engine'
 import { sheetState, youtubeView } from '../player/stage'
 import type { Status } from '../player/types'
 import { playerHost } from '../player/youtube'
@@ -64,6 +64,7 @@ export function startDiagnostics() {
   window.addEventListener('pagehide', () => log('El navegador guardó la página (pagehide)'))
   document.addEventListener('freeze', () => log('El navegador congeló la página'))
   document.addEventListener('resume', () => log('El navegador reanudó la página'))
+  player.onAutoResume((attempt) => log(`Auto‑reanudación: intento ${attempt} de ${AUTO_RESUME_TRIES} (▶ al reproductor de YouTube)`))
   let last = player.getSnapshot().status
   player.subscribe(() => {
     const { status } = player.getSnapshot()

@@ -217,6 +217,12 @@ export function Help() {
             pantalla apagada es una función de YouTube Premium), no SoundBlue.
           </li>
           <li>
+            <B>Auto‑reanudación (experimental):</B> si la canción sonaba y no la pausaste tú, SoundBlue le pide ▶ al reproductor de
+            YouTube un segundo después de que se pause, y lo reintenta hasta 3 veces. Si pausas con ⏸ en la app, lo respeta siempre;
+            con ⏸ en la notificación, lo respeta si no hubo un intento en los últimos 15 s. YouTube puede bloquearlo en cualquier
+            momento: en «Diagnóstico de segundo plano» verás cada intento y si volvió a sonar.
+          </li>
+          <li>
             Con Brave, los dos filtros y el reproductor desde youtube.com: abre las notificaciones y pulsa <B>▶</B>. La música vuelve
             y sigue sonando con la pantalla apagada (comprobado en un Android 10). Si se vuelve a pausar, pulsa ▶ otra vez.
           </li>

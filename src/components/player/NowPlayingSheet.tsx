@@ -200,9 +200,8 @@ export function NowPlayingSheet() {
 }
 
 /**
- * Aviso de segundo plano (alto fijo de dos líneas, para que nada salte). Depende de dónde carga el reproductor:
- * desde youtube.com, en Brave con los filtros de la comunidad, el ▶ de la notificación lo reanuda al salir; desde
- * nocookie, no.
+ * Aviso de segundo plano (alto fijo de dos líneas, para que nada salte). Al salir, la app intenta reanudar sola lo que
+ * YouTube pausó (experimental); si no lo logra, queda el ▶ de la notificación (Brave con los filtros, desde youtube.com).
  */
 function BackgroundNotice({ fade }: { fade: string }) {
   const [host] = useState(playerHost.get) // cambiarlo recarga la app
@@ -226,7 +225,7 @@ function BackgroundNotice({ fade }: { fade: string }) {
   return (
     <p className={`mx-6 mt-3 line-clamp-2 h-7 text-center text-[11px] leading-[14px] text-white/55 ${fade}`}>
       {host === 'youtube' ? (
-        <>Al salir, YouTube se pausa: pulsa ▶ en la notificación y sigue sonando (Brave con los filtros de la {help}).</>
+        <>Al salir, YouTube se pausa: la app intenta reanudarla sola y, si no lo logra, pulsa ▶ en la notificación ({help}).</>
       ) : (
         <>
           Segundo plano: con el reproductor «más privado», YouTube se pausa al salir. Para que siga sonando, mira la {help}.

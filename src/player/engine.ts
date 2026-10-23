@@ -66,6 +66,15 @@ const HISTORY_LIMIT = 50
 const UNAVAILABLE = new Set([100, 101, 150]) // borrado/privado o el dueño no permite incrustarlo
 const ONLY_IN_YTM = 'Esta canción solo se puede escuchar en la app de YouTube Music.'
 
+// Auto‑reanudación (experimental): YouTube pausa su reproductor en el mismo segundo en que la página se oculta.
+export const AUTO_RESUME_TRIES = 3 // intentos por canción cada vez que sales de la app
+const AUTO_RESUME_FIRST_MS = 1000 // primer ▶ a 1 s de la pausa
+const AUTO_RESUME_RETRY_MS = 3000 // si no arrancó, otro ▶ a los 3 s
+// Solo se reanuda una pausa que llega justo después de salir o de un intento: una pausa más tarde puede ser tuya
+// (⏸ en la notificación de YouTube, que no pasa por la app) y esa se respeta.
+const EXIT_PAUSE_WINDOW_MS = 3000
+const RETRY_PAUSE_WINDOW_MS = 15000 // en el teléfono, YouTube volvió a pausar ~10 s después de reanudar
+
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
 const range = (n: number) => Array.from({ length: n }, (_, i) => i)
 
@@ -115,6 +124,12 @@ export class PlayerEngine {
   // Para distinguir la pausa de YouTube al salir de la app (se ofrece «Reanudar») de la que pide el usuario.
   private userPaused = false
   private pausedOnExit = false
+  private resumeTimer: number | undefined
+  private resumeTries = 0
+  private hiddenAt = 0
+  private lastTryAt = 0
+  private playedSinceTry = false // volvió a sonar tras el último intento (una pausa nueva se reintenta a 1 s)
+  private resumeListeners = new Set<(attempt: number) => void>()
   private lastSave = 0
   private listeners = new Set<() => void>()
   private snapshot: PlayerSnapshot
@@ -129,6 +144,16 @@ export class PlayerEngine {
     this.snapshot = this.buildSnapshot()
     setupMediaSession(this)
     window.addEventListener('pagehide', () => this.saveNow())
+    // Al salir se anota la hora (para reconocer la pausa de YouTube); al volver se cancelan los intentos pendientes.
+    document.addEventListener('visibilitychange', () => {
+      this.cancelAutoResume()
+      if (document.visibilityState === 'hidden') this.hiddenAt = Date.now()
+    })
+  }
+
+  /** Para el registro de diagnóstico: avisa cada intento de auto‑reanudación (1, 2, 3). */
+  onAutoResume(listener: (attempt: number) => void) {
+    this.resumeListeners.add(listener)
   }
 
   // ---- Suscripción para React (useSyncExternalStore) ----
@@ -441,6 +466,7 @@ export class PlayerEngine {
     if (!track) return
     this.status = autoplay ? 'loading' : 'paused'
     this.userPaused = this.pausedOnExit = false
+    this.cancelAutoResume() // cada canción tiene sus propios intentos
     this.error = null
     this.time = start
     this.startedId = this.countedId = null
@@ -467,12 +493,12 @@ export class PlayerEngine {
       this.error = 'No se pudo cargar el reproductor. Revisa tu conexión.'
       this.emit()
     })
-    // A veces el reproductor de YouTube se queda sin arrancar aunque se pidió reproducir: a los 5 s, si sigue igual y la
-    // app está a la vista, se le repite la orden una vez (lo mismo que tocar ▶). Nunca reanuda algo que YouTube pausó.
+    // A veces el reproductor de YouTube se queda sin arrancar aunque se pidió reproducir: a los 5 s, si sigue igual, se le
+    // repite la orden una vez (lo mismo que tocar ▶). También con la página oculta: así sigue la siguiente canción.
     window.clearTimeout(this.startTimer)
     if (autoplay) {
       this.startTimer = window.setTimeout(() => {
-        if (this.current === track && this.status === 'loading' && document.visibilityState === 'visible') this.backend.play()
+        if (this.current === track && this.status === 'loading') this.backend.play()
       }, 5000)
     }
   }
@@ -482,6 +508,7 @@ export class PlayerEngine {
       case 'playing':
         this.status = 'playing'
         this.userPaused = this.pausedOnExit = false
+        this.playedSinceTry = true
         this.failures = 0
         this.syncTime()
         this.startTicker()
@@ -492,8 +519,14 @@ export class PlayerEngine {
         break
       case 'paused':
       case 'cued':
-        // Sonaba, la página está oculta y no la pausaste tú: la pausó YouTube al salir. Solo se anota; la app no la reanuda.
-        if (document.visibilityState === 'hidden' && !this.userPaused && (this.status === 'playing' || this.status === 'buffering')) this.pausedOnExit = true
+        // Sonaba (o iba a sonar), la página está oculta y no la pausaste tú: la pausó YouTube al salir. Se anota (al volver
+        // se ofrece «Reanudar») y, si la pausa llegó justo al salir o tras un intento, se le pide ▶ otra vez.
+        if (document.visibilityState === 'hidden' && !this.userPaused && (this.status === 'playing' || this.status === 'buffering' || this.status === 'loading')) {
+          const now = Date.now()
+          const byYouTube = this.status === 'loading' || now - this.hiddenAt <= EXIT_PAUSE_WINDOW_MS || now - this.lastTryAt <= RETRY_PAUSE_WINDOW_MS
+          this.pausedOnExit = true
+          if (byYouTube) this.scheduleAutoResume(this.resumeTries === 0 || this.playedSinceTry ? AUTO_RESUME_FIRST_MS : AUTO_RESUME_RETRY_MS)
+        }
         this.status = 'paused'
         this.syncTime()
         this.stopTicker()
@@ -511,6 +544,30 @@ export class PlayerEngine {
     updatePlaybackState(this.status)
     updatePosition(this.duration, this.time)
     this.changed()
+  }
+
+  /**
+   * Auto‑reanudación (experimental): a 1 s de la pausa de YouTube se le pide ▶ (playVideo). Si a los 3 s sigue sin
+   * sonar, otro intento, hasta 3. Se detiene si vuelves a la app, si la pausas tú o si empieza a sonar.
+   * YouTube puede bloquearlo en cualquier momento: no está garantizado.
+   */
+  private scheduleAutoResume(delay: number) {
+    window.clearTimeout(this.resumeTimer)
+    if (this.resumeTries >= AUTO_RESUME_TRIES) return
+    this.resumeTimer = window.setTimeout(() => {
+      if (document.visibilityState !== 'hidden' || this.userPaused || !this.pausedOnExit) return
+      this.resumeTries++
+      this.lastTryAt = Date.now()
+      this.playedSinceTry = false
+      this.resumeListeners.forEach((listener) => listener(this.resumeTries))
+      this.backend.play()
+      this.scheduleAutoResume(AUTO_RESUME_RETRY_MS) // revisa a los 3 s; si ya suena, pausedOnExit es false y no hace nada
+    }, delay)
+  }
+
+  private cancelAutoResume() {
+    window.clearTimeout(this.resumeTimer)
+    this.resumeTries = 0
   }
 
   /** Suma una reproducción al historial (a los 30 s o al terminar), una vez por canción cargada. */

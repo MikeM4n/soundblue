@@ -1,5 +1,5 @@
 // Al volver a SoundBlue después de que YouTube pausó la música al salir: un aviso con «▶ Reanudar», por si la
-// notificación de Android no apareció. Lo pulsa el usuario; la app nunca reanuda sola.
+// auto‑reanudación no lo logró y la notificación de Android no apareció.
 import { useEffect } from 'react'
 import { showToast } from '../ui/toast'
 import { player } from './engine'

@@ -10,8 +10,8 @@ function PlaybackInfo() {
       <h2 id="segundo-plano" className="font-bold">Escuchar con la pantalla apagada</h2>
       <p className="mt-2 text-texto-sec">
         Las canciones suenan en el reproductor oficial de YouTube. Dentro de SoundBlue siguen sonando al minimizar «Sonando
-        ahora». Al salir de la app, YouTube se pausa; en Brave con dos filtros de su comunidad, el ▶ de la notificación la reanuda
-        y sigue con la pantalla apagada (así funcionó en un Android 10). No está garantizado.
+        ahora». Al salir de la app, YouTube se pausa y SoundBlue intenta reanudarla sola (experimental); si no lo logra, en Brave
+        con dos filtros de su comunidad, el ▶ de la notificación la reanuda (así funcionó en un Android 10). No está garantizado.
       </p>
       <Link to="/ayuda" className="mt-3 inline-flex items-center gap-1 font-semibold text-acento-texto hover:underline">
         Cómo dejar Brave listo (segundo plano y anuncios)
