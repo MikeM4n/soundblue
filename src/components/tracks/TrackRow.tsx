@@ -18,16 +18,19 @@ export interface TrackRowProps {
   removeAction?: RemoveAction // deslizar a la derecha / «Eliminar de…»; sin esto, a la derecha no pasa nada
   trailing?: ReactNode // p. ej. el asa para reordenar en la cola
   style?: CSSProperties
+  // Solo ▶ (Inicio): sin deslizar para agregar o quitar de la cola y sin menú «⋮». Así un carrusel que se desliza de
+  // lado no agrega canciones a la cola sin querer.
+  plain?: boolean
 }
 
 /**
  * Fila de canción como en Spotify: portada pequeña, título, artista y menú «⋮».
  * En el celular: deslizar a la izquierda la agrega a siguientes; a la derecha la elimina de esta lista.
  */
-export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, duration, removeAction, trailing, style }: TrackRowProps) {
+export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, duration, removeAction, trailing, style, plain = false }: TrackRowProps) {
   const swipe = useSwipe({
-    onLeft: () => addToSiguientes(track),
-    onRight: removeAction ? () => removeWithUndo(removeAction) : undefined,
+    onLeft: plain ? undefined : () => addToSiguientes(track),
+    onRight: !plain && removeAction ? () => removeWithUndo(removeAction) : undefined,
   })
   const shownDuration = duration ?? track.duration
   // YouTube no deja reproducirla fuera de sus apps: se avisa antes de tocarla (al tocarla se ofrece abrirla allá).
@@ -52,7 +55,7 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
       <div
         ref={swipe.ref}
         {...swipe.handlers}
-        className="group relative flex h-16 touch-pan-y items-center gap-3 bg-panel pr-1 pl-2 select-none hover:bg-tarjeta md:pl-4"
+        className={`group relative flex h-16 items-center gap-3 bg-panel pl-2 select-none hover:bg-tarjeta md:pl-4 ${plain ? 'pr-3' : 'touch-pan-y pr-1'}`}
         style={{ transform: `translateX(${swipe.dx}px)`, transition: swipe.active ? 'none' : 'transform 200ms ease-out' }}
       >
         {position !== undefined && (
@@ -79,7 +82,7 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
           </span>
         </button>
         {shownDuration ? <span className="hidden w-12 shrink-0 text-right text-sm text-texto-sec tabular-nums md:block">{formatDuration(shownDuration)}</span> : null}
-        <TrackMenu track={track} removeAction={removeAction} />
+        {!plain && <TrackMenu track={track} removeAction={removeAction} />}
         {trailing}
       </div>
     </li>

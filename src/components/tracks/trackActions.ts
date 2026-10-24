@@ -21,7 +21,7 @@ export function addToSiguientes(track: Track) {
 /** Al principio de la cola: suena justo después de la actual. */
 export function playNext(track: Track) {
   const result = player.playNext(track)
-  showToast(result === 'lista' ? 'Lista para sonar: toca ▶ para escucharla' : 'Sonará a continuación')
+  showToast(result === 'repetida' ? 'Ya está sonando' : result === 'lista' ? 'Lista para sonar: toca ▶ para escucharla' : 'Sonará a continuación')
 }
 
 export function removeFromQueue(track: Track) {

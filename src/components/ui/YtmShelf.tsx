@@ -23,12 +23,22 @@ export function YtmCardRow({ cards }: { cards: readonly YtmCard[] }) {
   )
 }
 
-/** Estante de YouTube Music: sus canciones en lista y sus tarjetas en fila. */
-export function YtmShelf({ section, onPlay, maxTracks = 10 }: { section: YtmSection; onPlay: (tracks: Track[], index: number) => void; maxTracks?: number }) {
+/** Estante de YouTube Music: sus canciones en lista y sus tarjetas en fila. `plain`: solo ▶ (Inicio; ver TrackRow). */
+export function YtmShelf({
+  section,
+  onPlay,
+  maxTracks = 10,
+  plain = false,
+}: {
+  section: YtmSection
+  onPlay: (tracks: Track[], index: number) => void
+  maxTracks?: number
+  plain?: boolean
+}) {
   const tracks = section.tracks.slice(0, maxTracks)
   return (
     <Section title={section.title}>
-      {tracks.length > 0 && <TrackList tracks={tracks} numbered={false} onPlay={(i) => onPlay(section.tracks, i)} />}
+      {tracks.length > 0 && <TrackList tracks={tracks} numbered={false} plain={plain} onPlay={(i) => onPlay(section.tracks, i)} />}
       {section.cards.length > 0 && <YtmCardRow cards={section.cards} />}
     </Section>
   )

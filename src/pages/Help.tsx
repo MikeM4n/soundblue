@@ -5,6 +5,7 @@ import { readRadioDiagnostics } from '../data/radio'
 import { readUsage } from '../lib/apiUsage'
 import { copyText } from '../lib/clipboard'
 import { clearDiagnostics, formatEvent, markTest, readDiagnostics } from '../lib/diagnostics'
+import { clearDuplicateLog, readDuplicateLog } from '../lib/duplicateLog'
 import { TAB_SWITCHER_TIP } from '../lib/tabSwitcherTip'
 import { BRAVE_LINKS } from '../lib/platform'
 import { playerHost, type PlayerHost } from '../player/youtube'
@@ -311,18 +312,21 @@ const hoursAgo = (at: number) => {
 
 /**
  * Diagnóstico de las recomendaciones: cuánto se le pidió hoy a YouTube (YouTube Music no tiene cuota; la Data API sí:
- * 10 000 unidades al día), qué artistas tienen sus canciones top guardadas (se renuevan cada 24 h) y la última radio:
- * época detectada, cuántas descartó y por qué, y las últimas 10 que generó con su motivo.
+ * 10 000 unidades al día), qué artistas tienen sus canciones top guardadas (se renuevan cada 24 h), la última radio
+ * (época detectada, cuántas descartó y por qué, y las últimas 10 que generó con su motivo) y las canciones que no
+ * entraron a la cola por estar repetidas.
  */
 function RecommendationsSection() {
   const [usage, setUsage] = useState(readUsage)
   const [saved, setSaved] = useState(readTopCache)
   const [radio, setRadio] = useState(readRadioDiagnostics)
+  const [duplicates, setDuplicates] = useState(readDuplicateLog)
   const entries = Object.entries(saved).sort(([, a], [, b]) => b.at - a.at)
   const refresh = () => {
     setUsage(readUsage())
     setSaved(readTopCache())
     setRadio(readRadioDiagnostics())
+    setDuplicates(readDuplicateLog())
   }
   return (
     <Section id="ayuda-recomendaciones" title="Diagnóstico de recomendaciones">
@@ -346,7 +350,7 @@ function RecommendationsSection() {
           ))}
         </ul>
       )}
-      <p>Última radio (al reproducir desde Buscar o con «Iniciar radio»):</p>
+      <p>Última radio (Buscar, «Iniciar radio», «Tus artistas» o la cola infinita al acabarse una lista):</p>
       {!radio ? (
         <p>Todavía ninguna.</p>
       ) : (
@@ -374,9 +378,35 @@ function RecommendationsSection() {
           </ol>
         </div>
       )}
+      <p>Canciones descartadas por duplicado (mismo video; las últimas {duplicates.length}, la más reciente primero):</p>
+      {duplicates.length === 0 ? (
+        <p>Ninguna todavía.</p>
+      ) : (
+        <ol className="space-y-0.5 rounded-md bg-black/30 p-3 text-sm">
+          {duplicates
+            .slice()
+            .reverse()
+            .map((entry, i) => (
+              <li key={`${entry.at}-${i}`}>
+                <span className="tabular-nums">{new Date(entry.at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}</span> ·{' '}
+                {entry.title} · {entry.artist} — <span className="text-texto-sec">{entry.where}</span>
+              </li>
+            ))}
+        </ol>
+      )}
       <div className="flex flex-wrap gap-2 pt-1">
         <button type="button" onClick={refresh} className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-white/15">
           Actualizar
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            clearDuplicateLog()
+            refresh()
+          }}
+          className="rounded-full px-4 py-1.5 text-sm font-semibold text-texto-sec hover:text-texto"
+        >
+          Borrar registro de duplicados
         </button>
         <button
           type="button"

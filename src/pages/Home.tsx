@@ -13,8 +13,9 @@ import { YtmCardRow, YtmShelf } from '../components/ui/YtmShelf'
 import { catalog, TEST_LIST_NAME, testList } from '../data/catalog'
 import { computeForYou, type ForYou } from '../data/forYou'
 import { listening } from '../data/history'
+import { createRadio } from '../data/radio'
 import { readTastes } from '../data/tastes'
-import { ytmHome, type YtmSection } from '../data/ytmusic'
+import { ytmHome, type YtmCard, type YtmSection } from '../data/ytmusic'
 import { library } from '../library/store'
 import { greeting } from '../lib/format'
 import { player } from '../player/engine'
@@ -64,10 +65,16 @@ export function Home() {
 
   if (!tastes) return <Navigate to="/gustos" replace />
 
-  // Tocar una canción abre «Sonando ahora» y la reproduce (en ese orden: así el video aparece ya en su sitio).
+  // Tocar una canción abre «Sonando ahora» y la reproduce (en ese orden: así el video aparece ya en su sitio). En
+  // Inicio lo que tocas reemplaza la cola: nada se agrega a la cola sin que lo pidas (eso es en Buscar y en la cola).
   const play = (name: string, tracks: readonly Track[], index = 0) => {
     open()
-    player.playContext(name, tracks, index)
+    player.playContext(name, tracks, index, { replaceQueue: true })
+  }
+  // «Tus artistas»: la canción y su radio (como mucho 1 de cada 5 del mismo artista; el resto, su género).
+  const playArtist = (artist: YtmCard, track: Track) => {
+    open()
+    player.playRadio(`Radio de ${artist.title}`, track, createRadio(track), { replaceQueue: true })
   }
 
   return (
@@ -108,7 +115,7 @@ export function Home() {
           <p className="mt-8 px-4 text-xs font-semibold tracking-wider text-texto-sec uppercase md:px-6">Para ti · sugerencias</p>
           {mine.artists.length > 0 && (
             <Section title="Tus artistas">
-              <ArtistTopSongsRow artists={mine.artists} onPlay={play} />
+              <ArtistTopSongsRow artists={mine.artists} onPlay={playArtist} />
             </Section>
           )}
           {mine.shelves.map((shelf) => (
@@ -137,7 +144,7 @@ export function Home() {
       )}
 
       {ytm === null && <p className="mt-8 px-4 text-sm text-texto-sec md:px-6">Cargando YouTube Music…</p>}
-      {Array.isArray(ytm) && ytm.map((section) => <YtmShelf key={section.title} section={section} onPlay={(tracks, i) => play(section.title, tracks, i)} />)}
+      {Array.isArray(ytm) && ytm.map((section) => <YtmShelf key={section.title} section={section} plain onPlay={(tracks, i) => play(section.title, tracks, i)} />)}
 
       {ytmFailed && (
         <Section title={TEST_LIST_NAME}>
@@ -145,7 +152,7 @@ export function Home() {
             <PlayButton label={`Reproducir ${TEST_LIST_NAME}`} onClick={() => play(TEST_LIST_NAME, testList)} />
             <p className="text-sm text-texto-sec">No se pudo conectar con YouTube Music; mientras tanto, canciones de prueba.</p>
           </div>
-          <TrackList tracks={testList} onPlay={(i) => play(TEST_LIST_NAME, testList, i)} />
+          <TrackList tracks={testList} plain onPlay={(i) => play(TEST_LIST_NAME, testList, i)} />
         </Section>
       )}
 

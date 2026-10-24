@@ -9,11 +9,14 @@ import { TrackList } from './TrackList'
 
 const MAX_ARTISTS = 8
 
+type OnPlay = (artist: YtmCard, track: Track) => void
+
 /**
  * «Tus artistas»: por cada artista, su nombre como cabecera (con una foto pequeña; abre su página) y sus canciones más
- * conocidas, cada una con carátula, título y ▶. Los artistas van en una fila que se desliza de lado.
+ * conocidas, cada una con carátula, título y ▶ (solo ▶: sin gestos ni menú de cola). Los artistas van en una fila que
+ * se desliza de lado.
  */
-export function ArtistTopSongsRow({ artists, onPlay }: { artists: readonly YtmCard[]; onPlay: (name: string, tracks: Track[], index: number) => void }) {
+export function ArtistTopSongsRow({ artists, onPlay }: { artists: readonly YtmCard[]; onPlay: OnPlay }) {
   return (
     <div className="sin-scroll flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 md:px-6">
       {artists.slice(0, MAX_ARTISTS).map((artist) => (
@@ -23,7 +26,7 @@ export function ArtistTopSongsRow({ artists, onPlay }: { artists: readonly YtmCa
   )
 }
 
-function ArtistTopSongs({ artist, onPlay }: { artist: YtmCard; onPlay: (name: string, tracks: Track[], index: number) => void }) {
+function ArtistTopSongs({ artist, onPlay }: { artist: YtmCard; onPlay: OnPlay }) {
   const [top, setTop] = useState<ArtistTop | null>(null)
   const { id, title } = artist
 
@@ -36,7 +39,6 @@ function ArtistTopSongs({ artist, onPlay }: { artist: YtmCard; onPlay: (name: st
     // Solo cuando cambia el artista (la tarjeta llega como objeto nuevo en cada cálculo de «Para ti»).
   }, [id, title])
 
-  const context = `Lo más escuchado de ${title}`
   return (
     <article aria-label={title} className="w-[85%] max-w-sm shrink-0 snap-start rounded-lg bg-tarjeta/60 py-3 md:w-96">
       <Link to={`/ytm/${encodeURIComponent(id)}`} className="flex items-center gap-3 px-4 hover:underline">
@@ -45,7 +47,7 @@ function ArtistTopSongs({ artist, onPlay }: { artist: YtmCard; onPlay: (name: st
         <ChevronRight className="size-5 shrink-0 text-texto-sec" aria-hidden="true" />
       </Link>
       {top === null && <p className="px-4 pt-3 text-sm text-texto-sec">Cargando sus canciones…</p>}
-      {top && top.tracks.length > 0 && <TrackList tracks={top.tracks} numbered={false} onPlay={(i) => onPlay(context, top.tracks, i)} />}
+      {top && top.tracks.length > 0 && <TrackList tracks={top.tracks} numbered={false} plain onPlay={(i) => onPlay(artist, top.tracks[i])} />}
       {top?.notice && <p className="px-4 pt-2 text-xs text-texto-sec">{top.notice}</p>}
     </article>
   )

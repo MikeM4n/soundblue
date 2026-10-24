@@ -3,6 +3,8 @@
 // - «Siguiente de: …»: el resto de la lista, álbum o búsqueda desde donde diste play.
 // Usa el reproductor oficial de YouTube y recuerda la sesión.
 import { listening } from '../data/history'
+import { createRadio } from '../data/radio'
+import { logDuplicate } from '../lib/duplicateLog'
 import { ytmAlternatives } from '../data/ytmusic'
 import { isLocalNetworkAddress } from '../lib/platform'
 import { openInYouTubeMusic } from '../lib/youtubeMusicLink'
@@ -59,6 +61,14 @@ interface Step {
   track: Track
   fromQueue: boolean
   pos: number
+}
+
+/** De dónde saca la radio las siguientes `count` canciones, sin ninguna de `exclude` (ver data/radio.ts). */
+export type RadioSource = (count: number, exclude: ReadonlySet<string>) => Promise<Track[]>
+
+/** `replaceQueue`: lo que tocas reemplaza tu cola (Inicio). */
+export interface PlayOptions {
+  replaceQueue?: boolean
 }
 
 const HISTORY_LIMIT = 50
@@ -143,8 +153,8 @@ export class PlayerEngine {
   private resumeMuted = false // un intento silenció el reproductor: el volumen vuelve a los 0,8 s o al volver a la app
   private unmuteTimer: number | undefined
   private resumeOnStart = false // al cerrar la app sonaba (no la pausaste tú): al abrirla vuelve a sonar sola
-  private radioMore: ((count: number) => Promise<Track[]>) | null = null // la lista actual es una radio (playRadio)
-  private radioLoading = false
+  private radioMore: RadioSource | null = null // la lista actual es una radio (playRadio o la cola infinita)
+  private radioLoading: { context: Context; more: RadioSource; done: Promise<void> } | null = null // pedido en curso
   private resumeListeners = new Set<(event: AutoResumeEvent, detail: string) => void>()
   private lastSave = 0
   private listeners = new Set<() => void>()
@@ -241,45 +251,93 @@ export class PlayerEngine {
 
   // ---- Reproducir listas ----
 
-  /** Reproduce una lista (álbum, playlist, búsqueda…) desde `start`. La cola propia se conserva, como en Spotify. */
-  playContext(name: string, tracks: readonly Track[], start = 0) {
+  /**
+   * Reproduce una lista (álbum, playlist, búsqueda…) desde `start`. Tu cola se conserva, como en Spotify, salvo con
+   * `replaceQueue` (Inicio: lo que tocas reemplaza la cola). Sin repetidas (mismo videoId): cada canción de la lista
+   * va una sola vez y no entra la que ya esté en tu cola; la que tocaste sale de tu cola porque suena ya.
+   */
+  playContext(name: string, tracks: readonly Track[], start = 0, options: PlayOptions = {}) {
+    this.startContext(name, tracks, start, options, null)
+  }
+
+  /**
+   * Radio (data/radio.ts): suena `seed` y su lista se va llenando de a 5 con lo que dé `more`, cuando quedan 2 por sonar
+   * (no se piden 50 de golpe). Nunca entra una canción que ya esté en la lista o en tu cola.
+   */
+  playRadio(name: string, seed: Track, more: RadioSource, options: PlayOptions = {}) {
+    this.startContext(name, [seed], 0, options, more)
+  }
+
+  // `radio`: la lista es una radio; se pone antes de sonar para que la primera tanda la pida ella y no la cola infinita.
+  private startContext(name: string, tracks: readonly Track[], start: number, { replaceQueue = false }: PlayOptions, radio: RadioSource | null) {
     if (!tracks.length) return
-    this.radioMore = null // una lista nueva deja de ser radio (playRadio la vuelve a poner)
-    const first = clamp(start, 0, tracks.length - 1)
-    this.context = { name, tracks: [...tracks] }
+    this.radioMore = radio
+    const chosen = tracks[clamp(start, 0, tracks.length - 1)]
+    this.queue = replaceQueue ? [] : this.queue.filter((track) => track.id !== chosen.id)
+    const queued = new Set(this.queue.map((track) => track.id))
+    const seen = new Set<string>()
+    const list = tracks.filter((track) => {
+      const where = seen.has(track.id) ? 'repetida en la lista' : queued.has(track.id) ? 'ya estaba en tu cola' : null
+      if (where) {
+        logDuplicate(track, where)
+        return false
+      }
+      seen.add(track.id)
+      return true
+    })
+    const first = list.findIndex((track) => track.id === chosen.id)
+    this.context = { name, tracks: list }
     this.history = [] // «anterior» se mueve dentro de la nueva lista
     if (this.shuffle) {
-      this.order = [first, ...shuffled(range(tracks.length).filter((i) => i !== first))]
+      this.order = [first, ...shuffled(range(list.length).filter((i) => i !== first))]
       this.pos = 0
     } else {
-      this.order = range(tracks.length)
+      this.order = range(list.length)
       this.pos = first
     }
     this.playTrack(this.contextTrack(this.pos), false)
   }
 
   /**
-   * Radio (data/radio.ts): suena `seed` y su lista se va llenando de a 5 con lo que dé `more`, cuando quedan 2 por sonar
-   * (no se piden 50 de golpe). Nunca entra una canción que ya esté en la lista.
+   * Cuando quedan 2 o menos por sonar (tu cola + la lista): si la lista es una radio, 5 más; si es una lista normal
+   * (recomendada o tuya), la cola infinita: sigue con la radio de su última canción (mismo género y época), así la
+   * música no se detiene. Con «repetir» activado no se agrega nada (la lista vuelve a empezar).
    */
-  playRadio(name: string, seed: Track, more: (count: number) => Promise<Track[]>) {
-    this.playContext(name, [seed], 0)
-    this.radioMore = more
-    void this.extendRadio()
+  private extendRadio(): Promise<void> {
+    const context = this.context
+    if (!context || this.queue.length + (this.order.length - this.pos - 1) > RADIO_LOW_WATER) return Promise.resolve()
+    const loading = this.radioLoading
+    // Ya se está pidiendo para esta lista: se espera ese pedido (uno de otra lista se descarta solo al llegar).
+    if (loading && loading.context === context && loading.more === this.radioMore) return loading.done
+    if (!this.radioMore) {
+      const last = context.tracks[this.order[this.order.length - 1]]
+      if (this.repeat !== 'off' || !last) return Promise.resolve()
+      this.radioMore = createRadio(last)
+    }
+    const request = { context, more: this.radioMore, done: Promise.resolve() }
+    request.done = this.fetchRadio(context, this.radioMore).finally(() => {
+      if (this.radioLoading === request) this.radioLoading = null
+    })
+    this.radioLoading = request
+    return request.done
   }
 
-  private async extendRadio() {
-    const more = this.radioMore
-    const context = this.context
-    if (!more || !context || this.radioLoading || this.order.length - this.pos - 1 > RADIO_LOW_WATER) return
-    this.radioLoading = true
+  private async fetchRadio(context: Context, more: RadioSource) {
     try {
-      const fresh = await more(RADIO_BATCH)
+      const inUse = () => new Set([...context.tracks, ...this.queue].map((track) => track.id))
+      const fresh = await more(RADIO_BATCH, inUse())
       if (this.context !== context || this.radioMore !== more) return // mientras tanto pusiste otra lista
-      const have = new Set(context.tracks.map((track) => track.id))
-      const added = fresh.filter((track) => !have.has(track.id) && !!have.add(track.id))
+      const have = inUse()
+      const added = fresh.filter((track) => {
+        if (have.has(track.id)) {
+          logDuplicate(track, 'radio')
+          return false
+        }
+        have.add(track.id)
+        return true
+      })
       if (!added.length) {
-        this.radioMore = null // la radio no tiene más que cumplan sus reglas: termina aquí
+        this.radioMore = null // esta radio no tiene más que cumplan sus reglas (con la próxima canción se arma otra)
         return
       }
       const start = context.tracks.length
@@ -288,8 +346,6 @@ export class PlayerEngine {
       this.changed()
     } catch {
       /* sin conexión: se intenta otra vez con la siguiente canción */
-    } finally {
-      this.radioLoading = false
     }
   }
 
@@ -379,24 +435,33 @@ export class PlayerEngine {
 
   // ---- Tu cola («Siguiente en la cola») ----
 
-  /** Agrega al final de tu cola. Si no suena nada, queda lista en pausa (no empieza a sonar sola). */
+  /**
+   * Agrega al final de tu cola. Si no suena nada, queda lista en pausa (no empieza a sonar sola). Si ya está sonando, en
+   * tu cola o en lo que sigue de la lista, no se agrega otra vez.
+   */
   addToQueue(track: Track): QueueResult {
     if (!this.current) {
       this.prepareTrack(track)
       return 'lista'
     }
-    if (this.queue.some((t) => t.id === track.id)) return 'repetida'
+    if (this.current.id === track.id || this.isQueued(track.id)) {
+      logDuplicate(track, 'agregar a la cola')
+      return 'repetida'
+    }
     this.queue.push(track)
     this.changed()
     return 'agregada'
   }
 
-  /** Pone la canción al principio de tu cola: suena justo después de la actual. */
+  /** Pone la canción al principio de tu cola: suena justo después de la actual (si ya venía más adelante, se mueve). */
   playNext(track: Track): QueueResult {
     if (!this.current) {
       this.prepareTrack(track)
       return 'lista'
     }
+    if (this.current.id === track.id) return 'repetida'
+    const inUpcoming = this.upcomingIndexes().findIndex((i) => this.context!.tracks[i].id === track.id)
+    if (inUpcoming >= 0) this.order.splice(this.pos + 1 + inUpcoming, 1)
     this.queue = [track, ...this.queue.filter((t) => t.id !== track.id)]
     this.changed()
     return 'agregada'
@@ -742,6 +807,11 @@ export class PlayerEngine {
     this.time = this.duration
     updatePlaybackState(this.status)
     this.changed()
+    // Cola infinita: si la última terminó antes de que llegaran las siguientes, se sigue en cuanto lleguen.
+    const ended = this.current
+    void this.extendRadio().then(() => {
+      if (this.status === 'ended' && this.current === ended) this.next()
+    })
   }
 
   private onBackendError(code: number) {

@@ -1,6 +1,7 @@
-// Radio dinámica (al reproducir desde Buscar y en «Iniciar radio»): suena la canción elegida y la cola se va llenando
-// de a 5 con canciones del mismo artista y de otros artistas del mismo género y época. NUNCA a partir del título: eso
-// llenaba la cola de covers y de canciones que solo comparten palabras con el nombre.
+// Radio dinámica (Buscar, «Iniciar radio», «Tus artistas» en Inicio y la cola infinita al acabarse cualquier lista):
+// suena la canción elegida y la cola se va llenando de a 5 con canciones del mismo artista y de otros artistas del mismo
+// género y época. NUNCA a partir del título: eso llenaba la cola de covers y de canciones que solo comparten palabras
+// con el nombre.
 //
 // De dónde salen (sin cuota: YouTube Music vía el intermediario):
 //  - Mismo artista: las suyas que trae la radio y, si la canción no es vieja, sus más conocidas (data/artistTop.ts;
@@ -13,13 +14,14 @@
 // un intérprete distinto (covers); nada que comparta más del 40 % de las palabras del título de la semilla (covers,
 // remix, en vivo); una sola versión de cada título (la más vieja, que suele
 // ser la original); época: año del álbum a ±10 años del de la semilla y, si la semilla es vieja (8 años o más), nada
-// de los últimos 3 años. Mezcla: en cada tanda de 5, como mucho 2 del mismo artista (40 %). Orden al azar con una
-// semilla por sesión. Nunca la misma canción dos veces.
+// de los últimos 3 años. Mezcla: en cada tanda de 5, como mucho 1 del mismo artista (el 80 % de otros artistas). Orden
+// al azar con una semilla por sesión. Nunca la misma canción dos veces, ni una que ya esté en la cola (`exclude`).
+import { logDuplicate } from '../lib/duplicateLog'
 import type { Track } from '../player/types'
 import { artistTopSongs } from './artistTop'
 import { ytmRadioItems, ytmSearchArtists, type RadioItem } from './ytmusic'
 
-const SAME_ARTIST_PER_BATCH = 2 // de cada 5: 40 %
+const SAME_ARTIST_PER_BATCH = 1 // de cada 5: 20 % (el resto, otros artistas del mismo género)
 const ERA_SPAN = 10 // años alrededor del de la semilla
 const OLD_SEED = 8 // años: desde aquí la semilla es «vieja»
 const RECENT = 3 // con una semilla vieja, nada de los últimos 3 años
@@ -143,10 +145,11 @@ function writeRadioDiagnostics(diagnostics: RadioDiagnostics) {
 }
 
 /**
- * Crea la radio de `seed`. Devuelve una función que da las siguientes `count` canciones (el motor la llama de a 5,
- * cuando quedan 2 por sonar). Si ya no hay más que cumplan las reglas, da menos (o ninguna) y la radio termina.
+ * Crea la radio de `seed`. Devuelve una función que da las siguientes `count` canciones sin ninguna de `exclude` (lo
+ * que ya está en la cola); el motor la llama de a 5, cuando quedan 2 por sonar. Si ya no hay más que cumplan las
+ * reglas, da menos (o ninguna) y la radio termina.
  */
-export function createRadio(seed: Track): (count: number) => Promise<Track[]> {
+export function createRadio(seed: Track): (count: number, exclude?: ReadonlySet<string>) => Promise<Track[]> {
   const served = new Set([seed.id])
   const titles = new Set([baseTitle(seed.title)])
   const seedWords = (() => {
@@ -244,20 +247,24 @@ export function createRadio(seed: Track): (count: number) => Promise<Track[]> {
     return others.length > before
   }
 
-  return async (count: number) => {
+  return async (count: number, exclude: ReadonlySet<string> = new Set()) => {
     ready ??= init()
     await ready
     const batch: Candidate[] = []
     let sameInBatch = 0
     while (batch.length < count) {
       if (!others.length && !(await refill()) && !others.length) {
-        // Sin más de otros artistas: solo cabe una del mismo artista si no pasa del 40 % de la tanda.
+        // Sin más de otros artistas: solo cabe una del mismo artista si no pasa del límite de la tanda.
         if (sameInBatch >= SAME_ARTIST_PER_BATCH || !same.length) break
       }
       const room = sameInBatch < SAME_ARTIST_PER_BATCH && same.length > 0
       const takeSame = room && (!others.length || random() < SAME_ARTIST_PER_BATCH / count)
       const pick = (takeSame ? same : others).shift()
       if (!pick) break
+      if (exclude.has(pick.track.id)) {
+        logDuplicate(pick.track, 'radio (ya estaba en la cola)') // se salta y se busca otra
+        continue
+      }
       if (takeSame) sameInBatch++
       else lastOther = pick.track
       batch.push(pick)
