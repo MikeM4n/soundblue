@@ -4,6 +4,7 @@
 // Ojo: no es una API publicada. Puede cambiar sin aviso y usarla va contra los términos de YouTube.
 // El navegador no puede llamarla directamente (CORS), así que pasa por un intermediario: al probar, el propio
 // servidor de Vite (/ytm-api, ver vite.config.ts); publicada, la dirección de VITE_YTM_PROXY.
+import { countYtmRequest } from '../lib/apiUsage'
 import type { Track } from '../player/types'
 
 // Las respuestas de InnerTube son estructuras profundas que cambian a menudo: se leen con «?.» y se descarta lo que no encaje.
@@ -51,6 +52,7 @@ export interface YtmSearchResults {
 }
 
 async function call(endpoint: string, body: object, visitorData?: string): Promise<Json> {
+  countYtmRequest() // para el diagnóstico de Ayuda (YouTube Music no tiene cuota)
   const response = await fetch(`${ENDPOINT}/${endpoint}?prettyPrint=false`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useLocation, useSearchParams } from 'react-router'
+import { clearTopCache, readTopCache } from '../data/artistTop'
+import { readUsage } from '../lib/apiUsage'
 import { copyText } from '../lib/clipboard'
 import { clearDiagnostics, formatEvent, markTest, readDiagnostics } from '../lib/diagnostics'
 import { TAB_SWITCHER_TIP } from '../lib/tabSwitcherTip'
@@ -296,7 +298,67 @@ export function Help() {
       </Section>
 
       <DiagnosticsSection />
+      <RecommendationsSection />
     </div>
+  )
+}
+
+const hoursAgo = (at: number) => {
+  const hours = (Date.now() - at) / 3600_000
+  return hours < 1 ? 'hace menos de 1 h' : `hace ${Math.floor(hours)} h`
+}
+
+/**
+ * Diagnóstico de las recomendaciones: cuánto se le pidió hoy a YouTube (YouTube Music no tiene cuota; la Data API sí:
+ * 10 000 unidades al día) y qué artistas tienen sus canciones top guardadas (se renuevan cada 24 h).
+ */
+function RecommendationsSection() {
+  const [usage, setUsage] = useState(readUsage)
+  const [saved, setSaved] = useState(readTopCache)
+  const entries = Object.entries(saved).sort(([, a], [, b]) => b.at - a.at)
+  const refresh = () => {
+    setUsage(readUsage())
+    setSaved(readTopCache())
+  }
+  return (
+    <Section id="ayuda-recomendaciones" title="Diagnóstico de recomendaciones">
+      <ul className="list-disc space-y-1 pl-5">
+        <li>
+          Consultas a YouTube Music hoy: <B>{usage.ytm}</B> (no tiene cuota).
+        </li>
+        <li>
+          YouTube Data API hoy: <B>{usage.dataApi}</B> de 10 000 unidades (solo se usa si YouTube Music falla).
+        </li>
+      </ul>
+      <p>Artistas con sus canciones top guardadas ({entries.length}; se renuevan cada 24 h):</p>
+      {entries.length === 0 ? (
+        <p>Todavía ninguno.</p>
+      ) : (
+        <ul className="space-y-1 rounded-md bg-black/30 p-3 text-sm">
+          {entries.map(([id, entry]) => (
+            <li key={id}>
+              <B>{entry.name}</B> · {entry.tracks.length} canciones · {hoursAgo(entry.at)} · {entry.source === 'youtube-music' ? 'YouTube Music' : 'YouTube Data API'}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex flex-wrap gap-2 pt-1">
+        <button type="button" onClick={refresh} className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-white/15">
+          Actualizar
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            clearTopCache()
+            refresh()
+            showToast('Canciones guardadas borradas: se vuelven a pedir al abrir Inicio')
+          }}
+          className="rounded-full px-4 py-1.5 text-sm font-semibold text-texto-sec hover:text-texto"
+        >
+          Borrar canciones guardadas
+        </button>
+      </div>
+    </Section>
   )
 }
 

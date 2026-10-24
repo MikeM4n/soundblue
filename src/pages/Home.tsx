@@ -2,6 +2,7 @@ import { Users } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate } from 'react-router'
 import { Logo } from '../components/brand/Logo'
+import { ArtistTopSongsRow } from '../components/tracks/ArtistTopSongs'
 import { TrackList } from '../components/tracks/TrackList'
 import { Cover } from '../components/ui/Cover'
 import { FavoritesCover } from '../components/ui/LibraryItem'
@@ -23,8 +24,8 @@ import { useNowPlaying } from '../player/useNowPlaying'
 const CATALOG_NAME = 'Catálogo de prueba'
 
 /**
- * Inicio: saludo, accesos rápidos, «Para ti» (sugerencias según tus artistas, favoritas e historial; ver
- * data/forYou.ts) y los estantes de YouTube Music (selecciones rápidas, playlists, lanzamientos…). Si YouTube
+ * Inicio: saludo, accesos rápidos, «Para ti» («Tus artistas» con sus canciones más conocidas y sugerencias según tus
+ * artistas, favoritas e historial; ver data/forYou.ts y data/artistTop.ts) y los estantes de YouTube Music (selecciones rápidas, playlists, lanzamientos…). Si YouTube
  * Music no responde, un aviso discreto y la lista de prueba. La primera vez lleva a «¿Qué artistas te gustan?».
  */
 export function Home() {
@@ -107,7 +108,7 @@ export function Home() {
           <p className="mt-8 px-4 text-xs font-semibold tracking-wider text-texto-sec uppercase md:px-6">Para ti · sugerencias</p>
           {mine.artists.length > 0 && (
             <Section title="Tus artistas">
-              <YtmCardRow cards={mine.artists} />
+              <ArtistTopSongsRow artists={mine.artists} onPlay={play} />
             </Section>
           )}
           {mine.shelves.map((shelf) => (

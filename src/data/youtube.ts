@@ -4,6 +4,7 @@
 // van aparte y se muestran tal como los da YouTube.
 // Cuota: cada búsqueda nueva gasta 101 unidades de las 10 000 diarias de la clave (unas 99 búsquedas al
 // día), por eso se guardan las búsquedas recientes.
+import { countDataApiUnits } from '../lib/apiUsage'
 import type { Track } from '../player/types'
 
 const KEY = import.meta.env.VITE_YT_API_KEY?.trim()
@@ -43,6 +44,7 @@ interface ApiVideo {
 }
 
 async function get<T>(path: string, params: Record<string, string>): Promise<T> {
+  countDataApiUnits(path === 'search' ? 100 : 1) // cuota: buscar = 100 unidades; detalles = 1 (diagnóstico de Ayuda)
   const response = await fetch(`${BASE}/${path}?${new URLSearchParams({ ...params, key: KEY ?? '' })}`)
   if (!response.ok) {
     const body = await response.json().catch(() => null)
