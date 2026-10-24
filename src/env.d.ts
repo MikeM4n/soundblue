@@ -8,4 +8,6 @@ interface ImportMetaEnv {
   readonly VITE_YTM_PROXY?: string
   /** API de las Jams en la versión publicada. Al probar se usa /jam-api del servidor de Vite. */
   readonly VITE_JAM_API?: string
+  /** 'true' en la versión de prueba (repositorio soundblue-preview): muestra la marca «PREVIEW». */
+  readonly VITE_PREVIEW?: string
 }

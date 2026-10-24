@@ -18,9 +18,14 @@ const youtubeMusicProxy: Record<string, ProxyOptions> = {
   },
 }
 
+// Preview (repositorio soundblue-preview): otra dirección, otras copias sin conexión y otro nombre, para probar sin tocar
+// la versión publicada. Lo activa el flujo de GitHub según el nombre del repositorio (ver .github/workflows/deploy.yml).
+const PREVIEW = process.env.VITE_PREVIEW === 'true'
+const BASE = process.env.VITE_BASE || '/soundblue/'
+
 // Versión que se ve en el registro de diagnóstico (Ayuda) y en version.json: el commit (GitHub Actions lo da en
 // GITHUB_SHA) y la hora de compilación, para saber con qué versión se hizo cada prueba en el teléfono.
-const APP_VERSION = `${(process.env.GITHUB_SHA ?? 'local').slice(0, 7)} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`
+const APP_VERSION = `${(process.env.GITHUB_SHA ?? 'local').slice(0, 7)} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC${PREVIEW ? ' · preview' : ''}`
 
 /**
  * Completa public/sw.js al compilar: le pasa la lista de archivos generados (con su hash)
@@ -39,22 +44,34 @@ function serviceWorkerPrecache(): Plugin {
     generateBundle(_options, bundle) {
       files = Object.keys(bundle).filter((name) => !name.endsWith('.map') && name !== 'index.html')
     },
+    transformIndexHtml(html) {
+      return PREVIEW ? html.replace('<title>SoundBlue</title>', '<title>SoundBlue Preview</title>') : html
+    },
     closeBundle() {
       const swPath = resolve(outDir, 'sw.js')
       const version = createHash('sha256').update(files.sort().join('|')).digest('hex').slice(0, 10)
+      // Copias propias: la publicada usa «soundblue-…» (y borra las viejas «bluemusic-…»); el preview, «sbpreview-…».
+      // Así ninguna borra las de la otra (viven en el mismo mikem4n.github.io).
       const source = readFileSync(swPath, 'utf8')
         .replace('self.__ARCHIVOS__', JSON.stringify(files.map((name) => `./${name}`)))
+        .replace('__PREFIJO__', PREVIEW ? 'sbpreview' : 'soundblue')
+        .replace('__LIMPIAR__', PREVIEW ? 'sbpreview' : 'soundblue|bluemusic')
         .replace('__VERSION__', version)
       writeFileSync(swPath, source)
       writeFileSync(resolve(outDir, 'version.json'), JSON.stringify({ version: APP_VERSION }) + '\n')
+      if (PREVIEW) {
+        const manifestPath = resolve(outDir, 'manifest.webmanifest')
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+        writeFileSync(manifestPath, JSON.stringify({ ...manifest, name: 'SoundBlue Preview', short_name: 'SB Preview' }, null, 2) + '\n')
+      }
     },
   }
 }
 
 export default defineConfig({
-  // Se publica en https://mikem4n.github.io/soundblue/ (en desarrollo: http://localhost:5173/soundblue/).
-  // Debe coincidir con el nombre del repositorio en GitHub; si no, los archivos dan 404.
-  base: '/soundblue/',
+  // Se publica en https://mikem4n.github.io/soundblue/ (en desarrollo: http://localhost:5173/soundblue/); el preview, en
+  // /soundblue-preview/. Debe coincidir con el nombre del repositorio en GitHub; si no, los archivos dan 404.
+  base: BASE,
   // jamDevServer: las Jams (escuchar en grupo) mientras se prueba; ver server/jamDevServer.ts.
   // diagDevServer: recibe el registro de segundo plano del teléfono en la red local; ver server/diagDevServer.ts.
   plugins: [react(), tailwindcss(), serviceWorkerPrecache(), jamDevServer(), diagDevServer()],

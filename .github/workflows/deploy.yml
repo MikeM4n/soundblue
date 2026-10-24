@@ -35,6 +35,10 @@ jobs:
           # variables → Actions → Variables). Vacías, la app usa el respaldo (la lista de prueba).
           VITE_YTM_PROXY: ${{ vars.VITE_YTM_PROXY }}
           VITE_JAM_API: ${{ vars.VITE_JAM_API }}
+          # Preview: el mismo código, publicado desde el repositorio «soundblue-preview», va en su propia dirección
+          # (/soundblue-preview/), con sus propias copias sin conexión y el nombre «SoundBlue Preview». En «soundblue», igual que siempre.
+          VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_PREVIEW: ${{ github.event.repository.name != 'soundblue' }}
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

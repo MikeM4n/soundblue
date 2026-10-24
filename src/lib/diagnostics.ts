@@ -61,15 +61,16 @@ const STATUS: Record<Status, string> = {
 }
 
 const AUTO_RESUME_LOG: Record<AutoResumeEvent, (detail: string) => string> = {
+  ocultar: (d) => `Página oculta: ${d} (silencio + playVideo())`,
   pausa: (d) => `player.pauseVideo() detectado: ${d}`,
-  temporizador: (d) => `Iniciando temporizador de reanudación (${d})...`,
-  play: (d) => `Ejecutando Mute-Trick (${d}): silencio + playVideo()`,
+  play: (d) => `Mute-Trick, ${d}: silencio + playVideo()`,
+  omitido: (d) => `Sin Mute-Trick, ${d}`,
   resultado: (d) => `Resultado a los 0,8 s del Mute-Trick: ${d}`,
-  exito: (d) => `Reproducción confirmada con la página oculta (${d})`,
+  exito: (d) => `Reproducción confirmada (${d})`,
   volumen: () => 'Volumen devuelto (unMute)',
-  volver: () => 'De vuelta en la app: estaba en pausa por haber salido, ▶ automático',
+  volver: () => 'De vuelta en la app: sonaba al salir, ▶ automático',
   abrir: () => 'App abierta: la última canción sonaba al cerrar, ▶ automático',
-  pagehide: () => 'pagehide: playVideo() como último intento',
+  pagehide: () => 'pagehide: silencio + playVideo() como último intento',
 }
 
 /** Qué suena y cómo se está viendo, para saber qué combinación mantiene el audio. */

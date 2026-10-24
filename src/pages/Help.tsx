@@ -230,9 +230,8 @@ export function Help() {
           </li>
           <li>
             <B>Auto‑reanudación (experimental):</B> si la canción sonaba y no la pausaste tú, SoundBlue le pide ▶ al reproductor de
-            YouTube en cuanto YouTube o Chrome la pausan, otra vez a los 0,5 s y una última a los 1,5 s (en silencio y con el
-            volumen de vuelta a los 0,8 s); nada más. Al salir, la app no toca el sonido. Al volver a la app, si
-            YouTube la había pausado, vuelve a sonar sola; y al abrir la app, si la última canción sonaba cuando la cerraste,
+            YouTube en el instante en que sales (en silencio, con el volumen de vuelta a los 0,8 s) y, si a los 0,5 s o a los
+            1,5 s no está sonando, otra vez; nada más. Al volver a la app, si sonaba al salir, sigue sola; y al abrir la app, si la última canción sonaba cuando la cerraste,
             también (en una pestaña normal el navegador puede pedirte que toques ▶). Si pausas con ⏸ en la app, lo respeta siempre;
             con ⏸ en la notificación, lo respeta si no hubo un intento en los últimos 15 s. YouTube puede bloquearlo en cualquier
             momento: en «Diagnóstico de segundo plano» verás cada intento y si volvió a sonar.
@@ -285,8 +284,8 @@ export function Help() {
         </ul>
         <p>
           Que una canción de YouTube siga con la pantalla bloqueada depende de Brave y de YouTube: es una carrera entre los dos, no un
-          fallo de SoundBlue, y puede funcionar en un teléfono y en otro no. La app nunca pausa por su cuenta: al salir, si
-          YouTube o Chrome la pausan, intenta en el acto que vuelva a sonar; al volver, sigue sola. Al minimizar «Sonando ahora»
+          fallo de SoundBlue, y puede funcionar en un teléfono y en otro no. La app nunca pausa por su cuenta: al salir le pide
+          ▶ en silencio, por si YouTube o Chrome la pausan; al volver, sigue sola. Al minimizar «Sonando ahora»
           no se pausa nunca.
         </p>
         <p>

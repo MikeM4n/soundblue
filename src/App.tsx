@@ -49,6 +49,12 @@ export default function App() {
         </Route>
       </Routes>
       {location.pathname === '/reproduciendo' && <NowPlayingSheet />}
+      {/* Versión de prueba: marca visible para no confundirla con la publicada (debajo del video, que va en z-50). */}
+      {import.meta.env.VITE_PREVIEW === 'true' && (
+        <div aria-hidden="true" className="pointer-events-none fixed top-1 left-1/2 z-40 -translate-x-1/2 rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-black">
+          PREVIEW
+        </div>
+      )}
     </>
   )
 }

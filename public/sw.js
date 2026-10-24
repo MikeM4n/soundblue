@@ -2,7 +2,7 @@
 // La música viene de YouTube y nunca pasa por aquí: otros dominios siempre van a la red.
 // No edites VERSION ni la lista a mano: `npm run build` las completa (ver vite.config.ts).
 
-const VERSION = 'soundblue-__VERSION__';
+const VERSION = '__PREFIJO__-__VERSION__';
 const ARCHIVOS = self.__ARCHIVOS__ || [];
 const SHELL = [
   './',
@@ -24,8 +24,8 @@ self.addEventListener('install', (event) => {
 });
 
 // Al activarse borra las copias viejas: las de versiones anteriores y las del nombre anterior (bluemusic-…).
-// Solo las propias: en usuario.github.io pueden vivir otras apps con sus propias copias.
-const PROPIAS = /^(soundblue|bluemusic)-/;
+// Solo las propias: en usuario.github.io pueden vivir otras apps con sus propias copias (y el preview, «sbpreview-»).
+const PROPIAS = new RegExp('^(__LIMPIAR__)-');
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
