@@ -1,11 +1,11 @@
-import { AudioLines, ListEnd, Trash } from 'lucide-react'
-import { useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { AudioLines, EllipsisVertical, Trash } from 'lucide-react'
+import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { formatDuration } from '../../lib/format'
 import { coverSources, sourceLabel, type Track } from '../../player/types'
 import { onlyInYouTubeMusic } from '../../player/unavailable'
 import { Cover } from '../ui/Cover'
 import { TrackMenu } from './TrackMenu'
-import { addToSiguientes, removeWithUndo, type RemoveAction } from './trackActions'
+import { removeWithUndo, type RemoveAction } from './trackActions'
 import { useSwipe } from './useSwipe'
 
 export interface TrackRowProps {
@@ -18,18 +18,19 @@ export interface TrackRowProps {
   removeAction?: RemoveAction // deslizar a la derecha / «Eliminar de…»; sin esto, a la derecha no pasa nada
   trailing?: ReactNode // p. ej. el asa para reordenar en la cola
   style?: CSSProperties
-  // Solo ▶ (Inicio): sin deslizar para agregar o quitar de la cola y sin menú «⋮». Así un carrusel que se desliza de
-  // lado no agrega canciones a la cola sin querer.
+  // Sin gestos de deslizar (carruseles de Inicio): deslizar de lado mueve el carrusel. Queda el ▶ y el menú «⋮».
   plain?: boolean
 }
 
 /**
- * Fila de canción como en Spotify: portada pequeña, título, artista y menú «⋮».
- * En el celular: deslizar a la izquierda la agrega a siguientes; a la derecha la elimina de esta lista.
+ * Fila de canción como en Spotify: portada pequeña, título, artista y menú «⋮» (Reproducir, Agregar a la cola, Me
+ * gusta…). En el celular: deslizar a la izquierda abre ese menú (nunca agrega nada por sí solo); a la derecha la elimina
+ * de esta lista.
  */
 export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, duration, removeAction, trailing, style, plain = false }: TrackRowProps) {
+  const [menuOpen, setMenuOpen] = useState(false)
   const swipe = useSwipe({
-    onLeft: plain ? undefined : () => addToSiguientes(track),
+    onLeft: plain ? undefined : () => setMenuOpen(true),
     onRight: !plain && removeAction ? () => removeWithUndo(removeAction) : undefined,
   })
   const shownDuration = duration ?? track.duration
@@ -41,8 +42,8 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
       {/* Fondo que aparece mientras se desliza */}
       {swipe.dx < 0 && (
         <div className="absolute inset-0 flex items-center justify-end gap-2 bg-acento pr-5 text-sm font-semibold text-white">
-          <span>Siguientes</span>
-          <ListEnd className={`size-6 transition-transform ${swipe.armed ? 'scale-125' : ''}`} aria-hidden="true" />
+          <span>Opciones</span>
+          <EllipsisVertical className={`size-6 transition-transform ${swipe.armed ? 'scale-125' : ''}`} aria-hidden="true" />
         </div>
       )}
       {swipe.dx > 0 && (
@@ -55,7 +56,7 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
       <div
         ref={swipe.ref}
         {...swipe.handlers}
-        className={`group relative flex h-16 items-center gap-3 bg-panel pl-2 select-none hover:bg-tarjeta md:pl-4 ${plain ? 'pr-3' : 'touch-pan-y pr-1'}`}
+        className={`group relative flex h-16 items-center gap-3 bg-panel pr-1 pl-2 select-none hover:bg-tarjeta md:pl-4 ${plain ? '' : 'touch-pan-y'}`}
         style={{ transform: `translateX(${swipe.dx}px)`, transition: swipe.active ? 'none' : 'transform 200ms ease-out' }}
       >
         {position !== undefined && (
@@ -82,7 +83,7 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
           </span>
         </button>
         {shownDuration ? <span className="hidden w-12 shrink-0 text-right text-sm text-texto-sec tabular-nums md:block">{formatDuration(shownDuration)}</span> : null}
-        {!plain && <TrackMenu track={track} removeAction={removeAction} />}
+        <TrackMenu track={track} removeAction={removeAction} onPlay={onPlay} open={menuOpen} onOpenChange={setMenuOpen} />
         {trailing}
       </div>
     </li>

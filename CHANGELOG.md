@@ -2,6 +2,16 @@
 
 ## 2026-10-24
 
+- Limpieza de Inicio, recomendaciones, cola de 10 y sin conexión (rama `feat/ui-recomendaciones-offline`, pendiente de la prueba del dueño):
+  - Inicio sin «Lista de prueba». Todo en lista compacta (carátula pequeña, título, artista y «⋮»), en páginas de 4 que se deslizan de lado.
+  - Menú «⋮» en todas las filas (también en Inicio) con Reproducir, Agregar a la cola, Me gusta… Deslizar a la izquierda abre ese menú; ya no agrega nada por sí solo.
+  - Ajustes (nuevo): ocultar el selector «Canción | Video» de «Sonando ahora».
+  - «Selecciones rápidas» propias: la radio de tus últimas 10 canciones (mismo género y época), con filtros «Como …». Reemplaza la de YouTube Music, que sin iniciar sesión no es personal.
+  - Tendencias y novedades de YouTube Music solo de tus géneros: artistas que aparecen en las radios de lo que escuchas. Fuera «Versiones y remixes».
+  - Filtros estrictos en todo: sin covers, sin artistas que sueles saltar (pasar a la siguiente antes de 30 s, 2 veces o más), misma época, 2 por artista como mucho y nada repetido entre estantes (tampoco con «Tus artistas»).
+  - Cola: siempre 10 o más por sonar. Al quitar una, la radio repone enseguida. Al tocar una recomendada, la cola arranca con 10 «Recomendadas basadas en esta canción» y sigue con bloques de 5 «Nuevas para ti» (nunca sonaron aquí) y más recomendadas.
+  - Sin conexión: aviso y espera, sin saltar canciones en cadena ni marcarlas como «Solo en YouTube Music» (antes pasaba). Al volver internet sigue la misma canción.
+  - No se implementó la descarga de canciones ni el paso a `<audio>` nativo: chocan con la regla del proyecto y con las condiciones de YouTube.
 - Cero repetidas, cola infinita e Inicio solo con ▶ (rama `feat/fix-duplicados-ux`, pendiente de la prueba del dueño):
   - Causa de la canción doble en la cola: en el carrusel de «Tus artistas», deslizar de lado una fila la agregaba sin querer a «Siguiente en la cola», y luego volvía a sonar en la lista.
   - En Inicio las filas ya no tienen menú «⋮» ni gestos de agregar/quitar: solo ▶. Tocar algo en Inicio reemplaza la cola; las canciones de «Tus artistas» arrancan su radio.

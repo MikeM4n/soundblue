@@ -1,4 +1,4 @@
-import { EllipsisVertical, ExternalLink, Heart, ListEnd, ListPlus, ListStart, ListX, Radio, Trash } from 'lucide-react'
+import { EllipsisVertical, ExternalLink, Heart, ListEnd, ListPlus, ListStart, ListX, Play, Radio, Trash } from 'lucide-react'
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { openInYouTubeMusic } from '../../lib/youtubeMusicLink'
@@ -14,11 +14,22 @@ import { addToSiguientes, playNext, removeFromQueue, removeWithUndo, startRadio,
 interface TrackMenuProps {
   track: Track
   removeAction?: RemoveAction // «Eliminar de …» cuando la lista lo permite
+  onPlay?: () => void // «Reproducir» (en las filas de las listas)
 }
 
-/** Botón «⋮» con las acciones de una canción. */
-export function TrackMenu({ track, removeAction }: TrackMenuProps) {
-  const [open, setOpen] = useState(false)
+interface TrackMenuControl {
+  open?: boolean // abierto desde fuera (deslizar la fila a la izquierda)
+  onOpenChange?: (open: boolean) => void
+}
+
+/**
+ * Botón «⋮» con las acciones de una canción. Es la única forma de cambiar la cola desde una lista (además de los botones
+ * de Buscar): así deslizar o recorrer un carrusel nunca agrega canciones sin querer.
+ */
+export function TrackMenu({ track, removeAction, onPlay, open: openProp, onOpenChange }: TrackMenuProps & TrackMenuControl) {
+  const [openState, setOpenState] = useState(false)
+  const open = openProp ?? openState
+  const setOpen = onOpenChange ?? setOpenState
   const [choosingPlaylist, setChoosingPlaylist] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
@@ -30,7 +41,7 @@ export function TrackMenu({ track, removeAction }: TrackMenuProps) {
         aria-label={`Más opciones para ${track.title}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(!open)}
         className="grid size-10 shrink-0 place-items-center rounded-full text-texto-sec hover:text-texto"
       >
         <EllipsisVertical className="size-5" />
@@ -40,6 +51,7 @@ export function TrackMenu({ track, removeAction }: TrackMenuProps) {
           anchor={buttonRef.current}
           track={track}
           removeAction={removeAction}
+          onPlay={onPlay}
           onClose={() => {
             setOpen(false)
             buttonRef.current?.focus()
@@ -61,7 +73,7 @@ interface MenuPopoverProps extends TrackMenuProps {
   onChoosePlaylist: () => void
 }
 
-function MenuPopover({ anchor, track, removeAction, onClose, onChoosePlaylist }: MenuPopoverProps) {
+function MenuPopover({ anchor, track, removeAction, onPlay, onClose, onChoosePlaylist }: MenuPopoverProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
   const { favorites } = useLibrary()
@@ -122,6 +134,11 @@ function MenuPopover({ anchor, track, removeAction, onClose, onChoosePlaylist }:
       className="fixed z-40 w-64 rounded-lg bg-tarjeta-claro p-1 shadow-2xl shadow-black/60 ring-1 ring-white/10"
       style={position ?? { top: -9999, left: -9999 }}
     >
+      {onPlay && (
+        <MenuItem icon={<Play className="size-4" />} onSelect={run(onPlay)}>
+          Reproducir
+        </MenuItem>
+      )}
       <MenuItem icon={<ListStart className="size-4" />} onSelect={run(() => playNext(track))}>
         Reproducir a continuación
       </MenuItem>
@@ -143,7 +160,7 @@ function MenuPopover({ anchor, track, removeAction, onClose, onChoosePlaylist }:
         Agregar a playlist
       </MenuItem>
       <MenuItem icon={<Heart className={`size-4 ${liked ? 'fill-current' : ''}`} />} onSelect={run(() => toggleFavorite(track))}>
-        {liked ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+        {liked ? 'Quitar de Tus me gusta' : 'Me gusta'}
       </MenuItem>
       {removeAction && (
         <MenuItem icon={<Trash className="size-4" />} onSelect={run(() => removeWithUndo(removeAction))}>

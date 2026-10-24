@@ -9,7 +9,7 @@ interface TrackListProps {
   onPlay: (index: number) => void
   removeAction?: (index: number) => RemoveAction // si la lista permite eliminar (playlist propia, favoritos)
   numbered?: boolean // encabezado y números, como un álbum o playlist
-  plain?: boolean // solo ▶, sin gestos ni menú (Inicio): ver TrackRow
+  plain?: boolean // sin gestos de deslizar (carruseles de Inicio): ver TrackRow
 }
 
 /** Lista de canciones con gestos y menú. Marca la que está sonando. */

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useLocation, useSearchParams } from 'react-router'
 import { clearTopCache, readTopCache } from '../data/artistTop'
+import { artistKey, listening } from '../data/history'
 import { readRadioDiagnostics } from '../data/radio'
 import { readUsage } from '../lib/apiUsage'
 import { copyText } from '../lib/clipboard'
@@ -305,6 +306,17 @@ export function Help() {
   )
 }
 
+/** Nombres de los artistas que sueles saltar (como aparecen en tu historial). */
+function skippedArtistNames(): string[] {
+  const keys = listening.skippedArtists()
+  const names = new Map<string, string>()
+  for (const { track } of listening.entries()) {
+    const key = artistKey(track.artist)
+    if (keys.has(key) && !names.has(key)) names.set(key, track.artist.split(/,| y | & | x | feat\.? | ft\.? /i)[0].trim())
+  }
+  return [...names.values()]
+}
+
 const hoursAgo = (at: number) => {
   const hours = (Date.now() - at) / 3600_000
   return hours < 1 ? 'hace menos de 1 h' : `hace ${Math.floor(hours)} h`
@@ -321,12 +333,14 @@ function RecommendationsSection() {
   const [saved, setSaved] = useState(readTopCache)
   const [radio, setRadio] = useState(readRadioDiagnostics)
   const [duplicates, setDuplicates] = useState(readDuplicateLog)
+  const [skipped, setSkipped] = useState(skippedArtistNames)
   const entries = Object.entries(saved).sort(([, a], [, b]) => b.at - a.at)
   const refresh = () => {
     setUsage(readUsage())
     setSaved(readTopCache())
     setRadio(readRadioDiagnostics())
     setDuplicates(readDuplicateLog())
+    setSkipped(skippedArtistNames())
   }
   return (
     <Section id="ayuda-recomendaciones" title="Diagnóstico de recomendaciones">
@@ -378,6 +392,10 @@ function RecommendationsSection() {
           </ol>
         </div>
       )}
+      <p>
+        Artistas que sueles saltar (pasas a la siguiente antes de 30 s; no se recomiendan):{' '}
+        {skipped.length ? <B>{skipped.join(', ')}</B> : 'ninguno.'}
+      </p>
       <p>Canciones descartadas por duplicado (mismo video; las últimas {duplicates.length}, la más reciente primero):</p>
       {duplicates.length === 0 ? (
         <p>Ninguna todavía.</p>

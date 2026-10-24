@@ -9,6 +9,7 @@ import { usePlayerShortcuts } from './player/usePlayerShortcuts'
 import { useResumePrompt } from './player/useResumePrompt'
 import { Collection } from './pages/Collection'
 import { Help } from './pages/Help'
+import { Settings } from './pages/Settings'
 import { Home } from './pages/Home'
 import { Library } from './pages/Library'
 import { Queue } from './pages/Queue'
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="coleccion/:tipo/:id" element={<Collection />} />
           <Route path="cola" element={<Queue />} />
           <Route path="ayuda" element={<Help />} />
+          <Route path="ajustes" element={<Settings />} />
           <Route path="ytm/:browseId" element={<YtmPage />} />
           <Route path="gustos" element={<Tastes />} />
           <Route path="jam" element={<JamHost />} />

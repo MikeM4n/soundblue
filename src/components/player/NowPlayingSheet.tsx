@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp, Heart, PictureInPicture2 } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useLibrary } from '../../library/store'
+import { useSettings } from '../../lib/settings'
 import { usePreventTouchMove } from '../../lib/usePreventTouchMove'
 import { openInYouTubeMusic } from '../../lib/youtubeMusicLink'
 import { player } from '../../player/engine'
@@ -42,6 +43,7 @@ export function NowPlayingSheet() {
   const videoSlot = useStageSlot('pantalla')
   const video = useSyncExternalStore(stageBox.subscribe, stageBox.get)
   const view = useSyncExternalStore(youtubeView.subscribe, youtubeView.get)
+  const { hideViewToggle } = useSettings() // Ajustes: ocultar «Canción | Video»
   const [shown, setShown] = useState(false) // para la animación de entrada
   const [closing, setClosing] = useState(false)
   const [dragY, setDragY] = useState<number | null>(null)
@@ -172,7 +174,7 @@ export function NowPlayingSheet() {
         {/* Centro: la carátula nítida (como Spotify y YouTube Music) o, si eliges «Video», el reproductor oficial a
             todo el ancho y sin nada encima. */}
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-          <ViewToggle view={view} fade={fade} />
+          {!hideViewToggle && <ViewToggle view={view} fade={fade} />}
           {showVideo ? (
             <div className="flex min-h-0 w-full flex-1 items-center">
               {/* Espacio del video: VideoStage coloca aquí el reproductor oficial. */}

@@ -3,7 +3,7 @@
 // - «Siguiente de: …»: el resto de la lista, álbum o búsqueda desde donde diste play.
 // Usa el reproductor oficial de YouTube y recuerda la sesión.
 import { listening } from '../data/history'
-import { createRadio } from '../data/radio'
+import { createRadio, type QueueGroup, type RadioSource } from '../data/radio'
 import { logDuplicate } from '../lib/duplicateLog'
 import { ytmAlternatives } from '../data/ytmusic'
 import { isLocalNetworkAddress } from '../lib/platform'
@@ -36,6 +36,7 @@ export interface PlayerSnapshot {
   contextName: string | null
   queue: readonly Track[] // «Siguiente en la cola»
   upcoming: readonly Track[] // «Siguiente de: contextName»
+  upcomingGroups: readonly (QueueGroup | null)[] // bloque de cada una de `upcoming` (null: de la lista que elegiste)
   status: Status
   time: number
   duration: number
@@ -54,6 +55,7 @@ export type QueueResult = 'agregada' | 'repetida' | 'lista'
 interface Context {
   name: string
   tracks: Track[]
+  groups?: Record<string, QueueGroup> // las que agregó la radio, por id: su bloque en «Próximas en sonar»
 }
 
 /** Una canción que ya sonó, con lo necesario para volver a ella con «anterior». */
@@ -63,20 +65,19 @@ interface Step {
   pos: number
 }
 
-/** De dónde saca la radio las siguientes `count` canciones, sin ninguna de `exclude` (ver data/radio.ts). */
-export type RadioSource = (count: number, exclude: ReadonlySet<string>) => Promise<Track[]>
-
 /** `replaceQueue`: lo que tocas reemplaza tu cola (Inicio). */
 export interface PlayOptions {
   replaceQueue?: boolean
 }
 
 const HISTORY_LIMIT = 50
-const RADIO_BATCH = 5 // la radio pide de a 5…
-const RADIO_LOW_WATER = 2 // …cuando quedan 2 por sonar
+const MIN_UPCOMING = 10 // en «Próximas en sonar» siempre hay al menos 10 (la radio rellena)…
+const RADIO_BATCH = 5 // …pidiendo como mínimo de a 5
+const SKIP_SECONDS = 30 // pasar a la siguiente antes de esto cuenta como saltada (data/history.ts)
 
 const UNAVAILABLE = new Set([100, 101, 150]) // borrado/privado o el dueño no permite incrustarlo
 const ONLY_IN_YTM = 'Esta canción solo se puede escuchar en la app de YouTube Music.'
+const OFFLINE = 'Sin conexión: la música sigue en cuanto vuelva internet.'
 
 // Auto‑reanudación (experimental): YouTube o Chrome pausan el reproductor en el mismo segundo en que la página se oculta.
 // La app no pausa nunca ni toca el sonido al salir: cuando detecta esa pausa manda el Mute‑Trick en el acto (0 ms), otro a
@@ -155,6 +156,8 @@ export class PlayerEngine {
   private resumeOnStart = false // al cerrar la app sonaba (no la pausaste tú): al abrirla vuelve a sonar sola
   private radioMore: RadioSource | null = null // la lista actual es una radio (playRadio o la cola infinita)
   private radioLoading: { context: Context; more: RadioSource; done: Promise<void> } | null = null // pedido en curso
+  private resumeWhenOnline = false // falló por falta de internet: al volver la conexión, suena sola
+  private playingWhenOffline = false // sonaba cuando se fue internet
   private resumeListeners = new Set<(event: AutoResumeEvent, detail: string) => void>()
   private lastSave = 0
   private listeners = new Set<() => void>()
@@ -181,6 +184,10 @@ export class PlayerEngine {
       if (document.visibilityState === 'hidden') this.hiddenAt = Date.now()
       else this.resumeOnReturn()
     })
+    // Sin internet: ninguna canción está guardada en el teléfono (el reproductor de YouTube no lo permite), así que no
+    // se salta nada; al volver la conexión sigue la misma lista donde iba.
+    window.addEventListener('offline', () => this.onOffline())
+    window.addEventListener('online', () => this.onOnline())
   }
 
   /**
@@ -261,8 +268,9 @@ export class PlayerEngine {
   }
 
   /**
-   * Radio (data/radio.ts): suena `seed` y su lista se va llenando de a 5 con lo que dé `more`, cuando quedan 2 por sonar
-   * (no se piden 50 de golpe). Nunca entra una canción que ya esté en la lista o en tu cola.
+   * Radio (data/radio.ts): suena `seed` y su lista se llena con lo que dé `more` hasta tener 10 por sonar, y se rellena
+   * a medida que suenan o las quitas (no se piden 50 de golpe). Nunca entra una canción que ya esté en la lista o en tu
+   * cola.
    */
   playRadio(name: string, seed: Track, more: RadioSource, options: PlayOptions = {}) {
     this.startContext(name, [seed], 0, options, more)
@@ -299,13 +307,15 @@ export class PlayerEngine {
   }
 
   /**
-   * Cuando quedan 2 o menos por sonar (tu cola + la lista): si la lista es una radio, 5 más; si es una lista normal
-   * (recomendada o tuya), la cola infinita: sigue con la radio de su última canción (mismo género y época), así la
-   * música no se detiene. Con «repetir» activado no se agrega nada (la lista vuelve a empezar).
+   * Cuando quedan menos de 10 por sonar (tu cola + la lista; también al quitar una): si la lista es una radio, las que
+   * falten para 10 (mínimo 5); si es una lista normal (recomendada o tuya), la cola infinita: sigue con la radio de su
+   * última canción (1 de cada 5 del mismo artista, el resto del mismo género y época), así la música no se detiene. Con
+   * «repetir» activado no se agrega nada (la lista vuelve a empezar).
    */
   private extendRadio(): Promise<void> {
     const context = this.context
-    if (!context || this.queue.length + (this.order.length - this.pos - 1) > RADIO_LOW_WATER) return Promise.resolve()
+    const remaining = this.queue.length + (this.order.length - this.pos - 1)
+    if (!context || remaining >= MIN_UPCOMING) return Promise.resolve()
     const loading = this.radioLoading
     // Ya se está pidiendo para esta lista: se espera ese pedido (uno de otra lista se descarta solo al llegar).
     if (loading && loading.context === context && loading.more === this.radioMore) return loading.done
@@ -315,20 +325,22 @@ export class PlayerEngine {
       this.radioMore = createRadio(last)
     }
     const request = { context, more: this.radioMore, done: Promise.resolve() }
-    request.done = this.fetchRadio(context, this.radioMore).finally(() => {
+    request.done = this.fetchRadio(context, this.radioMore, Math.max(RADIO_BATCH, MIN_UPCOMING - remaining)).then((added) => {
       if (this.radioLoading === request) this.radioLoading = null
+      if (added) void this.extendRadio() // si todavía faltan para 10 (p. ej. la radio dio menos), otra tanda
     })
     this.radioLoading = request
     return request.done
   }
 
-  private async fetchRadio(context: Context, more: RadioSource) {
+  /** Pide `count` a la radio y las agrega al final de la lista. Devuelve cuántas agregó. */
+  private async fetchRadio(context: Context, more: RadioSource, count: number): Promise<number> {
     try {
       const inUse = () => new Set([...context.tracks, ...this.queue].map((track) => track.id))
-      const fresh = await more(RADIO_BATCH, inUse())
-      if (this.context !== context || this.radioMore !== more) return // mientras tanto pusiste otra lista
+      const fresh = await more(count, inUse())
+      if (this.context !== context || this.radioMore !== more) return 0 // mientras tanto pusiste otra lista
       const have = inUse()
-      const added = fresh.filter((track) => {
+      const added = fresh.filter(({ track }) => {
         if (have.has(track.id)) {
           logDuplicate(track, 'radio')
           return false
@@ -338,14 +350,16 @@ export class PlayerEngine {
       })
       if (!added.length) {
         this.radioMore = null // esta radio no tiene más que cumplan sus reglas (con la próxima canción se arma otra)
-        return
+        return 0
       }
       const start = context.tracks.length
-      context.tracks.push(...added)
+      context.tracks.push(...added.map(({ track }) => track))
+      context.groups = { ...context.groups, ...Object.fromEntries(added.map(({ track, group }) => [track.id, group])) }
       this.order.push(...added.map((_, i) => start + i))
       this.changed()
+      return added.length
     } catch {
-      /* sin conexión: se intenta otra vez con la siguiente canción */
+      return 0 // sin conexión: se intenta otra vez con la siguiente canción o al volver internet
     }
   }
 
@@ -384,6 +398,7 @@ export class PlayerEngine {
    * Se salta las que ya se sabe que solo suenan en la app de YouTube Music (sin esperar el error del reproductor).
    */
   next(): boolean {
+    this.noteSkip()
     const before = { pos: this.pos, queue: this.queue }
     let target = this.peekNext()
     for (let skipped = 0; target && this.knownUnplayable(target.track) && skipped < 50; skipped++) {
@@ -400,6 +415,16 @@ export class PlayerEngine {
     this.pos = target.pos
     this.playTrack(target.track, target.fromQueue)
     return true
+  }
+
+  /**
+   * Pasaste a la siguiente antes de los 30 s, con la canción sonando o en pausa: cuenta como saltada (su artista deja de
+   * recomendarse si lo saltas seguido). No cuenta al terminar sola ni si no se pudo reproducir.
+   */
+  private noteSkip() {
+    const track = this.current
+    const live = this.status === 'playing' || this.status === 'paused' || this.status === 'buffering'
+    if (track && live && this.countedId !== track.id && this.currentTime() < SKIP_SECONDS) listening.skipped(track)
   }
 
   /** Vuelve directamente a la canción que sonó antes (deslizar la barra a la derecha). False si no hay. */
@@ -483,6 +508,7 @@ export class PlayerEngine {
     const [removed] = this.queue.splice(index, 1)
     if (!removed) return () => {}
     this.changed()
+    void this.extendRadio() // si quedaron menos de 10, la radio repone enseguida
     return () => {
       this.queue.splice(Math.min(index, this.queue.length), 0, removed)
       this.changed()
@@ -494,6 +520,7 @@ export class PlayerEngine {
     const [removed] = this.order.splice(at, 1)
     if (removed === undefined) return () => {}
     this.changed()
+    void this.extendRadio() // si quedaron menos de 10, la radio repone enseguida
     return () => {
       this.order.splice(clamp(at, this.pos + 1, this.order.length), 0, removed)
       this.changed()
@@ -517,6 +544,7 @@ export class PlayerEngine {
     const removed = this.queue
     this.queue = []
     this.changed()
+    void this.extendRadio()
     return () => {
       this.queue = [...removed, ...this.queue]
       this.changed()
@@ -816,6 +844,11 @@ export class PlayerEngine {
 
   private onBackendError(code: number) {
     this.stopTicker()
+    // Sin internet no se salta nada ni se marca como «solo en YouTube Music»: se espera a que vuelva (onOnline).
+    if (!navigator.onLine) {
+      this.waitForNetwork()
+      return
+    }
     const track = this.current
     // Si el dueño no deja incrustar esta versión, se prueba otra de la misma canción (video oficial, con letra…).
     // Desde una dirección de red local YouTube las bloquea todas: ahí no vale la pena buscar.
@@ -835,8 +868,16 @@ export class PlayerEngine {
     this.status = 'loading'
     this.changed()
     if (!recovery.candidates) {
-      recovery.candidates = await ytmAlternatives(track).catch(() => [])
+      const found = await ytmAlternatives(track).catch(() => null)
       if (this.current !== track) return // mientras buscaba, ya cambió de canción
+      if (!found) {
+        // No se pudo preguntar (sin conexión o falló YouTube Music): no se marca como «solo en YouTube Music».
+        this.recovery = null
+        if (!navigator.onLine) this.waitForNetwork()
+        else this.skipFailed(code)
+        return
+      }
+      recovery.candidates = found
     }
     const candidate = recovery.candidates.find((id) => !recovery.tried.has(id))
     if (!candidate) {
@@ -849,6 +890,34 @@ export class PlayerEngine {
     recovery.tried.add(candidate)
     this.rememberSubstitute(track.id, candidate)
     this.backend.load(candidate, { autoplay: true, start: 0 }).catch(() => this.skipFailed(code))
+  }
+
+  /** Sin internet: la canción queda esperando (ninguna está guardada en el teléfono) y suena sola al volver la conexión. */
+  private waitForNetwork() {
+    this.resumeWhenOnline = true
+    this.status = 'error'
+    this.error = OFFLINE
+    updatePlaybackState('paused')
+    this.emit()
+  }
+
+  private onOffline() {
+    this.playingWhenOffline = this.status === 'playing' || this.status === 'buffering' || this.status === 'loading'
+    if (this.current) showToast(OFFLINE)
+  }
+
+  /** Volvió internet: sigue la canción donde iba (si sonaba o quedó esperando) y la radio repone lo que falte. */
+  private onOnline() {
+    const resume = this.resumeWhenOnline || (this.playingWhenOffline && !this.userPaused && this.status !== 'playing')
+    this.resumeWhenOnline = this.playingWhenOffline = false
+    if (this.current && resume) {
+      showToast('Volvió la conexión: sigue la música')
+      this.loadCurrent(true, this.currentTime())
+    } else if (this.error === OFFLINE) {
+      this.error = null
+      this.emit()
+    }
+    void this.extendRadio()
   }
 
   private skipFailed(code: number) {
@@ -952,7 +1021,8 @@ export class PlayerEngine {
       const saveds: unknown[] = Array.isArray(saved.context?.tracks) ? saved.context.tracks : []
       const tracks: Track[] = saveds.filter(isTrack)
       if (tracks.length) {
-        this.context = { name: String(saved.context.name || 'Tu música'), tracks }
+        const groups = saved.context.groups
+        this.context = { name: String(saved.context.name || 'Tu música'), tracks, groups: groups && typeof groups === 'object' ? groups : undefined }
         // Si se descartaron canciones (las de la fuente retirada), el orden guardado ya no corresponde: se empieza la lista.
         const sameList = tracks.length === saveds.length
         this.order =
@@ -1031,6 +1101,7 @@ export class PlayerEngine {
       contextName: this.context?.name ?? null,
       queue: [...this.queue],
       upcoming: this.upcomingIndexes().map((i) => this.context!.tracks[i]),
+      upcomingGroups: this.upcomingIndexes().map((i) => this.context!.groups?.[this.context!.tracks[i].id] ?? null),
       status: this.status,
       time: this.time,
       duration: this.duration,
