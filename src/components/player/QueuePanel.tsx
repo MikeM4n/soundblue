@@ -1,6 +1,7 @@
 import { Users } from 'lucide-react'
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { Link } from 'react-router'
+import { useGuestJam } from '../../jam/guestJam'
 import { useHostJam } from '../../jam/hostJam'
 import { usePreventTouchMove } from '../../lib/usePreventTouchMove'
 import { QueueSections } from '../tracks/QueueSections'
@@ -57,7 +58,11 @@ export function QueuePanel({ open, top, onClose }: QueuePanelProps) {
   const fling = useRef(createFlingTracker()).current
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
-  const jamCode = useHostJam().code
+  // «Jam»: la tuya (anfitrión) o la de otro en la que estás (invitado).
+  const hostCode = useHostJam().code
+  const guest = useGuestJam()
+  const guestCode = !hostCode && guest.code && !guest.missing ? guest.code : null
+  const jamCode = hostCode ?? guestCode
   usePreventTouchMove(handleRef, () => drag.current !== null)
 
   // ¿Al soltar, se cierra o vuelve a abrirse?
@@ -180,7 +185,7 @@ export function QueuePanel({ open, top, onClose }: QueuePanelProps) {
             <h2 className="text-lg font-bold">Próximas en sonar</h2>
             <div className="flex items-center gap-3">
               {/* Jam: que tus amigos agreguen canciones a esta cola escaneando un código QR. */}
-              <Link to="/jam" className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-sm font-semibold hover:bg-white/15">
+              <Link to={guestCode ? `/jam/${guestCode}` : '/jam'} className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-sm font-semibold hover:bg-white/15">
                 <Users className="size-4" aria-hidden="true" />
                 {jamCode ? `Jam · ${jamCode}` : 'Jam'}
               </Link>

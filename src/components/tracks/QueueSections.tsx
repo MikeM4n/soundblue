@@ -1,10 +1,12 @@
 import { GripVertical } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { QueueGroup } from '../../data/radio'
+import { useInGuestJam } from '../../jam/guestJam'
 import { player } from '../../player/engine'
 import type { Track } from '../../player/types'
 import { usePlayer } from '../../player/usePlayer'
 import { showToast } from '../../ui/toast'
+import { GuestJamQueue } from '../jam/JamQueue'
 import { stableKeys } from './TrackList'
 import { TrackRow } from './TrackRow'
 import type { RemoveAction } from './trackActions'
@@ -32,10 +34,12 @@ function runsOf(upcoming: readonly Track[], groups: readonly (QueueGroup | null)
  * «Siguiente en la cola» (las que agregaste) y lo que sigue de la lista, con un encabezado por bloque: «Siguiente de: …»
  * (la lista que elegiste), «Recomendadas basadas en esta canción» y «Nuevas para ti» (las que agrega la radio). Se
  * reordenan arrastrando ≡ dentro de cada bloque, se quitan deslizando a la derecha o con «⋮» (con Deshacer; la radio
- * repone para que siempre haya 10). La usan la página Cola y el panel que sube en «Sonando ahora».
+ * repone para que siempre haya 10). La usan la página Cola y el panel que sube en «Sonando ahora». Si estás en la Jam
+ * de otro, arriba va la cola compartida (la de su teléfono).
  */
 export function QueueSections({ beforePlay }: { beforePlay?: () => void }) {
   const { queue, upcoming, upcomingGroups, contextName } = usePlayer()
+  const inJam = useInGuestJam()
 
   const clearQueue = () => {
     const undo = player.clearQueue()
@@ -43,11 +47,18 @@ export function QueueSections({ beforePlay }: { beforePlay?: () => void }) {
   }
 
   if (queue.length === 0 && upcoming.length === 0) {
-    return <p className="mt-6 px-2 text-sm text-texto-sec">No hay más canciones. Usa «⋮ → Agregar a la cola» en cualquier canción para agregarla aquí.</p>
+    if (inJam) return <GuestJamQueue />
+    return <p className="mt-6 px-2 text-sm text-texto-sec">No hay más canciones. Desliza una canción a la izquierda en Buscar o en una lista para agregarla aquí.</p>
   }
 
   return (
     <>
+      {inJam && (
+        <>
+          <GuestJamQueue />
+          <p className="mt-8 px-2 text-xs font-semibold tracking-wider text-texto-sec uppercase">En tu teléfono</p>
+        </>
+      )}
       {queue.length > 0 && (
         <>
           <SectionTitle

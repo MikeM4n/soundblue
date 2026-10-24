@@ -1,17 +1,28 @@
 import { Copy, ListPlus, Share2, TriangleAlert, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { Navigate, useNavigate } from 'react-router'
+import { HostJamUpcoming } from '../components/jam/JamQueue'
+import { jamInputClass as inputClass, JamSearch } from '../components/jam/JamSearch'
 import { JamTrackRow } from '../components/jam/JamTrackRow'
+import { addToSiguientes } from '../components/tracks/trackActions'
 import { QrCode } from '../components/ui/QrCode'
 import { joinUrl, normalizeCode, readName, saveName } from '../jam/api'
+import { useGuestJam } from '../jam/guestJam'
 import { hostJam, useHostJam } from '../jam/hostJam'
 import { library } from '../library/store'
 import { copyText } from '../lib/clipboard'
 import { isPrivateAddress } from '../lib/platform'
+import { player } from '../player/engine'
+import type { Track } from '../player/types'
 import { showToast } from '../ui/toast'
 
-const inputClass =
-  'h-12 w-full rounded-full bg-tarjeta px-5 text-texto ring-1 ring-white/10 outline-none placeholder:text-texto-sec focus:ring-2 focus:ring-acento'
+// Tu cola es la cola compartida: lo que agregas desde la búsqueda de la Jam entra al final de tu «Siguiente en la cola»
+// (igual que «⋮ → Agregar a la cola») y tus amigos lo ven en «Próximas en sonar».
+const addAsHost = (track: Track) => {
+  addToSiguientes(track)
+  return true
+}
+const inYourQueue = (id: string) => player.getSnapshot().current?.id === id || player.isQueued(id)
 
 /**
  * Jam, como en Spotify: abres una Jam y tus amigos se unen escaneando el código QR (o escribiendo el código) para
@@ -19,9 +30,13 @@ const inputClass =
  */
 export function JamHost() {
   const jam = useHostJam()
+  const guest = useGuestJam()
   const navigate = useNavigate()
   const [name, setName] = useState(readName)
   const [code, setCode] = useState('')
+
+  // Estás en la Jam de otro: «Jam» (Inicio, la cola, la barra lateral) te lleva a esa. Para abrir la tuya, sal de ella.
+  if (!jam.code && guest.code && !guest.missing) return <Navigate to={`/jam/${guest.code}`} replace />
 
   const start = (e: FormEvent) => {
     e.preventDefault()
@@ -116,6 +131,18 @@ export function JamHost() {
         )}
       </div>
       {jam.error && <p className="mt-3 text-sm text-texto-sec">{jam.error}</p>}
+
+      <section className="mt-8 text-left" aria-label="Agregar canciones">
+        <h2 className="mb-2 text-lg font-bold">Agrega canciones</h2>
+        <JamSearch onAdd={addAsHost} isIn={inYourQueue} />
+        <p className="mt-2 text-xs text-texto-sec">Van a tu «Siguiente en la cola», que es la de todos: tus amigos las ven en «Próximas en sonar».</p>
+      </section>
+
+      <section className="mt-8 text-left" aria-label="Próximas en sonar">
+        <h2 className="text-lg font-bold">Próximas en sonar</h2>
+        <p className="mb-1 text-xs text-texto-sec">Desliza una canción a la derecha para quitarla (con «Deshacer»); a la izquierda, más opciones.</p>
+        <HostJamUpcoming />
+      </section>
 
       <section className="mt-8 text-left" aria-label="Agregadas por tus amigos">
         <h2 className="mb-2 text-lg font-bold">Agregadas por tus amigos ({jam.items.length})</h2>

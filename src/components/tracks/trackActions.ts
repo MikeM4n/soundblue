@@ -1,5 +1,7 @@
 // Acciones sobre una canción, compartidas por el menú «⋮» y los gestos de deslizar.
 import { createRadio } from '../../data/radio'
+import { guestJam } from '../../jam/guestJam'
+import { hostJam } from '../../jam/hostJam'
 import { library } from '../../library/store'
 import { player } from '../../player/engine'
 import { sheetState } from '../../player/stage'
@@ -12,10 +14,18 @@ export interface RemoveAction {
   remove: () => () => void // quita y devuelve la función para deshacer
 }
 
-/** Al final de «Siguiente en la cola» (deslizar a la izquierda o «Agregar a la cola»). */
+/**
+ * Al final de «Siguiente en la cola» (deslizar a la izquierda o «Agregar a la cola»). Si estás en la Jam de otro
+ * (invitado), va a la cola compartida, que suena en el teléfono del anfitrión: no a la tuya.
+ */
 export function addToSiguientes(track: Track) {
+  if (guestJam.isActive()) {
+    void guestJam.add(track)
+    return
+  }
   const result = player.addToQueue(track)
-  showToast(result === 'repetida' ? 'Ya está en siguientes' : result === 'lista' ? 'Lista para sonar: toca ▶ para escucharla' : 'Agregada a siguientes')
+  const where = hostJam.getState().code ? 'la cola de la Jam' : 'siguientes' // con tu Jam abierta, tu cola es la de todos
+  showToast(result === 'repetida' ? `Ya está en ${where}` : result === 'lista' ? 'Lista para sonar: toca ▶ para escucharla' : `Agregada a ${where}`)
 }
 
 /** Al principio de la cola: suena justo después de la actual. */

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Route, Routes, useLocation, type Location } from 'react-router'
+import { guestJam } from './jam/guestJam'
 import { hostJam } from './jam/hostJam'
 import { startDiagnostics } from './lib/diagnostics'
 import { startUpdateChecks } from './lib/updates'
@@ -28,6 +29,7 @@ export default function App() {
     startDiagnostics() // registro de segundo plano (Ayuda → Diagnóstico)
     if (import.meta.env.PROD) startUpdateChecks() // si hay una versión más nueva publicada, se actualiza
     hostJam.resume() // si cerraste la app con una Jam abierta, sigue recibiendo canciones
+    guestJam.resume() // si estabas en la Jam de otro, lo que agregues sigue yendo a su cola
   }, [])
   // «Sonando ahora» (/reproduciendo) se abre ENCIMA de la página donde estabas: esa sigue dibujada debajo.
   const background = (location.state as { background?: Location } | null)?.background
