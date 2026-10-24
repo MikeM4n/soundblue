@@ -59,7 +59,7 @@ export function JamSearch({ onAdd, isIn }: JamSearchProps) {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Busca en YouTube Music"
+          placeholder="Busca canciones"
           enterKeyHint="search"
           className={`${jamInputClass} pl-12 [&::-webkit-search-cancel-button]:hidden`}
         />
