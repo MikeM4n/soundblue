@@ -64,7 +64,7 @@ const AUTO_RESUME_LOG: Record<AutoResumeEvent, (detail: string) => string> = {
   ocultar: (d) => `Página oculta: ${d} (silencio + playVideo())`,
   pausa: (d) => `player.pauseVideo() detectado: ${d}`,
   play: (d) => `Mute-Trick, ${d}: silencio + playVideo()`,
-  omitido: (d) => `Sin Mute-Trick, ${d}`,
+  rendido: () => 'YouTube volvió a pausar: sin más intentos (▶ en la notificación o en los audífonos)',
   resultado: (d) => `Resultado a los 0,8 s del Mute-Trick: ${d}`,
   exito: (d) => `Reproducción confirmada (${d})`,
   volumen: () => 'Volumen devuelto (unMute)',

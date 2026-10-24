@@ -66,14 +66,14 @@ const HISTORY_LIMIT = 50
 const UNAVAILABLE = new Set([100, 101, 150]) // borrado/privado o el dueño no permite incrustarlo
 const ONLY_IN_YTM = 'Esta canción solo se puede escuchar en la app de YouTube Music.'
 
-// Módulo de reanudación en segundo plano (Mute‑Trick preventivo; experimental, no está garantizado): en el instante en que
-// la página se oculta, si sonaba y no la pausaste tú, se silencia el reproductor, se le pide ▶ y el volumen vuelve a los
-// 0,8 s; refuerzos a los 0,5 s y 1,5 s si en ese momento no está sonando; al volver, ▶; y un último ▶ en pagehide.
-const REINFORCE_MS = [500, 1500]
+// Módulo de reanudación en segundo plano (experimental, no está garantizado), sin temporizadores ciegos: en el instante
+// en que la página se oculta, si sonaba y no la pausaste tú, Mute‑Trick preventivo (silencio + ▶, volumen a los 0,8 s).
+// Después se escucha al reproductor (onStateChange): si con la página oculta pasa a PAUSED o -1 y no fuiste tú, un único
+// reintento en el acto; si vuelve a pausar, se rinde y deja todo listo para tu ▶. Al volver, ▶; en pagehide, un último ▶.
 const UNMUTE_AFTER_MS = 800
 const START_BLOCKED_MS = 7000 // al abrir: si el navegador no la deja arrancar sola, a los 7 s queda en pausa (lista para ▶)
 /** Lo que se anota en el registro de diagnóstico (con un detalle en texto). */
-export type AutoResumeEvent = 'ocultar' | 'pausa' | 'play' | 'omitido' | 'resultado' | 'exito' | 'volumen' | 'volver' | 'abrir' | 'pagehide'
+export type AutoResumeEvent = 'ocultar' | 'pausa' | 'play' | 'rendido' | 'resultado' | 'exito' | 'volumen' | 'volver' | 'abrir' | 'pagehide'
 
 const RESULT: Partial<Record<Status, string>> = { playing: 'Sonando', paused: 'En pausa', buffering: 'Cargando', loading: 'Cargando' }
 // Una pausa con la página oculta que llega justo después de salir o de un intento es de YouTube/Chrome; una más tarde
@@ -132,7 +132,7 @@ export class PlayerEngine {
   private userPaused = false
   private pausedOnExit = false // YouTube/Chrome la pausaron con la página oculta (se ofrece «Reanudar»)
   private wasPlayingAtHide = false // sonaba (y no la pausaste tú) cuando la página se ocultó
-  private resumeTimers: number[] = []
+  private hiddenRetryUsed = false // ya se usó el único reintento reactivo de esta salida (o de esta canción)
   private hiddenAt = 0
   private lastTryAt = 0
   private awaitingResume = false // se mandó ▶ y todavía no suena (para anotar «Reproducción confirmada»)
@@ -165,8 +165,8 @@ export class PlayerEngine {
       'visibilitychange',
       () => {
         if (document.visibilityState === 'hidden') {
-          this.clearResumeTimers()
           this.hiddenAt = Date.now()
+          this.hiddenRetryUsed = false
           this.preventiveMuteTrick()
         } else {
           this.cancelAutoResume()
@@ -178,25 +178,41 @@ export class PlayerEngine {
   }
 
   /**
-   * Mute‑Trick preventivo, en el instante en que la página se oculta: si sonaba y no la pausaste tú, silencio → ▶ en el
-   * acto, y refuerzos a los 0,5 s y 1,5 s. Un refuerzo solo actúa si en ese momento no está sonando (si ya suena, volver
-   * a silenciarla solo haría cortes). Si no sonaba (p. ej. una canción «lista para sonar»), no hace nada: no la arranca.
+   * Mute‑Trick preventivo, una sola vez, en el instante en que la página se oculta: si sonaba y no la pausaste tú,
+   * silencio → ▶. Si no sonaba (p. ej. una canción «lista para sonar»), no hace nada: no la arranca.
    */
   private preventiveMuteTrick() {
     this.wasPlayingAtHide = !this.userPaused && (this.status === 'playing' || this.status === 'buffering')
     if (!this.wasPlayingAtHide) return
     this.emitResume('ocultar', 'Mute-Trick preventivo inmediato')
     this.attempt()
-    REINFORCE_MS.forEach((ms, i) => {
-      const timer = window.setTimeout(() => {
-        if (document.visibilityState !== 'hidden' || this.userPaused) return
-        const label = `refuerzo intento ${i + 2} (${ms / 1000}s)`
-        if (this.status === 'playing') return this.emitResume('omitido', `${label}: ya está sonando`)
-        this.emitResume('play', label)
-        this.attempt()
-      }, ms)
-      this.resumeTimers.push(timer)
-    })
+  }
+
+  /**
+   * Pausa con la página oculta (onStateChange: PAUSED o -1). Si llegó justo al salir o tras un intento, fue YouTube o
+   * Chrome: un único reintento en el acto (silencio + ▶, sin temporizador). Si vuelve a pausar, se rinde: devuelve el
+   * volumen y la notificación queda en «pausa», lista para tu ▶ (en ella o en los audífonos). Si la pausa llegó tarde,
+   * puede ser tu ⏸ en la notificación de YouTube (no pasa por la app): se toma como tuya y al volver no suena sola.
+   */
+  private onHiddenPause(state: string) {
+    const now = Date.now()
+    const bySystem = this.status === 'loading' || now - this.hiddenAt <= EXIT_PAUSE_WINDOW_MS || now - this.lastTryAt <= RETRY_PAUSE_WINDOW_MS
+    if (!bySystem) {
+      this.userPaused = true
+      this.emitResume('pausa', `${state}, llegó tarde: se toma como tuya (⏸ en la notificación)`)
+      return
+    }
+    this.pausedOnExit = true
+    this.emitResume('pausa', `${state}, lo hizo YouTube o Chrome (la app no pausa)`)
+    if (!this.hiddenRetryUsed) {
+      this.hiddenRetryUsed = true
+      this.emitResume('play', 'reintento reactivo inmediato (onStateChange)')
+      this.attempt()
+      return
+    }
+    this.awaitingResume = false
+    this.restoreVolume()
+    this.emitResume('rendido', '')
   }
 
   private attempt() {
@@ -618,7 +634,6 @@ export class PlayerEngine {
       case 'playing':
         this.status = 'playing'
         this.userPaused = this.pausedOnExit = false
-        // Los refuerzos pendientes no se cancelan: cada uno mira si ya suena (si YouTube vuelve a pausar, actúa).
         if (this.awaitingResume && document.visibilityState === 'hidden' && Date.now() - this.lastTryAt <= 3000) {
           this.emitResume('exito', 'con la página oculta')
         }
@@ -633,23 +648,7 @@ export class PlayerEngine {
         break
       case 'paused':
       case 'cued':
-        // Sonaba (o iba a sonar), la página está oculta y no la pausaste tú. Si la pausa llegó justo al salir o tras un
-        // intento, fue YouTube/Chrome: se anota (al volver, ▶ y si no, «Reanudar»). Si llegó más tarde, puede ser tu ⏸ en la
-        // notificación de YouTube (no pasa por la app): se toma como tuya y al volver no suena sola.
-        if (document.visibilityState === 'hidden' && !this.userPaused && (this.status === 'playing' || this.status === 'buffering' || this.status === 'loading')) {
-          const now = Date.now()
-          const bySystem = this.status === 'loading' || now - this.hiddenAt <= EXIT_PAUSE_WINDOW_MS || now - this.lastTryAt <= RETRY_PAUSE_WINDOW_MS
-          if (bySystem) {
-            this.pausedOnExit = true
-            this.emitResume('pausa', 'lo hizo YouTube o Chrome (la app no pausa)')
-          } else {
-            this.userPaused = true
-            this.emitResume('pausa', 'llegó tarde: se toma como tuya (⏸ en la notificación)')
-          }
-        }
-        this.status = 'paused'
-        this.syncTime()
-        this.stopTicker()
+        this.toPaused('PAUSED')
         break
       case 'buffering':
         this.status = 'buffering'
@@ -659,6 +658,11 @@ export class PlayerEngine {
         this.onEnded()
         return
       case 'unstarted':
+        // -1 con la página oculta mientras sonaba: YouTube/Chrome la detuvieron; cuenta como una pausa.
+        if (document.visibilityState === 'hidden' && (this.status === 'playing' || this.status === 'buffering')) {
+          this.toPaused('-1')
+          break
+        }
         return // sigue en 'loading' hasta que YouTube empiece
     }
     updatePlaybackState(this.status)
@@ -666,19 +670,24 @@ export class PlayerEngine {
     this.changed()
   }
 
+  /** El reproductor quedó en pausa. Si sonaba (o iba a sonar), la página está oculta y no la pausaste tú: onHiddenPause. */
+  private toPaused(state: string) {
+    if (document.visibilityState === 'hidden' && !this.userPaused && (this.status === 'playing' || this.status === 'buffering' || this.status === 'loading')) {
+      this.onHiddenPause(state)
+    }
+    this.status = 'paused'
+    this.syncTime()
+    this.stopTicker()
+  }
+
   private emitResume(event: AutoResumeEvent, detail: string) {
     this.resumeListeners.forEach((listener) => listener(event, detail))
   }
 
-  private clearResumeTimers() {
-    this.resumeTimers.forEach((timer) => window.clearTimeout(timer))
-    this.resumeTimers = []
-  }
-
-  /** Cancela los refuerzos pendientes y devuelve el volumen (al volver a la app, al cambiar de canción). */
+  /** Devuelve el volumen y deja disponible otra vez el reintento (al volver a la app, al cambiar de canción). */
   private cancelAutoResume() {
-    this.clearResumeTimers()
     this.awaitingResume = false
+    this.hiddenRetryUsed = false
     this.restoreVolume()
   }
 
