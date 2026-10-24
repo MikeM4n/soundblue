@@ -21,6 +21,7 @@
 // de cada 5 del mismo artista (el 80 % de otros artistas) y como mucho 2 de cualquier otro artista. Orden al azar con
 // una semilla por sesión. Nunca la misma canción dos veces, ni una que ya esté en la cola (`exclude`).
 import { logDuplicate } from '../lib/duplicateLog'
+import { hashText, seededRandom, sessionSeed, shuffle } from '../lib/random'
 import type { Track } from '../player/types'
 import { artistTopSongs } from './artistTop'
 import { artistKey, listening } from './history'
@@ -37,7 +38,6 @@ const TITLE_OVERLAP = 0.4
 const MAX_REFILLS = 6 // radios de respaldo como mucho
 const OFFICIAL = new Set(['MUSIC_VIDEO_TYPE_ATV', 'MUSIC_VIDEO_TYPE_OMV', 'MUSIC_VIDEO_TYPE_OFFICIAL_SOURCE_MUSIC'])
 const LOG_KEY = 'soundblue:radio-diagnostico'
-const SESSION_KEY = 'soundblue:radio-semilla' // sessionStorage: cambia en cada sesión
 const STOPWORDS = new Set(
   'el la los las lo un una unos unas de del al a y e o u en con por para que mi mis tu tus te me se yo su sus le the of and to in on my you your i is it feat ft'.split(
     ' ',
@@ -116,42 +116,6 @@ function eraWindow(seedYear?: number): [number, number] | null {
   let to = seedYear + ERA_SPAN
   if (seedYear <= thisYear - OLD_SEED) to = Math.min(to, thisYear - RECENT)
   return [seedYear - ERA_SPAN, to]
-}
-
-function sessionSeed(): number {
-  try {
-    let value = sessionStorage.getItem(SESSION_KEY)
-    if (!value) {
-      value = String(Date.now())
-      sessionStorage.setItem(SESSION_KEY, value)
-    }
-    return Number(value) || 1
-  } catch {
-    return Date.now()
-  }
-}
-
-/** Números al azar repetibles a partir de una semilla (mulberry32). */
-function seededRandom(seed: number): () => number {
-  let a = seed >>> 0
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0
-    let t = a
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-const hashText = (text: string) => [...text].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 0)
-
-function shuffle<T>(list: T[], random: () => number): T[] {
-  const copy = [...list]
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1))
-    ;[copy[i], copy[j]] = [copy[j], copy[i]]
-  }
-  return copy
 }
 
 export function readRadioDiagnostics(): RadioDiagnostics | null {

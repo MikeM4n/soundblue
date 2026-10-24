@@ -1,39 +1,42 @@
-import { Settings as SettingsIcon, Users } from 'lucide-react'
+import { Plus, Settings as SettingsIcon, Users } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate } from 'react-router'
 import { Logo } from '../components/brand/Logo'
 import { ArtistTopSongsRow } from '../components/tracks/ArtistTopSongs'
+import { Chips } from '../components/ui/Chips'
 import { Cover } from '../components/ui/Cover'
 import { FavoritesCover } from '../components/ui/LibraryItem'
+import { ModeTiles } from '../components/ui/ModeTiles'
 import { CardPages, TrackPages } from '../components/ui/RowPages'
 import { Section } from '../components/ui/Section'
-import { catalog } from '../data/catalog'
-import { artistKeys, capPerArtist, computeForYou, type ForYou, type QuickPicks } from '../data/forYou'
+import { artistKeys, capPerArtist, computeForYou, unique, type ForYou } from '../data/forYou'
+import { NOT_ORIGINAL, POPULAR_GENRES, QUICK_PICK_GENRES, sourcePlaylists, sourceTracks } from '../data/genres'
 import { listening } from '../data/history'
 import { createRadio } from '../data/radio'
 import { readTastes } from '../data/tastes'
 import { ytmHome, type YtmCard, type YtmSection } from '../data/ytmusic'
-import { library } from '../library/store'
+import { library, useLibrary } from '../library/store'
 import { greeting } from '../lib/format'
 import { player } from '../player/engine'
-import { coverUrl, type Track } from '../player/types'
+import { coverSources, type Track } from '../player/types'
 import { useNowPlaying } from '../player/useNowPlaying'
 
-const CATALOG_NAME = 'Catálogo de prueba'
 // Estantes de YouTube Music que no se muestran: su «Selecciones rápidas» no es personal (sin iniciar sesión no sabe qué
-// escuchas; la nuestra la reemplaza) y «Versiones y remixes» son covers.
+// escuchas; la nuestra va por género) y «Versiones y remixes» son covers.
 const HIDDEN_SHELVES = /selecciones r[aá]pidas|versiones|covers/i
-const NOT_ORIGINAL = /\b(cover|karaoke|instrumental|slowed|sped ?up|nightcore|8d)\b/i
 const MIN_TRACKS = 4 // un estante de canciones con menos, tras los filtros, no se muestra
+const YOUR_TILES = 4 // accesos con tus canciones bajo «Tus me gusta» y «Jam»
 
 /**
- * Inicio: saludo, accesos rápidos, «Para ti» («Selecciones rápidas» a partir de tus últimas 10 canciones, «Tus
- * artistas» con sus canciones más conocidas y sugerencias según tus artistas, favoritas e historial; ver data/forYou.ts y
- * data/artistTop.ts) y las tendencias y novedades de YouTube Music, solo de tus géneros. Todo en listas compactas que se
- * deslizan de lado. La primera vez lleva a «¿Qué artistas te gustan?».
+ * Inicio: saludo, accesos rápidos (Tus me gusta, Jam y tus canciones: las que te gustan o las últimas que sonaron), los
+ * Modos de ambiente, «Para ti» («Selecciones rápidas» y «Muy sonadas» por género, «Tus artistas» con sus canciones más
+ * conocidas y sugerencias según tus artistas, favoritas e historial; ver data/genres.ts, data/forYou.ts y
+ * data/artistTop.ts) y las tendencias, solo de tus géneros. Todo en listas compactas que se deslizan de lado. La primera
+ * vez lleva a «¿Qué artistas te gustan?».
  */
 export function Home() {
   const { open } = useNowPlaying()
+  const { favorites } = useLibrary()
   const [tastes] = useState(readTastes)
   const [ytm, setYtm] = useState<YtmSection[] | 'error' | null>(null)
   const [mine, setMine] = useState<ForYou | null>(null)
@@ -74,15 +77,20 @@ export function Home() {
     open()
     player.playRadio(name, track, createRadio(track), { replaceQueue: true })
   }
-  const playCatalog = (index: number) => {
+  // Tus canciones: una que te gusta suena dentro de «Tus me gusta»; una de las últimas que sonaron, con su radio.
+  const playYours = (track: Track) => {
+    const index = favorites.findIndex((t) => t.id === track.id)
+    if (index < 0) return playSong(track)
     open()
-    player.playContext(CATALOG_NAME, catalog, index, { replaceQueue: true })
+    player.playContext('Tus me gusta', favorites, index, { replaceQueue: true })
   }
   // «Tus artistas»: como mucho 1 de cada 5 del mismo artista; el resto, su género.
   const playArtist = (artist: YtmCard, track: Track) => playSong(track, `Radio de ${artist.title}`)
 
-  const inMine = new Set([...(mine?.quickPicks?.tracks ?? []), ...(mine?.shelves.flatMap((shelf) => shelf.tracks) ?? [])].map((track) => track.id))
-  const trends = Array.isArray(ytm) && mine ? forYourGenres(ytm, mine, inMine) : null
+  // Estrictamente lo tuyo: las que te gustan (la más reciente primero) y, si faltan, las últimas que sonaron.
+  const yours = unique([...favorites, ...listening.entries().map((entry) => entry.track)]).slice(0, YOUR_TILES)
+  const shown = new Set(mine?.shownIds)
+  const trends = Array.isArray(ytm) && mine ? forYourGenres(ytm, mine, shown) : null
 
   return (
     <div className="pb-10">
@@ -95,7 +103,7 @@ export function Home() {
           </Link>
         </div>
         <h1 className="text-2xl font-bold md:text-3xl">{greeting()}</h1>
-        <ul className="mt-5 grid grid-cols-2 gap-2 xl:grid-cols-3">
+        <ul className="mt-5 grid grid-cols-2 gap-2 xl:grid-cols-3" aria-label="Accesos rápidos">
           <QuickTile to="/coleccion/favoritos/todas" title="Tus me gusta" cover={<FavoritesCover className="size-14 md:size-16" />} />
           <QuickTile
             to="/jam"
@@ -106,46 +114,54 @@ export function Home() {
               </div>
             }
           />
-          {catalog.slice(5, 9).map((track, i) => (
+          {yours.map((track) => (
             <QuickTile
               key={track.id}
               title={track.title}
-              cover={<Cover seed={track.id} src={coverUrl(track)} className="size-14 shrink-0 md:size-16" />}
-              onPlay={() => playCatalog(5 + i)}
+              cover={<Cover seed={track.id} src={coverSources(track)} className="size-14 shrink-0 md:size-16" />}
+              onPlay={() => playYours(track)}
             />
           ))}
         </ul>
       </header>
 
-      {/* «Para ti»: sugerencias propias (no son recomendaciones oficiales de YouTube Music). */}
-      {mine === null && <p className="mt-6 px-4 text-sm text-texto-sec md:px-6">Preparando tus sugerencias…</p>}
-      {mine && (mine.quickPicks || mine.artists.length > 0 || mine.shelves.length > 0) && (
-        <div aria-label="Para ti">
-          <Kicker>Para ti · sugerencias</Kicker>
-          {mine.quickPicks && <QuickPicksSection picks={mine.quickPicks} onPlay={playSong} />}
-          {mine.artists.length > 0 && (
-            <Section title="Tus artistas">
-              <ArtistTopSongsRow artists={mine.artists} onPlay={playArtist} />
-            </Section>
-          )}
-          {mine.shelves.map((shelf) => (
-            <Section key={shelf.key} title={shelf.title}>
-              <p className="-mt-2 mb-1 px-4 text-sm text-texto-sec md:px-6">{shelf.note}</p>
-              <TrackPages tracks={shelf.tracks} onPlay={(i) => playSong(shelf.tracks[i])} />
-            </Section>
-          ))}
-          {mine.similar.length > 0 && (
-            <Section title="Artistas recomendados para ti">
-              <CardPages cards={mine.similar} />
-            </Section>
-          )}
-        </div>
-      )}
+      <Section title="Modos">
+        <ModeTiles />
+      </Section>
 
-      {ytm === null && <p className="mt-8 px-4 text-sm text-texto-sec md:px-6">Cargando YouTube Music…</p>}
+      {/* «Para ti»: sugerencias propias (no son recomendaciones oficiales de YouTube Music). */}
+      <div aria-label="Para ti">
+        <Kicker>Para ti · sugerencias</Kicker>
+        <GenreQuickPicks hide={shown} onPlay={playSong} />
+        <Section title="Tus artistas">
+          {mine && mine.artists.length > 0 && <ArtistTopSongsRow artists={mine.artists} onPlay={playArtist} />}
+          <Link
+            to="/gustos"
+            className="mx-4 mt-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15 md:mx-6"
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            {tastes.artists.length ? 'Agregar más artistas' : 'Elegir tus artistas'}
+          </Link>
+        </Section>
+        {mine === null && <p className="mt-6 px-4 text-sm text-texto-sec md:px-6">Preparando tus sugerencias…</p>}
+        {mine?.shelves.map((shelf) => (
+          <Section key={shelf.key} title={shelf.title}>
+            <p className="-mt-2 mb-1 px-4 text-sm text-texto-sec md:px-6">{shelf.note}</p>
+            <TrackPages tracks={shelf.tracks} onPlay={(i) => playSong(shelf.tracks[i])} />
+          </Section>
+        ))}
+        <GenrePlaylists />
+        {mine && mine.similar.length > 0 && (
+          <Section title="Artistas recomendados para ti">
+            <CardPages cards={mine.similar} />
+          </Section>
+        )}
+      </div>
+
+      {ytm === null && <p className="mt-8 px-4 text-sm text-texto-sec md:px-6">Cargando tendencias…</p>}
       {trends && trends.length > 0 && (
-        <div aria-label="De YouTube Music">
-          <Kicker>De YouTube Music · solo de tus géneros</Kicker>
+        <div aria-label="Tendencias">
+          <Kicker>Tendencias · solo de tus géneros</Kicker>
           {trends.map((section) => (
             <Section key={section.title} title={section.title}>
               {section.tracks.length > 0 && <TrackPages tracks={section.tracks} onPlay={(i) => playSong(section.tracks[i])} />}
@@ -154,8 +170,65 @@ export function Home() {
           ))}
         </div>
       )}
-      {ytm === 'error' && <p className="mt-8 px-4 text-sm text-texto-sec md:px-6">No se pudo conectar con YouTube Music. Revisa tu conexión y vuelve a abrir Inicio.</p>}
+      {ytm === 'error' && <p className="mt-8 px-4 text-sm text-texto-sec md:px-6">No se pudo cargar el catálogo. Revisa tu conexión y vuelve a abrir Inicio.</p>}
     </div>
+  )
+}
+
+/**
+ * «Selecciones rápidas» por género (Salsa, Reggaetón, Merengue, Popular): canciones de las playlists de YouTube Music de
+ * ese género, sin las que ya se ven en otro estante de Inicio. Cada género se pide al elegirlo.
+ */
+function GenreQuickPicks({ hide, onPlay }: { hide: ReadonlySet<string>; onPlay: (track: Track) => void }) {
+  const [genre, setGenre] = useState(QUICK_PICK_GENRES[0].key)
+  const [loaded, setLoaded] = useState<Record<string, Track[] | 'error'>>({})
+  useEffect(() => {
+    if (loaded[genre]) return
+    let alive = true
+    const source = QUICK_PICK_GENRES.find((g) => g.key === genre)!
+    sourceTracks(source, 24)
+      .then((tracks) => alive && setLoaded((all) => ({ ...all, [genre]: tracks.length ? tracks : 'error' })))
+      .catch(() => alive && setLoaded((all) => ({ ...all, [genre]: 'error' })))
+    return () => {
+      alive = false
+    }
+  }, [genre, loaded])
+  const list = loaded[genre]
+  const tracks = Array.isArray(list) ? list.filter((track) => !hide.has(track.id)).slice(0, 16) : []
+  return (
+    <Section title="Selecciones rápidas">
+      <Chips label="Género de las selecciones rápidas" options={QUICK_PICK_GENRES} value={genre} onChange={setGenre} />
+      {list === undefined && <p className="px-4 text-sm text-texto-sec md:px-6">Cargando…</p>}
+      {list === 'error' && <p className="px-4 text-sm text-texto-sec md:px-6">No se pudo cargar este género. Revisa tu conexión.</p>}
+      {tracks.length > 0 && <TrackPages key={genre} tracks={tracks} onPlay={(i) => onPlay(tracks[i])} />}
+    </Section>
+  )
+}
+
+/** «Muy sonadas»: las playlists más escuchadas de cada género (Salsa, Reggaetón, Merengue, Popular, Vallenato…). */
+function GenrePlaylists() {
+  const [genre, setGenre] = useState(POPULAR_GENRES[0].key)
+  const [loaded, setLoaded] = useState<Record<string, YtmCard[] | 'error'>>({})
+  useEffect(() => {
+    if (loaded[genre]) return
+    let alive = true
+    const source = POPULAR_GENRES.find((g) => g.key === genre)!
+    sourcePlaylists(source)
+      .then((cards) => alive && setLoaded((all) => ({ ...all, [genre]: cards.length ? cards.slice(0, 8) : 'error' })))
+      .catch(() => alive && setLoaded((all) => ({ ...all, [genre]: 'error' })))
+    return () => {
+      alive = false
+    }
+  }, [genre, loaded])
+  const list = loaded[genre]
+  return (
+    <Section title="Muy sonadas">
+      <p className="-mt-2 mb-3 px-4 text-sm text-texto-sec md:px-6">Las listas más escuchadas de cada género</p>
+      <Chips label="Género de las listas muy sonadas" options={POPULAR_GENRES} value={genre} onChange={setGenre} />
+      {list === undefined && <p className="px-4 text-sm text-texto-sec md:px-6">Cargando…</p>}
+      {list === 'error' && <p className="px-4 text-sm text-texto-sec md:px-6">No se pudo cargar este género. Revisa tu conexión.</p>}
+      {Array.isArray(list) && <CardPages key={genre} cards={list} />}
+    </Section>
   )
 }
 
@@ -164,10 +237,10 @@ export function Home() {
  * radios de lo que escuchas (o tuyos). Sin covers, sin artistas que sueles saltar, sin las que ya están en «Para ti»,
  * ninguna en dos estantes y 2 por artista como mucho. Las playlists quedan (son por género o por ánimo).
  */
-function forYourGenres(sections: YtmSection[], mine: ForYou, inMine: Set<string>): YtmSection[] {
+function forYourGenres(sections: YtmSection[], mine: ForYou, shown: Set<string>): YtmSection[] {
   const genre = new Set(mine.genreArtists)
   const skipped = new Set(mine.skippedArtists)
-  const taken = new Set(inMine)
+  const taken = new Set(shown)
   const ofYourGenres = (artist: string) => {
     const keys = artistKeys(artist)
     // Sin nada tuyo todavía (ni artistas ni historial), no se filtra por género.
@@ -188,37 +261,6 @@ function forYourGenres(sections: YtmSection[], mine: ForYou, inMine: Set<string>
       return { ...section, tracks: tracks.length >= MIN_TRACKS ? tracks : [], cards }
     })
     .filter((section) => section.tracks.length > 0 || section.cards.length > 0)
-}
-
-/** «Selecciones rápidas», con filtros «Todo» / «Como …» (las que salieron de las canciones de ese artista). */
-function QuickPicksSection({ picks, onPlay }: { picks: QuickPicks; onPlay: (track: Track) => void }) {
-  const [filter, setFilter] = useState<string | null>(null)
-  const active = picks.filters.find((f) => f.label === filter)
-  const ids = active ? new Set(active.ids) : null
-  const tracks = ids ? picks.tracks.filter((track) => ids.has(track.id)) : picks.tracks
-  return (
-    <Section title="Selecciones rápidas">
-      <p className="-mt-2 mb-3 px-4 text-sm text-texto-sec md:px-6">A partir de tus últimas 10 canciones: mismo género y época, sin covers</p>
-      {picks.filters.length > 0 && (
-        <div role="group" aria-label="Filtrar selecciones rápidas" className="sin-scroll mb-2 flex gap-2 overflow-x-auto px-4 md:px-6">
-          {[null, ...picks.filters.map((f) => f.label)].map((label) => (
-            <button
-              key={label ?? 'todo'}
-              type="button"
-              aria-pressed={(active?.label ?? null) === label}
-              onClick={() => setFilter(label)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
-                (active?.label ?? null) === label ? 'bg-white text-black' : 'bg-white/10 text-texto hover:bg-white/15'
-              }`}
-            >
-              {label ?? 'Todo'}
-            </button>
-          ))}
-        </div>
-      )}
-      <TrackPages key={active?.label ?? 'todo'} tracks={tracks} onPlay={(i) => onPlay(tracks[i])} />
-    </Section>
-  )
 }
 
 function Kicker({ children }: { children: ReactNode }) {

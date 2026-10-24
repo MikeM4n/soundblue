@@ -44,8 +44,8 @@ export function YtmPage() {
         <IconButton label="Volver" onClick={() => navigate(-1)} className="-ml-2">
           <ChevronLeft className="size-6" />
         </IconButton>
-        {!current && <p className="mt-6 text-texto-sec">Cargando de YouTube Music…</p>}
-        {current && !data && <p className="mt-6 text-texto-sec">No se pudo abrir esta página de YouTube Music. Revisa tu conexión.</p>}
+        {!current && <p className="mt-6 text-texto-sec">Cargando…</p>}
+        {current && !data && <p className="mt-6 text-texto-sec">No se pudo abrir esta página. Revisa tu conexión.</p>}
         {data && (
           <>
             <div className="mt-2 flex flex-col items-center gap-4 text-center md:flex-row md:items-end md:text-left">
@@ -59,7 +59,6 @@ export function YtmPage() {
                 <p className="text-xs font-semibold tracking-wider text-texto-sec uppercase">{data.kind}</p>
                 <h1 className="mt-1 text-3xl font-bold break-words md:text-5xl">{data.title}</h1>
                 {data.subtitle && <p className="mt-2 text-sm text-texto-sec">{data.subtitle}</p>}
-                <p className="mt-1 text-xs text-texto-sec">YouTube Music</p>
               </div>
             </div>
             {data.tracks.length > 0 && (

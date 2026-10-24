@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { useLocation, useSearchParams } from 'react-router'
+import { useLocation } from 'react-router'
 import { clearTopCache, readTopCache } from '../data/artistTop'
 import { artistKey, listening } from '../data/history'
 import { readRadioDiagnostics } from '../data/radio'
@@ -9,7 +9,7 @@ import { clearDiagnostics, formatEvent, markTest, readDiagnostics } from '../lib
 import { clearDuplicateLog, readDuplicateLog } from '../lib/duplicateLog'
 import { TAB_SWITCHER_TIP } from '../lib/tabSwitcherTip'
 import { BRAVE_LINKS } from '../lib/platform'
-import { playerHost, type PlayerHost } from '../player/youtube'
+import { playerHost } from '../player/youtube'
 import { showToast } from '../ui/toast'
 
 const linkClass = 'font-medium text-acento-texto underline-offset-2 hover:underline'
@@ -456,26 +456,10 @@ const BRAVE_FILTERS = 'youtube.com##+js(brave-video-bg-play)\nyoutube.com##+js(b
 
 /**
  * Brave: la receta comprobada en un Android 10 real (oct. 2026): «Reproducción en segundo plano» + los dos filtros
- * de la comunidad + el reproductor desde youtube.com. Al salir YouTube se pausa igual, pero el ▶ de la notificación
- * lo reanuda y sigue con la pantalla apagada. Los filtros no alcanzan al reproductor si carga desde nocookie.
+ * de la comunidad + el reproductor desde youtube.com (la app lo carga siempre desde ahí). Al salir YouTube se pausa
+ * igual, pero el ▶ de la notificación lo reanuda y sigue con la pantalla apagada.
  */
 function BraveBackgroundSection() {
-  const [host] = useState(playerHost.get)
-  // Atajo para el usuario: abrir …#/ayuda?reproductor=youtube (o =nocookie) cambia la opción sin buscar el botón.
-  const [params] = useSearchParams()
-  useEffect(() => {
-    const wanted = params.get('reproductor')
-    if (wanted !== 'youtube' && wanted !== 'nocookie') return
-    window.history.replaceState(null, '', window.location.href.replace(/\?reproductor=\w+/, ''))
-    if (wanted === playerHost.get()) return
-    playerHost.set(wanted)
-    window.location.reload() // el reproductor se crea una sola vez: se recarga para usar la nueva dirección
-  }, [params])
-  const choose = (value: PlayerHost) => {
-    if (value === host) return
-    playerHost.set(value)
-    window.location.reload() // el reproductor se crea una sola vez: se recarga para usar la nueva dirección
-  }
   const copy = async () =>
     showToast((await copyText(BRAVE_FILTERS)) ? 'Filtros copiados: pégalos en «Filtros personalizados» de Brave' : 'No se pudo copiar: escríbelos tal cual')
   return (
@@ -508,8 +492,8 @@ function BraveBackgroundSection() {
           </button>
         </li>
         <li>
-          El reproductor debe cargar desde <B>youtube.com</B>, porque los filtros solo actúan ahí. Viene así por defecto; con
-          «youtube-nocookie.com (más privado)», el ▶ de la notificación no la reanuda.
+          El reproductor carga siempre desde <B>youtube.com</B> (los filtros solo actúan ahí; con youtube-nocookie.com el ▶ de la
+          notificación no la reanudaba). No hay que cambiar nada.
         </li>
         <li>
           Prueba: canción de YouTube → sal con el botón de inicio (○) → se pausa → abre las notificaciones y pulsa <B>▶</B> → sigue
@@ -517,31 +501,8 @@ function BraveBackgroundSection() {
         </li>
       </Steps>
       <p>
-        Ahora el reproductor carga desde:{' '}
-        <B>{host === 'youtube' ? 'youtube.com ✓ (los filtros de Brave lo alcanzan)' : 'youtube-nocookie.com (los filtros de Brave no lo alcanzan)'}</B>
-      </p>
-      <div role="radiogroup" aria-label="Dirección del reproductor de YouTube" className="flex flex-wrap gap-2">
-        {(
-          [
-            ['youtube', 'youtube.com (para los filtros de Brave · recomendado)'],
-            ['nocookie', 'youtube-nocookie.com (más privado)'],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={host === value}
-            onClick={() => choose(value)}
-            className={`rounded-full px-4 py-1.5 text-sm font-semibold ${host === value ? 'bg-acento text-white' : 'bg-white/10 text-texto hover:bg-white/15'}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <p>
-        Con youtube.com, YouTube puede guardar sus cookies; con youtube-nocookie.com no, pero la música no vuelve con el ▶ de la
-        notificación. Cambiarlo recarga la app.
+        El reproductor carga desde: <B>{playerHost.label} ✓ (los filtros de Brave lo alcanzan)</B>. Desde ahí YouTube puede guardar
+        sus cookies, como en su propia página.
       </p>
       <p>
         <B>Si un día deja de funcionar:</B> actualiza Brave, revisa que las dos líneas sigan en «Filtros personalizados» y, en{' '}

@@ -1,7 +1,7 @@
 import { AudioLines, EllipsisVertical, Trash } from 'lucide-react'
 import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { formatDuration } from '../../lib/format'
-import { coverSources, sourceLabel, type Track } from '../../player/types'
+import { coverSources, type Track } from '../../player/types'
 import { onlyInYouTubeMusic } from '../../player/unavailable'
 import { Cover } from '../ui/Cover'
 import { TrackMenu } from './TrackMenu'
@@ -72,9 +72,10 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
               <span className="truncate">{track.title}</span>
             </span>
             <span className="flex items-center gap-1.5 text-sm text-texto-sec">
-              <span className={`shrink-0 rounded px-1 text-[10px] leading-4 font-semibold tracking-wide uppercase ${onlyInYtm ? 'bg-red-500/20 text-red-200' : 'bg-white/10'}`}>
-                {onlyInYtm ? 'Solo en YouTube Music' : sourceLabel(track)}
-              </span>
+              {/* Solo se marca la que no suena aquí (al tocarla se ofrece abrirla en la app de YouTube Music). */}
+              {onlyInYtm && (
+                <span className="shrink-0 rounded bg-red-500/20 px-1 text-[10px] leading-4 font-semibold tracking-wide text-red-200 uppercase">No disponible aquí</span>
+              )}
               <span className="truncate">
                 {track.artist}
                 {track.album && ` · ${track.album}`}

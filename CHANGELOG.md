@@ -2,6 +2,14 @@
 
 ## 2026-10-24
 
+- Inicio por géneros, Modos de ambiente y limpieza de etiquetas (rama `feat/inicio-generos-ambiente`, pendiente de la prueba del dueño):
+  - Bajo «Tus me gusta» y «Jam» solo van tus canciones (las que te gustan y, si faltan, las últimas que sonaron); ya no las del catálogo de prueba.
+  - Modos de ambiente: Modo Rumba (Salsa, Reggaetón, Merengue, Electrónica), Modo Tomar (Despecho, Rancheras, Vallenato) y Modo Relax (Baladas, Boleros, Chill), cada uno con «Todo» y sus subfiltros.
+  - «Selecciones rápidas» por género (Salsa, Reggaetón, Merengue, Popular), ya no a partir del historial. «Muy sonadas» son las playlists de cada género (Salsa, Reggaetón, Merengue, Popular, Vallenato, Música colombiana).
+  - Las canciones salen de las playlists que arma YouTube Music para cada género: su categoría de «Géneros» y búsquedas como «salsa para fiesta». Pasan por los filtros de las recomendaciones: sin covers, sin artistas que sueles saltar, 2 por artista y sin repetidas.
+  - «Tus artistas» tiene «+ Agregar más artistas».
+  - Sin las etiquetas «YouTube Music» en filas, Buscar, Inicio, páginas de playlist y subtítulos. Se dejó el botón de acción «Abrir en YouTube Music» y la explicación de Ayuda.
+  - El reproductor carga siempre desde youtube.com, así lo alcanzan la opción de segundo plano y los filtros de Brave. Se quitó la opción nocookie de Ayuda.
 - Limpieza de Inicio, recomendaciones, cola de 10 y sin conexión (rama `feat/ui-recomendaciones-offline`, pendiente de la prueba del dueño):
   - Inicio sin «Lista de prueba». Todo en lista compacta (carátula pequeña, título, artista y «⋮»), en páginas de 4 que se deslizan de lado.
   - Menú «⋮» en todas las filas (también en Inicio) con Reproducir, Agregar a la cola, Me gusta… Deslizar a la izquierda abre ese menú; ya no agrega nada por sí solo.

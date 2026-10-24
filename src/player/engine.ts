@@ -364,9 +364,9 @@ export class PlayerEngine {
   }
 
   /** Activa aleatorio y reproduce la lista empezando por una canción al azar. */
-  shuffleContext(name: string, tracks: readonly Track[]) {
+  shuffleContext(name: string, tracks: readonly Track[], options: PlayOptions = {}) {
     this.shuffle = true
-    this.playContext(name, tracks, Math.floor(Math.random() * tracks.length))
+    this.playContext(name, tracks, Math.floor(Math.random() * tracks.length), options)
   }
 
   // ---- Controles ----

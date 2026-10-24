@@ -7,10 +7,9 @@ import { usePreventTouchMove } from '../../lib/usePreventTouchMove'
 import { openInYouTubeMusic } from '../../lib/youtubeMusicLink'
 import { player } from '../../player/engine'
 import { sheetState, stageBox, stagePulse, useStageSlot, youtubeView, type YouTubeView } from '../../player/stage'
-import { coverSources, sourceLabel, type Track } from '../../player/types'
+import { coverSources, type Track } from '../../player/types'
 import { onlyInYouTubeMusic } from '../../player/unavailable'
 import { usePlayer } from '../../player/usePlayer'
-import { playerHost } from '../../player/youtube'
 import { inBrowserTab, TAB_SWITCHER_TIP } from '../../lib/tabSwitcherTip'
 import { showToast } from '../../ui/toast'
 import { TrackMenu } from '../tracks/TrackMenu'
@@ -209,7 +208,6 @@ export function NowPlayingSheet() {
  * y, si no lo logra, queda el ▶ de la notificación.
  */
 function BackgroundNotice({ fade }: { fade: string }) {
-  const [host] = useState(playerHost.get) // cambiarlo recarga la app
   const [tab] = useState(inBrowserTab)
   const navigate = useNavigate()
   const { status, pausedOnExit } = usePlayer()
@@ -229,7 +227,7 @@ function BackgroundNotice({ fade }: { fade: string }) {
       </p>
     )
   }
-  if (host === 'youtube' && tab) {
+  if (tab) {
     const showTip = () =>
       showToast(TAB_SWITCHER_TIP, { label: 'Ayuda', run: () => navigate('/ayuda', { state: { seccion: 'ayuda-truco-pestanas' } }) }, 15000)
     return (
@@ -243,13 +241,7 @@ function BackgroundNotice({ fade }: { fade: string }) {
   }
   return (
     <p className={`mx-6 mt-3 line-clamp-2 h-7 text-center text-[11px] leading-[14px] text-white/55 ${fade}`}>
-      {host === 'youtube' ? (
-        <>Al salir se pausa un instante y la app intenta reanudarla sola; si no lo logra, pulsa ▶ en la notificación ({help}).</>
-      ) : (
-        <>
-          Segundo plano: con el reproductor «más privado», YouTube se pausa al salir. Para que siga sonando, mira la {help}.
-        </>
-      )}
+      Al salir se pausa un instante y la app intenta reanudarla sola; si no lo logra, pulsa ▶ en la notificación ({help}).
     </p>
   )
 }
@@ -303,7 +295,7 @@ function TrackInfo({ track, liked, fade, error }: { track: Track; liked: boolean
           {error && onlyInYtm ? (
             // YouTube no la deja sonar fuera de sus apps: se ofrece abrirla en YouTube Music (en una línea, como el resto).
             <p role="alert" aria-label={error} className="flex items-center gap-2 text-xs">
-              <span className="truncate text-red-300">Solo en YouTube Music</span>
+              <span className="truncate text-red-300">No disponible aquí</span>
               <button type="button" onClick={() => openInYouTubeMusic(track.id)} className="shrink-0 font-semibold text-white underline underline-offset-2">
                 Abrir en YouTube Music
               </button>
@@ -313,7 +305,7 @@ function TrackInfo({ track, liked, fade, error }: { track: Track; liked: boolean
               {error}
             </p>
           ) : (
-            <p className="truncate text-xs text-white/50">{[track.album, sourceLabel(track)].filter(Boolean).join(' · ')}</p>
+            <p className="h-4 truncate text-xs text-white/50">{track.album}</p>
           )}
         </div>
         <IconButton label={liked ? 'Quitar de favoritos' : 'Agregar a favoritos'} active={liked} onClick={() => toggleFavorite(track)} className={liked ? '' : 'text-white'}>

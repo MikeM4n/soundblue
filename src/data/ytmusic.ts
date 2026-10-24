@@ -18,6 +18,7 @@ const FILTER = {
   songs: 'EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D',
   albums: 'EgWKAQIYAWoKEAkQChAFEAMQBA%3D%3D',
   artists: 'EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D',
+  featuredPlaylists: 'EgeKAQQoADgBagwQDhAKEAMQBRAJEAQ%3D',
 }
 
 /** Playlist, álbum o artista: se abre en su propia página (/ytm/:id). */
@@ -190,10 +191,17 @@ function cardFromListItem(r: Json): YtmCard | null {
     id: endpoint.browseEndpoint.browseId,
     kind,
     title,
-    subtitle: plain(r.flexColumns[1]?.musicResponsiveListItemFlexColumnRenderer?.text),
+    subtitle: cardSubtitle(r.flexColumns[1]?.musicResponsiveListItemFlexColumnRenderer?.text),
     image: lastThumb(r.thumbnail?.musicThumbnailRenderer?.thumbnail),
   }
 }
+
+/** Subtítulo de una tarjeta sin la etiqueta «YouTube Music» («YouTube Music • 60 canciones» → «60 canciones»). */
+const cardSubtitle = (text: Json): string =>
+  plain(text)
+    .split(' • ')
+    .filter((part) => part.trim() !== 'YouTube Music')
+    .join(' • ')
 
 /** Tarjeta de un estante (playlist, álbum o artista) o, si es una canción suelta, la canción. */
 function fromTwoRow(r: Json): YtmCard | Track | null {
@@ -208,7 +216,7 @@ function fromTwoRow(r: Json): YtmCard | Track | null {
   const kind = KINDS[pageType(r?.navigationEndpoint) ?? '']
   const id = r?.navigationEndpoint?.browseEndpoint?.browseId
   if (!kind || !id || !title) return null
-  return { id, kind, title, subtitle: plain(r.subtitle), image }
+  return { id, kind, title, subtitle: cardSubtitle(r.subtitle), image }
 }
 
 const isTrack = (item: YtmCard | Track): item is Track => !('kind' in item)
@@ -300,6 +308,43 @@ export function ytmSearchArtists(query: string): Promise<YtmCard[]> {
   })
 }
 
+/**
+ * Playlists que arma el propio YouTube Music («destacadas»; no las de usuarios) para una búsqueda, p. ej. «salsa para
+ * fiesta»: así salen los géneros y los modos de Inicio (YouTube no publica el género de una canción).
+ */
+export function ytmSearchPlaylists(query: string): Promise<YtmCard[]> {
+  const q = query.trim().toLowerCase().replace(/\s+/g, ' ')
+  return remember(`playlists:${q}`, async () => {
+    const json = await call('search', { query: q, params: FILTER.featuredPlaylists })
+    return searchShelf(json)
+      .map((item) => cardFromListItem(item.musicResponsiveListItemRenderer))
+      .filter((card): card is YtmCard => card?.kind === 'playlist')
+  })
+}
+
+/**
+ * Playlists de una categoría de «Estados de ánimo y géneros» de YouTube Music (p. ej. «Vallenato» o «Música regional y
+ * popular»): solo las que arma YouTube Music (se salta el estante de la comunidad).
+ */
+export function ytmCategoryPlaylists(name: string): Promise<YtmCard[]> {
+  return remember(`categoria:${name}`, async () => {
+    const moods = await call('browse', { browseId: 'FEmusic_moods_and_genres' })
+    const buttons: Json[] = (sectionListOf(moods)?.contents ?? []).flatMap((section: Json) => section?.gridRenderer?.items ?? [])
+    const endpoint = buttons.map((item) => item?.musicNavigationButtonRenderer).find((button) => plain(button?.buttonText) === name)?.clickCommand
+      ?.browseEndpoint
+    if (!endpoint?.browseId) return []
+    const json = await call('browse', { browseId: endpoint.browseId, params: endpoint.params })
+    return (sectionListOf(json)?.contents ?? [])
+      .filter((content: Json) => {
+        const shelf = content?.musicCarouselShelfRenderer ?? content?.gridRenderer
+        return !/comunidad/i.test(plain(shelf?.header?.musicCarouselShelfBasicHeaderRenderer?.title ?? shelf?.header?.gridHeaderRenderer?.title))
+      })
+      .flatMap((content: Json) => content?.musicCarouselShelfRenderer?.contents ?? content?.gridRenderer?.items ?? [])
+      .map((item: Json) => item?.musicTwoRowItemRenderer && fromTwoRow(item.musicTwoRowItemRenderer))
+      .filter((entry: YtmCard | Track | null): entry is YtmCard => !!entry && !isTrack(entry) && entry.kind === 'playlist')
+  })
+}
+
 /** Artistas parecidos («Puede que también te guste» en la página del artista). */
 export async function ytmSimilarArtists(artistId: string): Promise<YtmCard[]> {
   const page = await ytmPage(artistId)
@@ -324,7 +369,7 @@ export function ytmPage(browseId: string): Promise<YtmPage> {
       return {
         kind: plain(header?.subtitle) || 'Playlist',
         title,
-        subtitle: [artist, plain(header?.secondSubtitle)].filter(Boolean).join(' • '),
+        subtitle: [artist, plain(header?.secondSubtitle)].filter((part) => part && part !== 'YouTube Music').join(' • '),
         image,
         tracks: items.map((item) => fromListItem(item.musicResponsiveListItemRenderer, defaults)).filter(notEmpty),
         sections: [],

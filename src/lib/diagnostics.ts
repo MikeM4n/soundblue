@@ -114,7 +114,7 @@ function stopKeepAlive(report = true) {
 export function startDiagnostics() {
   if (started) return
   started = true
-  log(`App abierta · versión ${__APP_VERSION__} · reproductor de YouTube desde ${playerHost.get() === 'youtube' ? 'youtube.com' : 'youtube-nocookie.com'}`)
+  log(`App abierta · versión ${__APP_VERSION__} · reproductor de YouTube desde ${playerHost.label}`)
   // En la fase de captura de window: se anota antes que cualquier otra reacción de la app, con la hora exacta del evento.
   window.addEventListener(
     'visibilitychange',
