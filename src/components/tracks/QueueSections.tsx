@@ -1,9 +1,11 @@
 import { GripVertical } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useInGuestJam } from '../../jam/guestJam'
 import { player } from '../../player/engine'
 import type { Track } from '../../player/types'
 import { usePlayer } from '../../player/usePlayer'
 import { showToast } from '../../ui/toast'
+import { GuestJamQueue } from '../jam/JamQueue'
 import { stableKeys } from './TrackList'
 import { TrackRow } from './TrackRow'
 import type { RemoveAction } from './trackActions'
@@ -12,10 +14,11 @@ import { useDragReorder } from './useDragReorder'
 /**
  * «Siguiente en la cola» (las que agregaste) y «Siguiente de: …» (el resto de la lista). Se reordenan
  * arrastrando ≡, se quitan deslizando a la derecha (con Deshacer). La usan la página Cola y el panel
- * que sube en «Sonando ahora».
+ * que sube en «Sonando ahora». Si estás en la Jam de otro, arriba va la cola compartida (la de su teléfono).
  */
 export function QueueSections({ beforePlay }: { beforePlay?: () => void }) {
   const { queue, upcoming, contextName } = usePlayer()
+  const inJam = useInGuestJam()
 
   const clearQueue = () => {
     const undo = player.clearQueue()
@@ -23,11 +26,18 @@ export function QueueSections({ beforePlay }: { beforePlay?: () => void }) {
   }
 
   if (queue.length === 0 && upcoming.length === 0) {
+    if (inJam) return <GuestJamQueue />
     return <p className="mt-6 px-2 text-sm text-texto-sec">No hay más canciones. Desliza una canción a la izquierda en cualquier lista para agregarla aquí.</p>
   }
 
   return (
     <>
+      {inJam && (
+        <>
+          <GuestJamQueue />
+          <p className="mt-8 px-2 text-xs font-semibold tracking-wider text-texto-sec uppercase">En tu teléfono</p>
+        </>
+      )}
       {queue.length > 0 && (
         <>
           <SectionTitle

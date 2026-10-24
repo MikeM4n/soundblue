@@ -152,10 +152,24 @@ export function Help() {
             Abre <B>Jam</B> (en Inicio o en «Próximas en sonar») y toca <B>Iniciar Jam</B>. Sale un código QR y un código de 6 letras.
           </li>
           <li>
-            Tus amigos escanean el QR con la cámara del celular (o escriben el código en SoundBlue → Jam), ponen su nombre y agregan
-            canciones. Entran al final de tu «Siguiente en la cola» y te avisa quién agregó cada una.
+            Tus amigos escanean el QR con la cámara del celular (o escriben el código en SoundBlue → Jam) y ponen su nombre. Agregan
+            canciones con la búsqueda de la Jam o, desde cualquier canción de la app, con <B>⋮ → Agregar a la Jam</B>: siguen en tu Jam
+            aunque cambien de página, hasta que toquen <B>Salir</B>.
           </li>
-          <li>La música suena solo en tu teléfono, como en una fiesta. Al terminar puedes guardar las canciones como playlist.</li>
+          <li>
+            Tú agregas igual: con la búsqueda de tu Jam o con <B>⋮ → Agregar a la cola</B>. Tu cola es la de todos: lo que agrega o
+            quita cualquiera lo ven todos al instante en «Próximas en sonar» («En camino» mientras tu teléfono lo pasa al final de tu
+            «Siguiente en la cola») y te avisa quién agregó cada una.
+          </li>
+          <li>
+            En la lista de la Jam, <B>desliza una canción a la derecha</B> para quitarla (con «Deshacer»): tú puedes quitar cualquiera;
+            cada amigo, solo las que agregó él. <B>A la izquierda</B> abre el menú ⋮.
+          </li>
+          <li>
+            La música suena solo en tu teléfono, como en una fiesta: deja SoundBlue abierto (en segundo plano el teléfono deja de
+            recibir la Jam; lo que agreguen espera «En camino» y al volver se pone al día). Al terminar puedes guardar las canciones
+            como playlist.
+          </li>
           <li>
             Para que tus amigos puedan entrar, abre SoundBlue desde su link <B>https</B>: con una dirección local (localhost o
             192.168…) solo funciona en tu equipo.

@@ -1,6 +1,7 @@
-import { EllipsisVertical, ExternalLink, Heart, ListEnd, ListPlus, ListStart, ListX, Radio, Trash } from 'lucide-react'
+import { EllipsisVertical, ExternalLink, Heart, ListEnd, ListPlus, ListStart, ListX, Radio, Trash, Users } from 'lucide-react'
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useInGuestJam } from '../../jam/guestJam'
 import { openInYouTubeMusic } from '../../lib/youtubeMusicLink'
 import { useLibrary } from '../../library/store'
 import { player } from '../../player/engine'
@@ -16,9 +17,16 @@ interface TrackMenuProps {
   removeAction?: RemoveAction // «Eliminar de …» cuando la lista lo permite
 }
 
+interface TrackMenuControl {
+  open?: boolean // abierto desde fuera (deslizar la fila a la izquierda)
+  onOpenChange?: (open: boolean) => void
+}
+
 /** Botón «⋮» con las acciones de una canción. */
-export function TrackMenu({ track, removeAction }: TrackMenuProps) {
-  const [open, setOpen] = useState(false)
+export function TrackMenu({ track, removeAction, open: openProp, onOpenChange }: TrackMenuProps & TrackMenuControl) {
+  const [openState, setOpenState] = useState(false)
+  const open = openProp ?? openState
+  const setOpen = onOpenChange ?? setOpenState
   const [choosingPlaylist, setChoosingPlaylist] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
@@ -30,7 +38,7 @@ export function TrackMenu({ track, removeAction }: TrackMenuProps) {
         aria-label={`Más opciones para ${track.title}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(!open)}
         className="grid size-10 shrink-0 place-items-center rounded-full text-texto-sec hover:text-texto"
       >
         <EllipsisVertical className="size-5" />
@@ -67,6 +75,7 @@ function MenuPopover({ anchor, track, removeAction, onClose, onChoosePlaylist }:
   const { favorites } = useLibrary()
   const { open } = useNowPlaying()
   usePlayer() // para saber al momento si está en la cola
+  const inJam = useInGuestJam() // en la Jam de otro, «agregar» va a la cola compartida (no a la de tu teléfono)
   const liked = favorites.some((t) => t.id === track.id)
   const queued = player.isQueued(track.id)
 
@@ -122,16 +131,24 @@ function MenuPopover({ anchor, track, removeAction, onClose, onChoosePlaylist }:
       className="fixed z-40 w-64 rounded-lg bg-tarjeta-claro p-1 shadow-2xl shadow-black/60 ring-1 ring-white/10"
       style={position ?? { top: -9999, left: -9999 }}
     >
-      <MenuItem icon={<ListStart className="size-4" />} onSelect={run(() => playNext(track))}>
-        Reproducir a continuación
-      </MenuItem>
-      <MenuItem icon={<ListEnd className="size-4" />} onSelect={run(() => addToSiguientes(track))}>
-        Agregar a la cola
-      </MenuItem>
-      {queued && (
-        <MenuItem icon={<ListX className="size-4" />} onSelect={run(() => removeFromQueue(track))}>
-          Quitar de la cola
+      {inJam ? (
+        <MenuItem icon={<Users className="size-4" />} onSelect={run(() => addToSiguientes(track))}>
+          Agregar a la Jam
         </MenuItem>
+      ) : (
+        <>
+          <MenuItem icon={<ListStart className="size-4" />} onSelect={run(() => playNext(track))}>
+            Reproducir a continuación
+          </MenuItem>
+          <MenuItem icon={<ListEnd className="size-4" />} onSelect={run(() => addToSiguientes(track))}>
+            Agregar a la cola
+          </MenuItem>
+          {queued && (
+            <MenuItem icon={<ListX className="size-4" />} onSelect={run(() => removeFromQueue(track))}>
+              Quitar de la cola
+            </MenuItem>
+          )}
+        </>
       )}
       <MenuItem icon={<Radio className="size-4" />} onSelect={run(() => startRadio(track, open))}>
         Iniciar radio
