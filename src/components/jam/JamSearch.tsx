@@ -1,8 +1,12 @@
-import { Check, LoaderCircle, Plus, Search as SearchIcon } from 'lucide-react'
+import { Check, EllipsisVertical, LoaderCircle, Plus, Search as SearchIcon, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { ytmSearch } from '../../data/ytmusic'
-import type { Track } from '../../player/types'
-import { JamTrackRow } from './JamTrackRow'
+import { coverSources, type Track } from '../../player/types'
+import { TrackMenu } from '../tracks/TrackMenu'
+import { useSwipe } from '../tracks/useSwipe'
+import { Cover } from '../ui/Cover'
+
+const SNAP_BACK_MS = 200 // lo que tarda la fila en volver a su lugar: el menú se abre después, junto a su «⋮»
 
 export const jamInputClass =
   'h-12 w-full rounded-full bg-tarjeta px-5 text-texto ring-1 ring-white/10 outline-none placeholder:text-texto-sec focus:ring-2 focus:ring-acento'
@@ -13,8 +17,8 @@ interface JamSearchProps {
 }
 
 /**
- * «Agrega canciones» dentro de la Jam (anfitrión e invitados): busca en YouTube Music y «+» la pone al final de la cola
- * compartida.
+ * «Agrega canciones» dentro de la Jam (anfitrión e invitados): busca canciones y «+» (o deslizarla a la izquierda) la
+ * pone al final de la cola compartida; deslizarla a la derecha abre el menú «⋮».
  */
 export function JamSearch({ onAdd, isIn }: JamSearchProps) {
   const [query, setQuery] = useState('')
@@ -68,29 +72,74 @@ export function JamSearch({ onAdd, isIn }: JamSearchProps) {
       {songs && songs.length === 0 && <p className="mt-3 text-sm text-texto-sec">No encontramos «{q}».</p>}
       {songs && songs.length > 0 && (
         <ul className="mt-2">
-          {songs.map((track) => {
-            const done = added.has(track.id) || isIn(track.id)
-            return (
-              <JamTrackRow
-                key={track.id}
-                track={track}
-                detail={[track.artist, track.album].filter(Boolean).join(' · ')}
-                action={
-                  <button
-                    type="button"
-                    onClick={() => void add(track)}
-                    disabled={adding !== null || done}
-                    aria-label={done ? `${track.title} ya está en la Jam` : `Agregar ${track.title} a la Jam`}
-                    className="grid size-10 shrink-0 place-items-center rounded-full bg-acento text-white transition hover:bg-acento-hover disabled:bg-tarjeta disabled:text-texto-sec"
-                  >
-                    {adding === track.id ? <LoaderCircle className="size-5 animate-spin" /> : done ? <Check className="size-5" /> : <Plus className="size-5" />}
-                  </button>
-                }
-              />
-            )
-          })}
+          {songs.map((track) => (
+            <JamSearchRow
+              key={track.id}
+              track={track}
+              done={added.has(track.id) || isIn(track.id)}
+              busy={adding !== null}
+              adding={adding === track.id}
+              onAdd={() => void add(track)}
+            />
+          ))}
         </ul>
       )}
     </>
+  )
+}
+
+interface JamSearchRowProps {
+  track: Track
+  done: boolean // ya está en la Jam
+  busy: boolean // se está agregando alguna
+  adding: boolean // se está agregando esta
+  onAdd: () => void
+}
+
+/** Resultado de la búsqueda: deslizar a la izquierda la agrega de una vez (como «+»); a la derecha abre el menú «⋮». */
+function JamSearchRow({ track, done, busy, adding, onAdd }: JamSearchRowProps) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const swipe = useSwipe({
+    onLeft: done || busy ? undefined : onAdd,
+    onRight: () => window.setTimeout(() => setMenuOpen(true), SNAP_BACK_MS),
+  })
+  const grow = `size-6 transition-transform ${swipe.armed ? 'scale-125' : ''}`
+  return (
+    <li className="relative overflow-hidden rounded-md">
+      {swipe.dx < 0 && (
+        <div className="absolute inset-0 flex items-center justify-end gap-2 bg-acento pr-5 text-sm font-semibold text-white">
+          <span>A la Jam</span>
+          <Users className={grow} aria-hidden="true" />
+        </div>
+      )}
+      {swipe.dx > 0 && (
+        <div className="absolute inset-0 flex items-center justify-start gap-2 bg-tarjeta-claro pl-5 text-sm font-semibold text-white">
+          <EllipsisVertical className={grow} aria-hidden="true" />
+          <span>Opciones</span>
+        </div>
+      )}
+      <div
+        ref={swipe.ref}
+        {...swipe.handlers}
+        className="relative flex h-16 touch-pan-y items-center gap-3 bg-panel pr-1 pl-2 select-none hover:bg-tarjeta"
+        style={{ transform: `translateX(${swipe.dx}px)`, transition: swipe.active ? 'none' : `transform ${SNAP_BACK_MS}ms ease-out` }}
+      >
+        <Cover seed={track.id} src={coverSources(track)} className="size-12 shrink-0 rounded" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-texto">{track.title}</span>
+          <span className="block truncate text-sm text-texto-sec">{[track.artist, track.album].filter(Boolean).join(' · ')}</span>
+        </span>
+        <button
+          type="button"
+          onClick={onAdd}
+          disabled={busy || done}
+          aria-label={done ? `${track.title} ya está en la Jam` : `Agregar ${track.title} a la Jam`}
+          className="grid size-10 shrink-0 place-items-center rounded-full bg-acento text-white transition hover:bg-acento-hover disabled:bg-tarjeta disabled:text-texto-sec"
+        >
+          {adding ? <LoaderCircle className="size-5 animate-spin" /> : done ? <Check className="size-5" /> : <Plus className="size-5" />}
+        </button>
+        <TrackMenu track={track} open={menuOpen} onOpenChange={setMenuOpen} />
+      </div>
+    </li>
   )
 }

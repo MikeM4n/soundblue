@@ -10,8 +10,8 @@
 // durante la sesión.
 import type { Track } from '../player/types'
 import { hashText, seededRandom, sessionSeed, shuffle } from '../lib/random'
-import { capPerArtist, interleave, unique } from './forYou'
 import { artistKey, listening } from './history'
+import { capPerArtist, interleave, unique } from './lists'
 import { ytmCategoryPlaylists, ytmPage, ytmSearchPlaylists, type YtmCard } from './ytmusic'
 
 /** Covers y versiones que no son la original (para listas que no pasan por la radio). */
@@ -49,6 +49,34 @@ const MERENGUE: GenreSource = { key: 'merengue', label: 'Merengue', queries: ['m
 const POPULAR: GenreSource = { key: 'popular', label: 'Popular', category: 'Música regional y popular', queries: ['música popular despecho'], match: /popular|despecho/i }
 const VALLENATO: GenreSource = { key: 'vallenato', label: 'Vallenato', category: 'Vallenato', queries: ['vallenato'], match: /vallenat/i }
 const COLOMBIANA: GenreSource = { key: 'colombiana', label: 'Música colombiana', queries: ['música colombiana'], match: /colombi/i }
+
+/**
+ * Géneros que reconoce la radio (data/genreIndex.ts): de las playlists de cada uno sale qué artistas son de qué género.
+ * Van también los que nunca se recomiendan juntos (rock, electrónica, pop…), para reconocerlos y dejarlos fuera.
+ */
+export const INDEX_GENRES = {
+  reggaeton: REGGAETON,
+  dancehall: { key: 'dancehall', label: 'Dancehall', queries: ['dancehall'], match: /dancehall/i },
+  trap: { key: 'trap', label: 'Trap latino', queries: ['trap latino'], match: /trap/i },
+  salsa: SALSA,
+  merengue: MERENGUE,
+  bachata: { key: 'bachata', label: 'Bachata', category: 'Bachata', queries: ['bachata'], match: /bachata/i },
+  vallenato: VALLENATO,
+  cumbia: { key: 'cumbia', label: 'Cumbia', category: 'Cumbia', queries: ['cumbia'], match: /cumbia/i },
+  popular: POPULAR,
+  regional: {
+    key: 'regional',
+    label: 'Regional mexicano',
+    category: 'Música regional y popular',
+    queries: ['rancheras', 'regional mexicano'],
+    match: /ranch|mariachi|corrido|banda|mexican|regional/i,
+  },
+  pop: { key: 'pop', label: 'Pop latino', category: 'Pop Latino', queries: ['pop latino'], match: /pop/i, avoid: /k-?pop|j-?pop|turk|popular/i },
+  baladas: { key: 'baladas', label: 'Baladas', queries: ['baladas en español'], match: /balad/i },
+  boleros: { key: 'boleros', label: 'Boleros', queries: ['boleros'], match: /bolero/i },
+  electronica: { key: 'electronica', label: 'Electrónica', category: 'Dance y electrónica', queries: ['electrónica'], match: /dance|electr|edm|house/i },
+  rock: { key: 'rock', label: 'Rock en español', category: 'Rock en español', queries: ['rock en español'], match: /rock/i },
+} satisfies Record<string, GenreSource>
 
 /** «Selecciones rápidas»: canciones por género. */
 export const QUICK_PICK_GENRES = [SALSA, REGGAETON, MERENGUE, POPULAR]

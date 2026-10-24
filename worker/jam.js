@@ -7,8 +7,10 @@
 import { DurableObject } from 'cloudflare:workers'
 import { handleRoom, newCode, newRoom, publicView, TTL_MS } from './jam-room'
 
-// Solo la app publicada y las pruebas en el PC (npm run dev en 5173 o 5174, npm run preview en 4173).
+// Solo la app publicada y las pruebas en el PC (npm run dev en 5173 o 5174, npm run preview en 4173). El Worker de
+// prueba (jam.staging.wrangler.jsonc) acepta además lo que diga ORIGENES_PRUEBA (los links temporales de TryCloudflare).
 const ORIGINS = new Set(['https://mikem4n.github.io', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:4173'])
+const allowed = (origin, env) => ORIGINS.has(origin) || (!!env.ORIGENES_PRUEBA && new RegExp(env.ORIGENES_PRUEBA).test(origin))
 const MAX_BODY = 64 * 1024
 
 const corsHeaders = (origin) => ({
@@ -143,7 +145,7 @@ export class JamRoom extends DurableObject {
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('origin') ?? ''
-    if (!ORIGINS.has(origin)) return reply(403, { error: 'Origen no permitido' })
+    if (!allowed(origin, env)) return reply(403, { error: 'Origen no permitido' })
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) })
     const [resource, rawCode] = new URL(request.url).pathname.split('/').filter(Boolean)
     if (resource !== 'jams') return reply(404, { error: 'No existe' }, origin)

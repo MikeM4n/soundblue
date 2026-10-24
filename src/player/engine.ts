@@ -155,6 +155,7 @@ export class PlayerEngine {
   private unmuteTimer: number | undefined
   private resumeOnStart = false // al cerrar la app sonaba (no la pausaste tú): al abrirla vuelve a sonar sola
   private radioMore: RadioSource | null = null // la lista actual es una radio (playRadio o la cola infinita)
+  private radioOwn = new Set<string>() // la semilla de esa radio y lo que agregó (si suena otra, se arma su radio)
   private radioLoading: { context: Context; more: RadioSource; done: Promise<void> } | null = null // pedido en curso
   private resumeWhenOnline = false // falló por falta de internet: al volver la conexión, suena sola
   private playingWhenOffline = false // sonaba cuando se fue internet
@@ -279,8 +280,9 @@ export class PlayerEngine {
   // `radio`: la lista es una radio; se pone antes de sonar para que la primera tanda la pida ella y no la cola infinita.
   private startContext(name: string, tracks: readonly Track[], start: number, { replaceQueue = false }: PlayOptions, radio: RadioSource | null) {
     if (!tracks.length) return
-    this.radioMore = radio
     const chosen = tracks[clamp(start, 0, tracks.length - 1)]
+    this.radioMore = radio
+    this.radioOwn = new Set(radio ? [chosen.id] : [])
     this.queue = replaceQueue ? [] : this.queue.filter((track) => track.id !== chosen.id)
     const queued = new Set(this.queue.map((track) => track.id))
     const seen = new Set<string>()
@@ -307,23 +309,25 @@ export class PlayerEngine {
   }
 
   /**
-   * Cuando quedan menos de 10 por sonar (tu cola + la lista; también al quitar una): si la lista es una radio, las que
-   * falten para 10 (mínimo 5); si es una lista normal (recomendada o tuya), la cola infinita: sigue con la radio de su
-   * última canción (1 de cada 5 del mismo artista, el resto del mismo género y época), así la música no se detiene. Con
-   * «repetir» activado no se agrega nada (la lista vuelve a empezar).
+   * Cuando quedan menos de 10 por sonar (tu cola + la lista; también al quitar una), la radio agrega las que falten para
+   * 10 (mínimo 5), así la música no se detiene. La semilla es SIEMPRE la canción que suena: si la radio actual la trajo,
+   * sigue esa radio; si no (es de la lista que elegiste, de tu cola o la agregó alguien en la Jam), se arma la radio de
+   * esa canción (1 de cada 5 del mismo artista, el resto de su género o uno parecido, de cualquier año). Con «repetir»
+   * activado no se arma ninguna (la lista vuelve a empezar).
    */
   private extendRadio(): Promise<void> {
     const context = this.context
     const remaining = this.queue.length + (this.order.length - this.pos - 1)
     if (!context || remaining >= MIN_UPCOMING) return Promise.resolve()
+    const seed = this.current
+    if (seed && this.repeat === 'off' && !this.radioOwn.has(seed.id)) {
+      this.radioMore = createRadio(seed)
+      this.radioOwn = new Set([seed.id])
+    }
+    if (!this.radioMore) return Promise.resolve()
     const loading = this.radioLoading
     // Ya se está pidiendo para esta lista: se espera ese pedido (uno de otra lista se descarta solo al llegar).
     if (loading && loading.context === context && loading.more === this.radioMore) return loading.done
-    if (!this.radioMore) {
-      const last = context.tracks[this.order[this.order.length - 1]]
-      if (this.repeat !== 'off' || !last) return Promise.resolve()
-      this.radioMore = createRadio(last)
-    }
     const request = { context, more: this.radioMore, done: Promise.resolve() }
     request.done = this.fetchRadio(context, this.radioMore, Math.max(RADIO_BATCH, MIN_UPCOMING - remaining)).then((added) => {
       if (this.radioLoading === request) this.radioLoading = null
@@ -352,6 +356,7 @@ export class PlayerEngine {
         this.radioMore = null // esta radio no tiene más que cumplan sus reglas (con la próxima canción se arma otra)
         return 0
       }
+      for (const { track } of added) this.radioOwn.add(track.id)
       const start = context.tracks.length
       context.tracks.push(...added.map(({ track }) => track))
       context.groups = { ...context.groups, ...Object.fromEntries(added.map(({ track, group }) => [track.id, group])) }

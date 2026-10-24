@@ -1,29 +1,33 @@
-// Radio dinámica (Buscar, «Iniciar radio», «Tus artistas» en Inicio, «Selecciones rápidas» y la cola infinita de
-// cualquier lista): suena la canción elegida y la cola se mantiene con 10 o más por sonar, con canciones del mismo
-// artista y de otros artistas del mismo género y época. NUNCA a partir del título: eso llenaba la cola de covers y de
-// canciones que solo comparten palabras con el nombre.
+// Radio dinámica (Buscar, «Iniciar radio», «Tus artistas» en Inicio, recomendadas y la cola infinita de cualquier
+// lista, siempre a partir de la canción que suena): la cola se mantiene con 10 o más por sonar, con canciones del mismo
+// artista y de otros artistas del MISMO GÉNERO O UNO PARECIDO, de cualquier año (reggaetón viejo y nuevo, dancehall…).
+// NUNCA a partir del título: eso llenaba la cola de covers y de canciones que solo comparten palabras con el nombre.
 //
 // En bloques, con su encabezado en «Próximas en sonar»: primero 10 «Recomendadas basadas en esta canción»; después,
 // de a 5, «Nuevas para ti» (canciones que nunca sonaron aquí) y más recomendadas, alternando.
 //
 // De dónde salen (sin cuota: YouTube Music vía el intermediario):
-//  - Mismo artista: las suyas que trae la radio y, si la canción no es vieja, sus más conocidas (data/artistTop.ts;
-//    no traen año, por eso no se usan con canciones viejas).
-//  - Mismo género y época: la radio de YouTube Music de esa canción («A continuación», a partir de su videoId). YouTube
-//    no publica el género de una canción; su radio es lo que lo mantiene (reggaetón con reggaetón, ranchera con
-//    ranchera). Cuando se acaba, la radio de la última que sonó de otro artista.
+//  - Mismo artista: las suyas que trae la radio y sus más conocidas (data/artistTop.ts).
+//  - Mismo género: la radio de YouTube Music de esa canción («A continuación», a partir de su videoId). Cuando se acaba,
+//    la radio de la última que sonó de otro artista.
+//
+// Género: YouTube no lo publica. Lo sabe el índice de géneros (data/genreIndex.ts: qué artistas aparecen en las
+// playlists de cada género) y la matriz de géneros parecidos: si suena reggaetón, entran reggaetón, dancehall y trap
+// latino; si suena salsa, salsa, merengue y bachata; si suena una ranchera, regional mexicano y popular. Una canción de
+// un artista que el índice no conoce entra (la radio de YouTube ya la trajo por parecida); si la semilla no se conoce,
+// no se filtra por género.
 //
 // Filtros: solo audio o video oficial (fuera los subidos por usuarios: covers); fuera los «Canción – Otro Artista» de
 // un intérprete distinto (covers); nada que comparta más del 40 % de las palabras del título de la semilla (covers,
-// remix, en vivo); una sola versión de cada título (la más vieja, que suele
-// ser la original); época: año del álbum a ±10 años del de la semilla y, si la semilla es vieja (8 años o más), nada
-// de los últimos 3 años; fuera los artistas que sueles saltar (data/history.ts). Mezcla: en cada tanda, como mucho 1
-// de cada 5 del mismo artista (el 80 % de otros artistas) y como mucho 2 de cualquier otro artista. Orden al azar con
-// una semilla por sesión. Nunca la misma canción dos veces, ni una que ya esté en la cola (`exclude`).
+// remix, en vivo); una sola versión de cada título (la más vieja, que suele ser la original); de otro género (ver
+// arriba); fuera los artistas que sueles saltar (data/history.ts). Mezcla: en cada tanda, como mucho 1 de cada 5 del
+// mismo artista (el 80 % de otros artistas) y como mucho 2 de cualquier otro artista. Orden al azar con una semilla
+// por sesión. Nunca la misma canción dos veces, ni una que ya esté en la cola (`exclude`).
 import { logDuplicate } from '../lib/duplicateLog'
 import { hashText, seededRandom, sessionSeed, shuffle } from '../lib/random'
 import type { Track } from '../player/types'
 import { artistTopSongs } from './artistTop'
+import { genreIndexSoon, genreLabel, genresOf, similarTo, type GenreIndex, type GenreKey } from './genreIndex'
 import { artistKey, listening } from './history'
 import { ytmRadioItems, ytmSearchArtists, type RadioItem } from './ytmusic'
 
@@ -31,9 +35,7 @@ const SAME_ARTIST_SHARE = 0.2 // del mismo artista: 1 de cada 5 (el resto, otros
 const PER_ARTIST = 2 // de cualquier otro artista, como mucho 2 por tanda
 const FIRST_BLOCK = 10 // «Recomendadas basadas en esta canción»
 const BLOCK = 5 // después, bloques de 5: «Nuevas para ti» y recomendadas, alternando
-const ERA_SPAN = 10 // años alrededor del de la semilla
-const OLD_SEED = 8 // años: desde aquí la semilla es «vieja»
-const RECENT = 3 // con una semilla vieja, nada de los últimos 3 años
+const INDEX_WAIT_MS = 2500 // la primera vez el índice de géneros tarda en armarse: la radio no lo espera más que esto
 const TITLE_OVERLAP = 0.4
 const MAX_REFILLS = 6 // radios de respaldo como mucho
 const OFFICIAL = new Set(['MUSIC_VIDEO_TYPE_ATV', 'MUSIC_VIDEO_TYPE_OMV', 'MUSIC_VIDEO_TYPE_OFFICIAL_SOURCE_MUSIC'])
@@ -44,7 +46,7 @@ const STOPWORDS = new Set(
   ),
 )
 
-type Reason = 'mismo artista' | 'mismo género y época'
+type Reason = 'mismo artista' | 'mismo género'
 
 interface Candidate {
   track: Track
@@ -75,13 +77,12 @@ export interface RadioDiagnostics {
   at: number
   seed: string // «Gasolina · Daddy Yankee»
   seedYear?: number
-  era: string // «Años 2000»
-  window?: string // «1994–2014»
+  genres: string[] // géneros detectados de la semilla («Reggaetón»); vacío: no se conoce
+  accepts: string[] // los que acepta la radio («Reggaetón», «Dancehall», «Trap latino»)
   filtered: Record<string, number> // descartadas, por motivo
   picks: { title: string; artist: string; year?: number; reason: Reason }[] // las últimas 10 que generó
 }
 
-const thisYear = new Date().getFullYear()
 const normalize = (text: string) =>
   text
     .toLowerCase()
@@ -98,25 +99,6 @@ const baseTitle = (title: string) => words(title.replace(/\s+[-–—]\s+.*$/, '
 const titleSuffix = (title: string) => title.match(/\s[-–—]\s(.+)$/)?.[1]
 /** «Bad Bunny y Jhayco» → «Bad Bunny» (el primer artista). */
 const firstArtist = (artist: string) => artist.split(/,| y | & | x | feat\.? | ft\.? /i)[0].trim()
-
-/** Época de un año, para mostrarla en el diagnóstico. */
-export function eraLabel(year?: number): string {
-  if (!year) return 'desconocida'
-  if (year > thisYear - RECENT) return 'Actualidad'
-  if (year >= 2020) return 'Años 2020'
-  if (year >= 2010) return 'Años 2010'
-  if (year >= 2000) return 'Años 2000'
-  if (year >= 1990) return 'Años 90'
-  if (year >= 1980) return 'Años 80'
-  return 'Clásicos'
-}
-
-function eraWindow(seedYear?: number): [number, number] | null {
-  if (!seedYear) return null
-  let to = seedYear + ERA_SPAN
-  if (seedYear <= thisYear - OLD_SEED) to = Math.min(to, thisYear - RECENT)
-  return [seedYear - ERA_SPAN, to]
-}
 
 export function readRadioDiagnostics(): RadioDiagnostics | null {
   try {
@@ -160,15 +142,22 @@ export function createRadio(seed: Track, { artistTop = true, diagnostics: logDia
     'cover (título con el nombre de otro artista)': 0,
     'título parecido a la semilla': 0,
     'otra versión del mismo título': 0,
-    'de otra época': 0,
+    'de otro género': 0,
     'artista que sueles saltar': 0,
   }
   const knownArtists = new Set([seedArtist]) // los artistas que aparecen en las radios (para reconocer covers)
-  let window: [number, number] | null = null
+  // Género: lo que acepta la radio (el de la semilla y los parecidos). Sin índice o semilla desconocida: no se filtra.
+  let index: GenreIndex | null = null
+  let accepts = new Set<GenreKey>()
+  const otherGenre = (track: Track) => {
+    if (!index || !accepts.size) return false
+    const genres = genresOf(track, index)
+    return genres.size > 0 && ![...genres].some((genre) => accepts.has(genre))
+  }
   let lastOther: Track | null = null
   let refills = 0
   let ready: Promise<void> | null = null
-  const diagnostics: RadioDiagnostics = { at: Date.now(), seed: seedLabel, era: 'desconocida', filtered, picks: [] }
+  const diagnostics: RadioDiagnostics = { at: Date.now(), seed: seedLabel, genres: [], accepts: [], filtered, picks: [] }
   const writeDiagnostics = () => logDiagnostics && writeRadioDiagnostics(diagnostics)
 
   const sharesTitle = (title: string) => {
@@ -201,7 +190,7 @@ export function createRadio(seed: Track, { artistTop = true, diagnostics: logDia
       else if (coverOf(track)) filtered['cover (título con el nombre de otro artista)']++
       else if (sharesTitle(track.title)) filtered['título parecido a la semilla']++
       else if (titles.has(base) || best.get(base) !== item) filtered['otra versión del mismo título']++
-      else if (window && item.year && (item.year < window[0] || item.year > window[1])) filtered['de otra época']++
+      else if (otherGenre(track)) filtered['de otro género']++
       else if (skipped.has(artistKey(track.artist))) filtered['artista que sueles saltar']++
       else {
         titles.add(base)
@@ -213,14 +202,17 @@ export function createRadio(seed: Track, { artistTop = true, diagnostics: logDia
   }
 
   const init = async () => {
-    const radio = await ytmRadioItems(seed.id).catch(() => [])
-    const seedYear = radio.find((item) => item.track.id === seed.id)?.year
-    window = eraWindow(seedYear)
-    Object.assign(diagnostics, { seedYear, era: eraLabel(seedYear), window: window ? `${window[0]}–${window[1]}` : undefined })
-    add(radio, 'mismo género y época')
-    // Sus más conocidas no traen año: solo si la canción no es vieja (o no se sabe), para no saltar de época.
-    const old = seedYear !== undefined && seedYear <= thisYear - OLD_SEED
-    if (!old && artistTop) {
+    const [radio, found] = await Promise.all([ytmRadioItems(seed.id).catch(() => []), genreIndexSoon(INDEX_WAIT_MS)])
+    index = found
+    const seedGenres = index ? genresOf(seed, index) : new Set<GenreKey>()
+    accepts = similarTo(seedGenres)
+    Object.assign(diagnostics, {
+      seedYear: radio.find((item) => item.track.id === seed.id)?.year,
+      genres: [...seedGenres].map(genreLabel),
+      accepts: [...accepts].map(genreLabel),
+    })
+    add(radio, 'mismo género')
+    if (artistTop) {
       const name = firstArtist(seed.artist)
       const id = seed.artistId ?? (await ytmSearchArtists(name).catch(() => []))[0]?.id
       if (id) {
@@ -240,7 +232,7 @@ export function createRadio(seed: Track, { artistTop = true, diagnostics: logDia
     if (!from || refills >= MAX_REFILLS) return false
     refills++
     const before = others.length
-    add(await ytmRadioItems(from.id).catch(() => []), 'mismo género y época')
+    add(await ytmRadioItems(from.id).catch(() => []), 'mismo género')
     return others.length > before
   }
 

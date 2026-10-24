@@ -48,7 +48,7 @@ export function QueueSections({ beforePlay }: { beforePlay?: () => void }) {
 
   if (queue.length === 0 && upcoming.length === 0) {
     if (inJam) return <GuestJamQueue />
-    return <p className="mt-6 px-2 text-sm text-texto-sec">No hay más canciones. Desliza una canción a la izquierda en Buscar o en una lista para agregarla aquí.</p>
+    return <p className="mt-6 px-2 text-sm text-texto-sec">No hay más canciones. En Buscar o en una lista, desliza una canción a la izquierda para agregarla aquí.</p>
   }
 
   return (
@@ -138,6 +138,7 @@ function ReorderableList({ tracks, onPlay, onMove, remove }: ReorderableListProp
           track={track}
           onPlay={() => onPlay(i)}
           removeAction={remove(i)}
+          swipe="cola"
           style={rowStyle(i)}
           trailing={
             <button

@@ -2,6 +2,14 @@
 
 ## 2026-10-24
 
+- Rama `staging` (versión de prueba unificada, pendiente del OK del dueño). Une `feat/ui-recomendaciones-offline`, `feat/inicio-generos-ambiente` y `feat/jam-interactividad`, más `feat/gestos-genero-cast`:
+  - Gestos según la pantalla. En Buscar y en las listas (playlists, álbumes, modos): izquierda = agregar a la cola de una vez (o a la Jam, en la de un amigo), derecha = menú «⋮». En «Próximas en sonar»: derecha = quitar, izquierda = menú. En la búsqueda de la sala de la Jam, izquierda = agregar a la Jam.
+  - Recomendaciones: género > época. Se quitó el filtro de «misma época».
+    - Un índice de géneros (qué artistas salen en las playlists de YouTube Music de cada género, guardado 7 días) y una matriz de géneros parecidos: reggaetón, dancehall y trap latino; salsa, merengue y bachata; popular, regional mexicano y vallenato; baladas, pop y boleros…
+    - La radio deja solo lo del mismo género o uno parecido, de cualquier año.
+  - La semilla de la radio es siempre la canción que suena. Si no la trajo la radio (es de la lista, de tu cola o la agregó alguien en la Jam), se arma la radio de esa canción. Ejemplo: tras una ranchera siguen rancheras, no lo que seguía de la playlist.
+  - «Transmitir» (Chromecast) reemplaza a «Minimizar» en el celular: pausa aquí y abre la canción en la app de YouTube Music, que tiene el botón para mandarla a la TV. Minimizar sigue siendo deslizar hacia abajo (y en el PC queda el botón).
+  - Jam en un Worker de Cloudflare de prueba (`soundblue-jam-staging`, `worker/jam.staging.wrangler.jsonc`): acepta además los links temporales de TryCloudflare. La versión final usará `soundblue-jam` (sin TryCloudflare).
 - Inicio por géneros, Modos de ambiente y limpieza de etiquetas (rama `feat/inicio-generos-ambiente`, pendiente de la prueba del dueño):
   - Bajo «Tus me gusta» y «Jam» solo van tus canciones (las que te gustan y, si faltan, las últimas que sonaron); ya no las del catálogo de prueba.
   - Modos de ambiente: Modo Rumba (Salsa, Reggaetón, Merengue, Electrónica), Modo Tomar (Despecho, Rancheras, Vallenato) y Modo Relax (Baladas, Boleros, Chill), cada uno con «Todo» y sus subfiltros.

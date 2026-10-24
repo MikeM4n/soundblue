@@ -8,12 +8,13 @@
 //
 // Filtros estrictos en todos los estantes: nada de artistas que sueles saltar, como mucho 2 canciones por artista en
 // cada estante y ninguna canción en dos estantes (mismo videoId). Las que vienen de una radio pasan además por los
-// filtros de data/radio.ts (covers, otras versiones, época).
+// filtros de data/radio.ts (covers, otras versiones, otro género).
 // «Selecciones rápidas» y «Muy sonadas» van por género (data/genres.ts), no salen de aquí.
 import { library } from '../library/store'
 import type { Track } from '../player/types'
 import { artistTopSongs } from './artistTop'
 import { artistKey, listening } from './history'
+import { artistKeys, capPerArtist, interleave, unique } from './lists'
 import { createRadio } from './radio'
 import { readTastes } from './tastes'
 import { youtubeSearch, youtubeSearchEnabled } from './youtube'
@@ -42,22 +43,6 @@ export interface ForYou {
   skippedArtists: string[] // artistKey de los que sueles saltar
 }
 
-/** Todos los artistas de una línea («Bad Bunny, Jhayco y Feid» → 3 claves). */
-export const artistKeys = (artist: string) => artist.split(/,| y | & | x | feat\.? | ft\.? /i).map(artistKey).filter(Boolean)
-
-/** Sin repetidas y como mucho `max` por artista (el primero de la línea), en el orden en que vienen. */
-export function capPerArtist(tracks: readonly Track[], max = PER_ARTIST, taken: Set<string> = new Set()): Track[] {
-  const perArtist = new Map<string, number>()
-  return tracks.filter((track) => {
-    const key = artistKey(track.artist)
-    const used = perArtist.get(key) ?? 0
-    if (taken.has(track.id) || used >= max) return false
-    taken.add(track.id)
-    perArtist.set(key, used + 1)
-    return true
-  })
-}
-
 const simplify = (text: string) =>
   text
     .toLowerCase()
@@ -67,18 +52,6 @@ const simplify = (text: string) =>
 
 /** «Bad Bunny y Jhayco» → «Bad Bunny». */
 const mainArtist = (artist: string) => artist.split(/,| y | & | x | feat\.? | ft\.? /i)[0].trim()
-
-export function unique<T extends { id: string }>(items: T[]): T[] {
-  const seen = new Set<string>()
-  return items.filter((item) => !seen.has(item.id) && !!seen.add(item.id))
-}
-
-/** Intercala listas: la 1ª de cada una, luego la 2ª… (para no poner todo de un mismo artista seguido). */
-export function interleave<T>(lists: T[][]): T[] {
-  const out: T[] = []
-  for (let i = 0; i < Math.max(0, ...lists.map((l) => l.length)); i++) for (const list of lists) if (list[i]) out.push(list[i])
-  return out
-}
 
 interface ArtistScore {
   id?: string
@@ -189,7 +162,7 @@ export async function computeForYou({ rotate = false } = {}): Promise<ForYou> {
   const seeds = unique([favorites[0], topSongs[0]?.[0], listening.entries().find((entry) => entry.count <= 1)?.track].filter((t): t is Track => !!t))
   if (seeds.length) {
     const seed = seeds[seedIndex(rotate, seeds.length)]
-    // Con los filtros de la radio (sin covers ni otras versiones, misma época); sin conexión, la última guardada.
+    // Con los filtros de la radio (sin covers ni otras versiones, mismo género o parecido); sin conexión, la última guardada.
     const radio = await createRadio(seed, { artistTop: false, diagnostics: false })(20, recent)
       .then((picks) => {
         const tracks = picks.map(({ track }) => track)

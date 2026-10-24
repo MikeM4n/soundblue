@@ -45,8 +45,8 @@ export function toggleFavorite(track: Track) {
 }
 
 /**
- * «Iniciar radio»: suena la canción y la cola se va llenando de a 5 con el mismo artista y el mismo género y época
- * (ver data/radio.ts). `open` abre «Sonando ahora» (si ya está abierta, no se vuelve a abrir).
+ * «Iniciar radio»: suena la canción y la cola se va llenando con el mismo artista y el mismo género o uno parecido, de
+ * cualquier año (ver data/radio.ts). `open` abre «Sonando ahora» (si ya está abierta, no se vuelve a abrir).
  */
 export function startRadio(track: Track, open: () => void) {
   if (sheetState.get() !== 'open') open()

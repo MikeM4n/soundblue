@@ -81,7 +81,7 @@ export function Search() {
   const videos = fromMusic?.videos ?? []
   const results = [...songs, ...videos] // en este orden sigue sonando al terminar cada una
 
-  // Suena la elegida y después su radio (mismo artista y mismo género y época; ver data/radio.ts). Antes seguían los
+  // Suena la elegida y después su radio (mismo artista y mismo género o parecido; ver data/radio.ts). Antes seguían los
   // demás resultados de la búsqueda, que solo comparten palabras con lo que escribiste (covers, otras canciones).
   const play = (index: number) => {
     const track = results[index]

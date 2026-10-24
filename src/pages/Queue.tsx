@@ -38,7 +38,7 @@ export function Queue() {
         <>
           <SectionTitle>Sonando ahora</SectionTitle>
           <ol>
-            <TrackRow track={current} isCurrent isPlaying={playing} onPlay={open} />
+            <TrackRow track={current} isCurrent isPlaying={playing} onPlay={open} swipe="cola" />
           </ol>
           <QueueSections beforePlay={open} />
         </>

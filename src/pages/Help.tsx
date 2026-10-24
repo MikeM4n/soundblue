@@ -124,8 +124,19 @@ export function Help() {
         </p>
       </Section>
 
-      <Section id="ayuda-gestos" title="Gestos en «Sonando ahora»">
+      <Section id="ayuda-gestos" title="Gestos">
         <ul className="list-disc space-y-2 pl-5">
+          <li>
+            <B>En Buscar y en las listas</B> (playlists, álbumes, modos): desliza una canción <B>a la izquierda</B> para agregarla a la
+            cola de una vez (o a la Jam, si estás en la de un amigo); <B>a la derecha</B> abre el menú ⋮.
+          </li>
+          <li>
+            <B>En «Próximas en sonar»</B>: <B>a la derecha</B> la quitas de la cola (con «Deshacer»; la radio repone para que siempre
+            haya 10); <B>a la izquierda</B> abre el menú ⋮.
+          </li>
+          <li>
+            En los carruseles de Inicio, deslizar de lado solo mueve el carrusel: usa ▶ o el menú ⋮.
+          </li>
           <li>
             <B>Carátula a la izquierda</B>: siguiente canción. <B>A la derecha</B>: la anterior (si la canción lleva más de 3 segundos,
             vuelve a empezar).
@@ -135,7 +146,8 @@ export function Help() {
             sigue igual.
           </li>
           <li>
-            <B>Hacia abajo</B> desde arriba de la pantalla: minimizar.
+            <B>Hacia abajo</B> desde arriba de la pantalla: minimizar (en el celular, el botón de arriba a la izquierda es
+            «Transmitir»: abre la canción en la app de YouTube Music, que tiene el botón para mandarla a tu TV con Chromecast).
           </li>
           <li>
             En la vista <B>«Video»</B> los toques sobre el video los recibe el reproductor de YouTube: ahí la carátula no se desliza. Usa
@@ -154,7 +166,8 @@ export function Help() {
           </li>
           <li>
             Tus amigos escanean el QR con la cámara del celular (o escriben el código en SoundBlue → Jam) y ponen su nombre. Agregan
-            canciones con la búsqueda de la Jam o, desde cualquier canción de la app, con <B>⋮ → Agregar a la Jam</B>: siguen en tu Jam
+            canciones con la búsqueda de la Jam (deslizando la canción a la izquierda o con +) o, desde cualquier canción de la app,
+            deslizándola a la izquierda o con <B>⋮ → Agregar a la Jam</B>: siguen en tu Jam
             aunque cambien de página, hasta que toquen <B>Salir</B>.
           </li>
           <li>
@@ -339,7 +352,7 @@ const hoursAgo = (at: number) => {
 /**
  * Diagnóstico de las recomendaciones: cuánto se le pidió hoy a YouTube (YouTube Music no tiene cuota; la Data API sí:
  * 10 000 unidades al día), qué artistas tienen sus canciones top guardadas (se renuevan cada 24 h), la última radio
- * (época detectada, cuántas descartó y por qué, y las últimas 10 que generó con su motivo) y las canciones que no
+ * (género detectado, cuántas descartó y por qué, y las últimas 10 que generó con su motivo) y las canciones que no
  * entraron a la cola por estar repetidas.
  */
 function RecommendationsSection() {
@@ -378,7 +391,7 @@ function RecommendationsSection() {
           ))}
         </ul>
       )}
-      <p>Última radio (Buscar, «Iniciar radio», «Tus artistas» o la cola infinita al acabarse una lista):</p>
+      <p>Última radio (Buscar, «Iniciar radio», recomendadas o la cola infinita, a partir de la canción que sonaba):</p>
       {!radio ? (
         <p>Todavía ninguna.</p>
       ) : (
@@ -386,9 +399,10 @@ function RecommendationsSection() {
           <p>
             Semilla: <B>{radio.seed}</B> · {hoursAgo(radio.at)}
           </p>
+          {/* Diagnósticos guardados por versiones anteriores no traen género. */}
           <p>
-            Época detectada: <B>{radio.era}</B>
-            {radio.seedYear ? ` (álbum de ${radio.seedYear}; se aceptan ${radio.window})` : ' (sin año: no se filtra por época)'}
+            Género detectado: <B>{radio.genres?.length ? radio.genres.join(', ') : 'no se conoce'}</B>
+            {radio.accepts?.length ? ` · acepta ${radio.accepts.join(', ')} (de cualquier año)` : ' (no se filtra por género: queda la radio de YouTube tal cual)'}
           </p>
           <p>
             Descartadas:{' '}

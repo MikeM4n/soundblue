@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Heart, PictureInPicture2 } from 'lucide-react'
+import { Cast, ChevronDown, ChevronUp, Heart, PictureInPicture2 } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useLibrary } from '../../library/store'
@@ -159,9 +159,15 @@ export function NowPlayingSheet() {
           cambiar de canción, así que el conjunto no salta y nunca hay scroll. */}
       <div className="relative mx-auto flex h-full max-w-5xl flex-col pt-[env(safe-area-inset-top)] pb-2">
         <header className={`flex shrink-0 items-center gap-2 px-2 py-2 ${fade}`}>
-          <IconButton label="Minimizar" onClick={close} className="text-white">
-            <ChevronDown className="size-7" />
-          </IconButton>
+          {/* En el celular, «Transmitir» en vez de minimizar (minimizar es deslizar hacia abajo); en el PC queda ⌄. */}
+          <span className="lg:hidden">
+            <CastButton track={current} />
+          </span>
+          <span className="hidden lg:block">
+            <IconButton label="Minimizar" onClick={close} className="text-white">
+              <ChevronDown className="size-7" />
+            </IconButton>
+          </span>
           <div className="min-w-0 flex-1 text-center">
             <p className="text-[11px] font-semibold tracking-wider text-white/70 uppercase">Sonando desde</p>
             <p className="truncate text-sm font-bold">{contextName ?? 'Tu música'}</p>
@@ -243,6 +249,24 @@ function BackgroundNotice({ fade }: { fade: string }) {
     <p className={`mx-6 mt-3 line-clamp-2 h-7 text-center text-[11px] leading-[14px] text-white/55 ${fade}`}>
       Al salir se pausa un instante y la app intenta reanudarla sola; si no lo logra, pulsa ▶ en la notificación ({help}).
     </p>
+  )
+}
+
+/**
+ * «Transmitir» (Chromecast): SoundBlue no puede mandar la música a la TV (el reproductor de YouTube no lo deja desde otra
+ * página y el kit de Google Cast es un script de terceros). Abre la canción en la app de YouTube Music, que sí tiene el
+ * botón para transmitir; aquí se pausa para que no suenen las dos.
+ */
+function CastButton({ track }: { track: Track }) {
+  const cast = () => {
+    player.pause()
+    showToast('Abriendo en YouTube Music: ahí toca el ícono de transmitir para mandarla a tu TV', undefined, 6000)
+    openInYouTubeMusic(track.id)
+  }
+  return (
+    <IconButton label="Transmitir a la TV (abre YouTube Music)" onClick={cast} className="text-white">
+      <Cast className="size-6" />
+    </IconButton>
   )
 }
 
