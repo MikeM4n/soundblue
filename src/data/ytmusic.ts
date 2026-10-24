@@ -161,6 +161,25 @@ function fromPanelItem(r: Json): Track | null {
   }
 }
 
+/** Canción de la radio con lo que hace falta para filtrarla: año del álbum y tipo de video. */
+export interface RadioItem {
+  track: Track
+  year?: number // del álbum («Daddy Yankee • Barrio Fino • 2004»)
+  // ATV = audio oficial (canal «Artista - Topic»), OMV = video oficial, UGC = subido por un usuario (covers…)
+  videoType?: string
+}
+
+function radioItemOf(r: Json): RadioItem | null {
+  const track = fromPanelItem(r)
+  if (!track) return null
+  const last = joined(groups(r.longBylineText).at(-1) ?? []).trim()
+  return {
+    track,
+    year: /^\d{4}$/.test(last) ? Number(last) : undefined,
+    videoType: r.navigationEndpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType,
+  }
+}
+
 /** Tarjeta de un resultado en lista (búsqueda de álbumes o artistas). */
 function cardFromListItem(r: Json): YtmCard | null {
   const endpoint = r?.navigationEndpoint
@@ -350,14 +369,20 @@ export function ytmAlternatives(track: Track): Promise<string[]> {
   })
 }
 
-/** Radio de una canción: lo que YouTube Music pone en «A continuación» a partir de ella. */
-export function ytmRadio(videoId: string): Promise<Track[]> {
+/**
+ * Radio de una canción: lo que YouTube Music pone en «A continuación» a partir de ella (de su videoId, no de su
+ * título), con el año y el tipo de video de cada una. Suelen ser unas 50, del mismo género.
+ */
+export function ytmRadioItems(videoId: string): Promise<RadioItem[]> {
   return remember(`radio:${videoId}`, async () => {
     const json = await call('next', { videoId, playlistId: `RDAMVM${videoId}`, isAudioOnly: true })
     const tabs = json?.contents?.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs ?? []
     const items: Json[] = tabs[0]?.tabRenderer?.content?.musicQueueRenderer?.content?.playlistPanelRenderer?.contents ?? []
     return items
-      .map((item) => fromPanelItem(item.playlistPanelVideoRenderer ?? item.playlistPanelVideoWrapperRenderer?.primaryRenderer?.playlistPanelVideoRenderer))
+      .map((item) => radioItemOf(item.playlistPanelVideoRenderer ?? item.playlistPanelVideoWrapperRenderer?.primaryRenderer?.playlistPanelVideoRenderer))
       .filter(notEmpty)
   })
 }
+
+/** Radio de una canción: solo las canciones (ver ytmRadioItems). */
+export const ytmRadio = (videoId: string): Promise<Track[]> => ytmRadioItems(videoId).then((items) => items.map((item) => item.track))

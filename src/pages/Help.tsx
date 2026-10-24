@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useLocation, useSearchParams } from 'react-router'
 import { clearTopCache, readTopCache } from '../data/artistTop'
+import { readRadioDiagnostics } from '../data/radio'
 import { readUsage } from '../lib/apiUsage'
 import { copyText } from '../lib/clipboard'
 import { clearDiagnostics, formatEvent, markTest, readDiagnostics } from '../lib/diagnostics'
@@ -310,15 +311,18 @@ const hoursAgo = (at: number) => {
 
 /**
  * Diagnóstico de las recomendaciones: cuánto se le pidió hoy a YouTube (YouTube Music no tiene cuota; la Data API sí:
- * 10 000 unidades al día) y qué artistas tienen sus canciones top guardadas (se renuevan cada 24 h).
+ * 10 000 unidades al día), qué artistas tienen sus canciones top guardadas (se renuevan cada 24 h) y la última radio:
+ * época detectada, cuántas descartó y por qué, y las últimas 10 que generó con su motivo.
  */
 function RecommendationsSection() {
   const [usage, setUsage] = useState(readUsage)
   const [saved, setSaved] = useState(readTopCache)
+  const [radio, setRadio] = useState(readRadioDiagnostics)
   const entries = Object.entries(saved).sort(([, a], [, b]) => b.at - a.at)
   const refresh = () => {
     setUsage(readUsage())
     setSaved(readTopCache())
+    setRadio(readRadioDiagnostics())
   }
   return (
     <Section id="ayuda-recomendaciones" title="Diagnóstico de recomendaciones">
@@ -341,6 +345,34 @@ function RecommendationsSection() {
             </li>
           ))}
         </ul>
+      )}
+      <p>Última radio (al reproducir desde Buscar o con «Iniciar radio»):</p>
+      {!radio ? (
+        <p>Todavía ninguna.</p>
+      ) : (
+        <div className="space-y-2 rounded-md bg-black/30 p-3 text-sm">
+          <p>
+            Semilla: <B>{radio.seed}</B> · {hoursAgo(radio.at)}
+          </p>
+          <p>
+            Época detectada: <B>{radio.era}</B>
+            {radio.seedYear ? ` (álbum de ${radio.seedYear}; se aceptan ${radio.window})` : ' (sin año: no se filtra por época)'}
+          </p>
+          <p>
+            Descartadas:{' '}
+            {Object.entries(radio.filtered)
+              .map(([reason, n]) => `${reason}: ${n}`)
+              .join(' · ')}
+          </p>
+          <ol className="list-decimal space-y-0.5 pl-5">
+            {radio.picks.map((pick, i) => (
+              <li key={`${pick.title}-${i}`}>
+                {pick.title} · {pick.artist}
+                {pick.year ? ` (${pick.year})` : ''} — <span className="text-texto-sec">{pick.reason}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
       <div className="flex flex-wrap gap-2 pt-1">
         <button type="button" onClick={refresh} className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-white/15">

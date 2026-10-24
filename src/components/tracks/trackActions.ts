@@ -1,5 +1,5 @@
 // Acciones sobre una canción, compartidas por el menú «⋮» y los gestos de deslizar.
-import { ytmRadio } from '../../data/ytmusic'
+import { createRadio } from '../../data/radio'
 import { library } from '../../library/store'
 import { player } from '../../player/engine'
 import { sheetState } from '../../player/stage'
@@ -35,18 +35,12 @@ export function toggleFavorite(track: Track) {
 }
 
 /**
- * «Iniciar radio», como en YouTube Music: suena la canción y después las que YouTube Music recomienda a partir
- * de ella. `open` abre «Sonando ahora» (si ya está abierta, no se vuelve a abrir).
+ * «Iniciar radio»: suena la canción y la cola se va llenando de a 5 con el mismo artista y el mismo género y época
+ * (ver data/radio.ts). `open` abre «Sonando ahora» (si ya está abierta, no se vuelve a abrir).
  */
-export async function startRadio(track: Track, open: () => void) {
-  showToast('Preparando la radio…')
-  try {
-    const radio = await ytmRadio(track.id)
-    if (sheetState.get() !== 'open') open()
-    player.playContext(`Radio de ${track.title}`, [track, ...radio.filter((t) => t.id !== track.id)], 0)
-  } catch {
-    showToast('No se pudo iniciar la radio. Revisa tu conexión.')
-  }
+export function startRadio(track: Track, open: () => void) {
+  if (sheetState.get() !== 'open') open()
+  player.playRadio(`Radio de «${track.title}»`, track, createRadio(track))
 }
 
 /** Deslizar a la derecha / «Eliminar de…»: quita y ofrece «Deshacer» durante 4 s. */

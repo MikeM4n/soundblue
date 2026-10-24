@@ -4,6 +4,7 @@ import { TrackList } from '../components/tracks/TrackList'
 import { YtmCardRow } from '../components/ui/YtmShelf'
 import { categories } from '../data/categories'
 import { searchCatalog, testList } from '../data/catalog'
+import { createRadio } from '../data/radio'
 import { KeyError, QuotaError, youtubeSearch, youtubeSearchEnabled } from '../data/youtube'
 import { ytmSearch, type YtmCard } from '../data/ytmusic'
 import { player } from '../player/engine'
@@ -80,9 +81,13 @@ export function Search() {
   const videos = fromMusic?.videos ?? []
   const results = [...songs, ...videos] // en este orden sigue sonando al terminar cada una
 
+  // Suena la elegida y después su radio (mismo artista y mismo género y época; ver data/radio.ts). Antes seguían los
+  // demás resultados de la búsqueda, que solo comparten palabras con lo que escribiste (covers, otras canciones).
   const play = (index: number) => {
+    const track = results[index]
+    if (!track) return
     open() // primero «Sonando ahora», así el video aparece ya en su sitio
-    player.playContext(`Búsqueda «${q}»`, results, index)
+    player.playRadio(`Radio de «${track.title}»`, track, createRadio(track))
   }
 
   const songsNote = fromMusic?.source === 'api' ? 'YouTube Music · API oficial' : 'YouTube Music'

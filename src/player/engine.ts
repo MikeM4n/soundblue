@@ -62,6 +62,8 @@ interface Step {
 }
 
 const HISTORY_LIMIT = 50
+const RADIO_BATCH = 5 // la radio pide de a 5…
+const RADIO_LOW_WATER = 2 // …cuando quedan 2 por sonar
 
 const UNAVAILABLE = new Set([100, 101, 150]) // borrado/privado o el dueño no permite incrustarlo
 const ONLY_IN_YTM = 'Esta canción solo se puede escuchar en la app de YouTube Music.'
@@ -141,6 +143,8 @@ export class PlayerEngine {
   private resumeMuted = false // un intento silenció el reproductor: el volumen vuelve a los 0,8 s o al volver a la app
   private unmuteTimer: number | undefined
   private resumeOnStart = false // al cerrar la app sonaba (no la pausaste tú): al abrirla vuelve a sonar sola
+  private radioMore: ((count: number) => Promise<Track[]>) | null = null // la lista actual es una radio (playRadio)
+  private radioLoading = false
   private resumeListeners = new Set<(event: AutoResumeEvent, detail: string) => void>()
   private lastSave = 0
   private listeners = new Set<() => void>()
@@ -240,6 +244,7 @@ export class PlayerEngine {
   /** Reproduce una lista (álbum, playlist, búsqueda…) desde `start`. La cola propia se conserva, como en Spotify. */
   playContext(name: string, tracks: readonly Track[], start = 0) {
     if (!tracks.length) return
+    this.radioMore = null // una lista nueva deja de ser radio (playRadio la vuelve a poner)
     const first = clamp(start, 0, tracks.length - 1)
     this.context = { name, tracks: [...tracks] }
     this.history = [] // «anterior» se mueve dentro de la nueva lista
@@ -251,6 +256,41 @@ export class PlayerEngine {
       this.pos = first
     }
     this.playTrack(this.contextTrack(this.pos), false)
+  }
+
+  /**
+   * Radio (data/radio.ts): suena `seed` y su lista se va llenando de a 5 con lo que dé `more`, cuando quedan 2 por sonar
+   * (no se piden 50 de golpe). Nunca entra una canción que ya esté en la lista.
+   */
+  playRadio(name: string, seed: Track, more: (count: number) => Promise<Track[]>) {
+    this.playContext(name, [seed], 0)
+    this.radioMore = more
+    void this.extendRadio()
+  }
+
+  private async extendRadio() {
+    const more = this.radioMore
+    const context = this.context
+    if (!more || !context || this.radioLoading || this.order.length - this.pos - 1 > RADIO_LOW_WATER) return
+    this.radioLoading = true
+    try {
+      const fresh = await more(RADIO_BATCH)
+      if (this.context !== context || this.radioMore !== more) return // mientras tanto pusiste otra lista
+      const have = new Set(context.tracks.map((track) => track.id))
+      const added = fresh.filter((track) => !have.has(track.id) && !!have.add(track.id))
+      if (!added.length) {
+        this.radioMore = null // la radio no tiene más que cumplan sus reglas: termina aquí
+        return
+      }
+      const start = context.tracks.length
+      context.tracks.push(...added)
+      this.order.push(...added.map((_, i) => start + i))
+      this.changed()
+    } catch {
+      /* sin conexión: se intenta otra vez con la siguiente canción */
+    } finally {
+      this.radioLoading = false
+    }
   }
 
   /** Activa aleatorio y reproduce la lista empezando por una canción al azar. */
@@ -522,6 +562,7 @@ export class PlayerEngine {
     this.current = track
     this.fromQueue = fromQueue
     this.loadCurrent(true)
+    void this.extendRadio() // si la lista es una radio y quedan 2 o menos, pide 5 más
   }
 
   /** Deja la canción como actual, en pausa, lista para tocar ▶. */
