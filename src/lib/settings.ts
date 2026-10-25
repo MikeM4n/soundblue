@@ -5,7 +5,7 @@ import { youtubeView } from '../player/stage'
 const KEY = 'soundblue:ajustes'
 
 export interface Settings {
-  hideViewToggle: boolean // ocultar «Canción | Video» en «Sonando ahora» (queda siempre la carátula)
+  hideViewToggle: boolean // ocultar «Canción | Letra» en «Sonando ahora» (queda siempre la carátula)
   dynamicQueue: boolean // Fila Dinámica: la cola nunca baja de 10 (pasan canciones de «Recomendadas»)
 }
 
@@ -26,7 +26,7 @@ export const settings = {
   get: () => current,
   set(next: Partial<Settings>) {
     current = { ...current, ...next }
-    // Sin el selector no se podría volver de «Video»: queda la carátula.
+    // Sin el selector no se podría volver de «Letra»: queda la carátula.
     if (current.hideViewToggle) youtubeView.set('cancion')
     try {
       localStorage.setItem(KEY, JSON.stringify(current))

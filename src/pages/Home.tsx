@@ -10,7 +10,7 @@ import { ModeTiles } from '../components/ui/ModeTiles'
 import { CardPages, TrackPages } from '../components/ui/RowPages'
 import { Section } from '../components/ui/Section'
 import { computeForYou, type ForYou } from '../data/forYou'
-import { NOT_ORIGINAL, POPULAR_GENRES, QUICK_PICK_GENRES, sourcePlaylists, sourceTracks } from '../data/genres'
+import { NOT_ORIGINAL, POPULAR_GENRES, QUICK_PICK_DEFAULT, QUICK_PICK_OPTIONS, sourcePlaylists, sourceTracks } from '../data/genres'
 import { listening } from '../data/history'
 import { artistKeys, capPerArtist, unique } from '../data/lists'
 import { createRadio } from '../data/radio'
@@ -176,17 +176,34 @@ export function Home() {
   )
 }
 
+const QUICK_PICKS_KEY = 'soundblue:generos-rapidos' // los géneros elegidos con «+»
+
+function readQuickPicks(): string[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(QUICK_PICKS_KEY) ?? 'null')
+    const keys = Array.isArray(saved) ? QUICK_PICK_OPTIONS.map((g) => g.key).filter((key) => saved.includes(key)) : []
+    return keys.length ? keys : QUICK_PICK_DEFAULT
+  } catch {
+    return QUICK_PICK_DEFAULT
+  }
+}
+
 /**
- * «Selecciones rápidas» por género (Salsa, Reggaetón, Merengue, Popular): canciones de las playlists de YouTube Music de
- * ese género, sin las que ya se ven en otro estante de Inicio. Cada género se pide al elegirlo.
+ * «Selecciones rápidas» por género (por defecto Salsa, Reggaetón, Merengue y Popular; con «+» eliges cuáles, y se
+ * recuerda en este navegador): canciones de las playlists de YouTube Music de ese género, sin las que ya se ven en otro
+ * estante de Inicio. Cada género se pide al elegirlo.
  */
 function GenreQuickPicks({ hide, onPlay }: { hide: ReadonlySet<string>; onPlay: (track: Track) => void }) {
-  const [genre, setGenre] = useState(QUICK_PICK_GENRES[0].key)
+  const [chosen, setChosen] = useState(readQuickPicks)
+  const [picking, setPicking] = useState(false)
+  const genres = QUICK_PICK_OPTIONS.filter((g) => chosen.includes(g.key))
+  const [selected, setGenre] = useState(genres[0].key)
+  const genre = chosen.includes(selected) ? selected : genres[0].key // si quitaste el que se veía, el primero
   const [loaded, setLoaded] = useState<Record<string, Track[] | 'error'>>({})
   useEffect(() => {
     if (loaded[genre]) return
     let alive = true
-    const source = QUICK_PICK_GENRES.find((g) => g.key === genre)!
+    const source = QUICK_PICK_OPTIONS.find((g) => g.key === genre)!
     sourceTracks(source, 24)
       .then((tracks) => alive && setLoaded((all) => ({ ...all, [genre]: tracks.length ? tracks : 'error' })))
       .catch(() => alive && setLoaded((all) => ({ ...all, [genre]: 'error' })))
@@ -194,11 +211,61 @@ function GenreQuickPicks({ hide, onPlay }: { hide: ReadonlySet<string>; onPlay: 
       alive = false
     }
   }, [genre, loaded])
+  // Quitar o poner un género (siempre queda al menos uno).
+  const toggle = (key: string) => {
+    const next = chosen.includes(key) ? chosen.filter((k) => k !== key) : QUICK_PICK_OPTIONS.map((g) => g.key).filter((k) => k === key || chosen.includes(k))
+    if (!next.length) return
+    setChosen(next)
+    try {
+      localStorage.setItem(QUICK_PICKS_KEY, JSON.stringify(next))
+    } catch {
+      /* sin almacenamiento: vale mientras la app esté abierta */
+    }
+  }
   const list = loaded[genre]
   const tracks = Array.isArray(list) ? list.filter((track) => !hide.has(track.id)).slice(0, 16) : []
   return (
-    <Section title="Selecciones rápidas">
-      <Chips label="Género de las selecciones rápidas" options={QUICK_PICK_GENRES} value={genre} onChange={setGenre} />
+    <Section
+      title="Selecciones rápidas"
+      action={
+        <button
+          type="button"
+          aria-label="Elegir los géneros de las selecciones rápidas"
+          aria-expanded={picking}
+          onClick={() => setPicking((open) => !open)}
+          className={`grid size-8 place-items-center rounded-full transition-colors ${picking ? 'bg-white text-black' : 'bg-white/10 text-texto hover:bg-white/15'}`}
+        >
+          <Plus className={`size-5 transition-transform ${picking ? 'rotate-45' : ''}`} aria-hidden="true" />
+        </button>
+      }
+    >
+      {picking && (
+        <div className="mx-4 mb-3 rounded-lg bg-tarjeta p-3 md:mx-6">
+          <p className="mb-2 text-sm text-texto-sec">Elige qué géneros quieres ver aquí:</p>
+          <div role="group" aria-label="Géneros de las selecciones rápidas" className="flex flex-wrap gap-2">
+            {QUICK_PICK_OPTIONS.map((g) => {
+              const on = chosen.includes(g.key)
+              return (
+                <button
+                  key={g.key}
+                  type="button"
+                  aria-pressed={on}
+                  disabled={on && chosen.length === 1} // al menos uno
+                  onClick={() => toggle(g.key)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors disabled:opacity-60 ${on ? 'bg-acento text-white' : 'bg-white/10 text-texto hover:bg-white/15'}`}
+                >
+                  {on ? '✓ ' : '+ '}
+                  {g.label}
+                </button>
+              )
+            })}
+          </div>
+          <button type="button" onClick={() => setPicking(false)} className="mt-3 text-sm font-semibold text-acento-texto hover:underline">
+            Listo
+          </button>
+        </div>
+      )}
+      <Chips label="Género de las selecciones rápidas" options={genres} value={genre} onChange={setGenre} />
       {list === undefined && <p className="px-4 text-sm text-texto-sec md:px-6">Cargando…</p>}
       {list === 'error' && <p className="px-4 text-sm text-texto-sec md:px-6">No se pudo cargar este género. Revisa tu conexión.</p>}
       {tracks.length > 0 && <TrackPages key={genre} tracks={tracks} onPlay={(i) => onPlay(tracks[i])} />}

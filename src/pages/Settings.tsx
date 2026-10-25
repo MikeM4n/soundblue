@@ -17,8 +17,8 @@ export function Settings() {
         </h2>
         <Switch
           className="mt-3"
-          label="Mostrar «Canción | Video»"
-          note="Si lo ocultas, siempre se ve la carátula. La música suena igual."
+          label="Mostrar «Canción | Letra»"
+          note="Si lo ocultas, siempre se ve la carátula (sin el video ni la letra). La música suena igual."
           checked={!hideViewToggle}
           onChange={(on) => settings.set({ hideViewToggle: !on })}
         />

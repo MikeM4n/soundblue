@@ -76,7 +76,7 @@ const AUTO_RESUME_LOG: Record<AutoResumeEvent, (detail: string) => string> = {
 function where(): string {
   const { current } = player.getSnapshot()
   if (!current) return 'sin canción'
-  const view = youtubeView.get() === 'video' ? 'vista Video' : 'vista Canción'
+  const view = youtubeView.get() === 'letra' ? 'vista Letra (con el video)' : 'vista Canción'
   return `YouTube, ${view}, ${sheetState.get() === 'open' ? '«Sonando ahora» abierta' : 'minimizada'}`
 }
 

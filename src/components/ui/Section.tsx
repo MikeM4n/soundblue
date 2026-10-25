@@ -2,14 +2,18 @@ import type { ReactNode } from 'react'
 
 interface SectionProps {
   title: string
+  action?: ReactNode // al lado del título (p. ej. «+» de «Selecciones rápidas»)
   children: ReactNode
 }
 
 /** Sección de una página con su título. */
-export function Section({ title, children }: SectionProps) {
+export function Section({ title, action, children }: SectionProps) {
   return (
     <section className="mt-8">
-      <h2 className="mb-3 px-4 text-xl font-bold md:px-6 md:text-2xl">{title}</h2>
+      <div className="mb-3 flex items-center gap-2 px-4 md:px-6">
+        <h2 className="text-xl font-bold md:text-2xl">{title}</h2>
+        {action}
+      </div>
       {children}
     </section>
   )

@@ -91,15 +91,15 @@ export const stageBox = createStore<StageBox | null>(null)
 export const sheetState = createStore<'open' | 'closing' | 'closed'>('closed')
 
 /**
- * Qué se ve con una canción de YouTube, como en YouTube Music: 'cancion' = la carátula (y el video oculto,
- * sonando) · 'video' = el reproductor oficial. Se recuerda en este navegador.
+ * Qué se ve en «Sonando ahora»: 'cancion' = la carátula (y el video oculto, sonando) · 'letra' = el reproductor oficial
+ * (16:9, sin nada encima) y la letra debajo. Se recuerda en este navegador (antes 'video', que ahora es 'letra').
  */
-export type YouTubeView = 'cancion' | 'video'
+export type YouTubeView = 'cancion' | 'letra'
 const VIEW_KEY = 'soundblue:vista-youtube'
 
 function readView(): YouTubeView {
   try {
-    return localStorage.getItem(VIEW_KEY) === 'video' ? 'video' : 'cancion'
+    return ['letra', 'video'].includes(localStorage.getItem(VIEW_KEY) ?? '') ? 'letra' : 'cancion'
   } catch {
     return 'cancion'
   }

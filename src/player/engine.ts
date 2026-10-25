@@ -56,7 +56,8 @@ export interface PlayerSnapshot {
 }
 
 // 'lista': no sonaba nada, así que quedó como canción actual, en pausa (los gestos no reproducen solos).
-export type QueueResult = 'agregada' | 'repetida' | 'lista'
+// 'no-disponible': YouTube no la deja reproducir aquí (ya falló antes): no se agrega.
+export type QueueResult = 'agregada' | 'repetida' | 'lista' | 'no-disponible'
 
 /** Pestañas de recomendaciones en «Próximas en sonar»: «Recomendadas» y «Por Descubrir». */
 export type RecsKind = QueueGroup['kind']
@@ -212,6 +213,28 @@ export class PlayerEngine {
     window.addEventListener('online', () => this.onOnline())
     // Al encender la Fila Dinámica, la cola se completa enseguida.
     settings.subscribe(() => void this.extendRadio())
+    // Una canción que YouTube no deja reproducir aquí sale de tu cola, de lo que sigue y de las pestañas.
+    onlyInYouTubeMusic.subscribe(() => this.dropUnplayable())
+  }
+
+  /** Quita de la cola, de lo que sigue y de las pestañas las que ya se sabe que no suenan aquí (no la que suena). */
+  private dropUnplayable() {
+    const bad = (track: Track) => track.id !== this.current?.id && this.knownUnplayable(track)
+    const context = this.context
+    const queue = this.queue.filter((track) => !bad(track))
+    const order = context ? [...this.order.slice(0, this.pos + 1), ...this.order.slice(this.pos + 1).filter((i) => !bad(context.tracks[i]))] : this.order
+    let dropped = queue.length !== this.queue.length || order.length !== this.order.length
+    this.queue = queue
+    this.order = order
+    for (const kind of RECS_KINDS) {
+      const kept = this.pools[kind].filter((track) => !bad(track))
+      dropped ||= kept.length !== this.pools[kind].length
+      this.pools[kind] = kept
+    }
+    if (!dropped) return
+    this.changed()
+    this.topUp() // con la Fila Dinámica, otra en su lugar
+    void this.fillPools()
   }
 
   /**
@@ -310,6 +333,7 @@ export class PlayerEngine {
     const queued = new Set(this.queue.map((track) => track.id))
     const seen = new Set<string>()
     const list = tracks.filter((track) => {
+      if (track.id !== chosen.id && this.knownUnplayable(track)) return false // ya se sabe que no suena aquí
       const where = seen.has(track.id) ? 'repetida en la lista' : queued.has(track.id) ? 'ya estaba en tu cola' : null
       if (where) {
         logDuplicate(track, where)
@@ -390,6 +414,7 @@ export class PlayerEngine {
         if (this.radioMore !== more) return
         const have = this.inUse()
         const fresh = picks.filter(({ track }) => {
+          if (this.knownUnplayable(track)) return false
           if (have.has(track.id)) {
             logDuplicate(track, 'radio')
             return false
@@ -615,6 +640,7 @@ export class PlayerEngine {
    * tu cola o en lo que sigue de la lista, no se agrega otra vez.
    */
   addToQueue(track: Track): QueueResult {
+    if (this.knownUnplayable(track)) return 'no-disponible'
     if (!this.current) {
       this.prepareTrack(track)
       return 'lista'
@@ -630,6 +656,7 @@ export class PlayerEngine {
 
   /** Pone la canción al principio de tu cola: suena justo después de la actual (si ya venía más adelante, se mueve). */
   playNext(track: Track): QueueResult {
+    if (this.knownUnplayable(track)) return 'no-disponible'
     if (!this.current) {
       this.prepareTrack(track)
       return 'lista'

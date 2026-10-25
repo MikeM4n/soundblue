@@ -163,8 +163,8 @@ export function Help() {
             junto a ⋮, <B>Jam</B> te lleva a tu sala.
           </li>
           <li>
-            En la vista <B>«Video»</B> los toques sobre el video los recibe el reproductor de YouTube: ahí la carátula no se desliza. Usa
-            los botones ⏮ ⏭ o vuelve a «Canción».
+            En la vista <B>«Letra»</B> se ve el video de YouTube y, debajo, la letra (deslízala con el dedo para leerla). Los toques sobre
+            el video los recibe el reproductor de YouTube: ahí la carátula no se desliza. Usa los botones ⏮ ⏭ o vuelve a «Canción».
           </li>
           <li>
             En el PC: <B>flecha derecha</B> = siguiente, <B>flecha izquierda</B> = anterior.
@@ -594,7 +594,7 @@ function DiagnosticsSection() {
     <Section id="ayuda-diagnostico" title="Diagnóstico de segundo plano">
       <p>Para saber qué combinación mantiene el audio en tu teléfono, prueba en este orden y mira el registro de abajo:</p>
       <Steps>
-        <li>Canción de YouTube con «Sonando ahora» abierta en vista «Video». Bloquea la pantalla 30 segundos y desbloquéala.</li>
+        <li>Canción de YouTube con «Sonando ahora» abierta en vista «Letra». Bloquea la pantalla 30 segundos y desbloquéala.</li>
         <li>Lo mismo en vista «Canción».</li>
         <li>Repite con «Reproducción en segundo plano» de Brave activada y desactivada, y con el reproductor desde youtube.com y desde youtube-nocookie.com.</li>
       </Steps>

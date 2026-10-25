@@ -1,6 +1,7 @@
 import { ChevronUp, Heart, Users } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
+import { lyricsOf, type Lyrics } from '../../data/lyrics'
 import { useGuestJam } from '../../jam/guestJam'
 import { useLibrary } from '../../library/store'
 import { useSettings } from '../../lib/settings'
@@ -24,12 +25,13 @@ import { SeekBar } from './SeekBar'
 import { TransportControls } from './TransportControls'
 
 const SLIDE_MS = 300
-const INTERACTIVE = 'button, a, input, [role="menu"], [data-queue-panel]'
+const INTERACTIVE = 'button, a, input, [role="menu"], [data-queue-panel], [data-lyrics]'
 
 /**
  * «Sonando ahora» en pantalla completa, como Spotify. Sube deslizándose al tocar una canción.
  * Fondo: la imagen de la canción en alta resolución, muy difuminada y oscurecida. Al centro: la carátula
- * nítida; con YouTube se puede cambiar a «Video» (reproductor oficial a todo el ancho, sin nada encima).
+ * nítida o, con «Letra», el reproductor oficial a todo el ancho (16:9, sin nada encima ni recortado: así lo exige
+ * YouTube) y la letra debajo, que se desplaza con el dedo.
  * Debajo: título, artista, favorito, progreso y controles. Un toque en el fondo los oculta o muestra.
  * Gestos: hacia abajo = minimizar (si el panel de la cola está cerrado) · hacia arriba = «Próximas en sonar».
  * Ojo: los toques sobre el video los recibe YouTube, así que los gestos se hacen fuera del video.
@@ -42,7 +44,7 @@ export function NowPlayingSheet() {
   const videoSlot = useStageSlot('pantalla')
   const video = useSyncExternalStore(stageBox.subscribe, stageBox.get)
   const view = useSyncExternalStore(youtubeView.subscribe, youtubeView.get)
-  const { hideViewToggle } = useSettings() // Ajustes: ocultar «Canción | Video»
+  const { hideViewToggle } = useSettings() // Ajustes: ocultar «Canción | Letra»
   const [shown, setShown] = useState(false) // para la animación de entrada
   const [closing, setClosing] = useState(false)
   const [dragY, setDragY] = useState<number | null>(null)
@@ -136,7 +138,7 @@ export function NowPlayingSheet() {
     )
   }
 
-  const showVideo = view === 'video'
+  const showLyrics = view === 'letra'
   const liked = favorites.some((t) => t.id === current.id)
   // Un toque en el fondo oculta los controles para ver el video o la carátula; vuelven solos a los 5 s.
   const toggleControls = () => {
@@ -184,14 +186,15 @@ export function NowPlayingSheet() {
           <TrackMenu track={current} />
         </header>
 
-        {/* Centro: la carátula nítida (como Spotify y YouTube Music) o, si eliges «Video», el reproductor oficial a
-            todo el ancho y sin nada encima. */}
+        {/* Centro: la carátula nítida (como Spotify y YouTube Music) o, si eliges «Letra», el reproductor oficial a
+            todo el ancho, sin nada encima, y la letra debajo. */}
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
           {!hideViewToggle && <ViewToggle view={view} fade={fade} />}
-          {showVideo ? (
-            <div className="flex min-h-0 w-full flex-1 items-center">
+          {showLyrics ? (
+            <div className="flex min-h-0 w-full flex-1 flex-col">
               {/* Espacio del video: VideoStage coloca aquí el reproductor oficial. */}
-              <div ref={closing ? undefined : videoSlot} className="aspect-video w-full" />
+              <div ref={closing ? undefined : videoSlot} className="aspect-video w-full shrink-0" />
+              <LyricsPanel track={current} />
             </div>
           ) : (
             // La carátula mide lo que quepa: 82 % del ancho, máx. 26 rem, y nunca más que el alto libre (100cqh).
@@ -271,11 +274,50 @@ function JamButton() {
   )
 }
 
-/** «Canción | Video», como en YouTube Music: carátula o reproductor oficial. La música sigue igual al cambiar. */
+/**
+ * Letra de la canción (data/lyrics.ts), debajo del video: nunca encima. Se desplaza con el dedo (no minimiza «Sonando
+ * ahora») y muestra su fuente, como pide quien la licencia.
+ */
+function LyricsPanel({ track }: { track: Track }) {
+  const [found, setFound] = useState<{ id: string; lyrics: Lyrics | null | 'error' } | null>(null)
+  useEffect(() => {
+    let alive = true
+    lyricsOf(track)
+      .then((lyrics) => alive && setFound({ id: track.id, lyrics }))
+      .catch(() => alive && setFound({ id: track.id, lyrics: 'error' }))
+    return () => {
+      alive = false
+    }
+  }, [track])
+  const lyrics = found?.id === track.id ? found.lyrics : undefined
+  return (
+    <div
+      data-lyrics
+      aria-label="Letra"
+      // Se desvanece arriba y abajo: las líneas no se cortan de golpe.
+      className="scroll-fino mt-2 min-h-0 w-full flex-1 touch-pan-y overflow-y-auto overscroll-contain px-6 pt-3 pb-6 text-center [mask-image:linear-gradient(to_bottom,transparent,black_16px,black_calc(100%-32px),transparent)]"
+    >
+      {lyrics === undefined ? (
+        <p className="text-sm text-white/60">Buscando la letra…</p>
+      ) : lyrics === 'error' ? (
+        <p className="text-sm text-white/60">No se pudo cargar la letra. Revisa tu conexión.</p>
+      ) : lyrics === null ? (
+        <p className="text-sm text-white/60">No encontramos la letra de esta canción.</p>
+      ) : (
+        <>
+          <p className="text-lg leading-relaxed font-semibold whitespace-pre-line text-white/90">{lyrics.text}</p>
+          {lyrics.source && <p className="mt-4 text-xs text-white/50">{lyrics.source}</p>}
+        </>
+      )}
+    </div>
+  )
+}
+
+/** «Canción | Letra»: carátula, o el reproductor oficial con la letra debajo. La música sigue igual al cambiar. */
 function ViewToggle({ view, fade }: { view: YouTubeView; fade: string }) {
   const options: [YouTubeView, string][] = [
     ['cancion', 'Canción'],
-    ['video', 'Video'],
+    ['letra', 'Letra'],
   ]
   return (
     <div role="group" aria-label="Qué ver" className={`flex h-9 shrink-0 rounded-full bg-black/40 p-1 text-sm font-semibold ${fade}`}>
