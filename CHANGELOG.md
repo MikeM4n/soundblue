@@ -2,6 +2,7 @@
 
 ## 2026-10-25
 
+- Hotfix (rama `hotfix/top50-gestos`, pedido por el dueño): gestos de «Tu Top 50». Izquierda = suena a continuación (sin menú); derecha = la quita de tu Top (sin menú, con «Deshacer»; se olvidan sus reproducciones y, si la vuelves a escuchar mucho, regresa); ⋮ = menú. La lista se actualiza al momento.
 - Tema, temporizador, vibración, Tu Top 50 y compartir (rama `feat/tema-temporizador-top50`, pedido por el dueño):
   - Tema en Ajustes: «Predeterminado del sistema» (por defecto: claro u oscuro como el teléfono, también si cambia con la app abierta), «Claro» u «Oscuro» (AMOLED: fondos y paneles en negro puro). Se aplica antes de pintar (sin destello) y cambia el color de la barra del sistema. «Sonando ahora», la mini barra y el panel del PC se ven siempre oscuros, sobre la carátula.
   - Temporizador (⋮ de «Sonando ahora»): 15, 30 o 45 min; al llegar, la música baja de volumen en 5 s y se pausa (tu volumen no cambia). El menú muestra cuánto falta.

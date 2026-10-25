@@ -10,10 +10,11 @@ interface TrackListProps {
   removeAction?: (index: number) => RemoveAction // si la lista permite eliminar (playlist propia, favoritos)
   numbered?: boolean // encabezado y números, como un álbum o playlist
   plain?: boolean // sin gestos de deslizar (carruseles de Inicio): ver TrackRow
+  swipe?: 'lista' | 'cola' // 'cola' («Tu Top 50»): izquierda = a continuación, derecha = quitar (ver TrackRow)
 }
 
 /** Lista de canciones con gestos y menú. Marca la que está sonando. */
-export function TrackList({ tracks, onPlay, removeAction, numbered = true, plain = false }: TrackListProps) {
+export function TrackList({ tracks, onPlay, removeAction, numbered = true, plain = false, swipe }: TrackListProps) {
   const { current, status, durations } = usePlayer()
   const playing = status === 'playing' || status === 'buffering' || status === 'loading'
   const keys = stableKeys(tracks)
@@ -39,6 +40,7 @@ export function TrackList({ tracks, onPlay, removeAction, numbered = true, plain
             onPlay={() => onPlay(i)}
             removeAction={removeAction?.(i)}
             plain={plain}
+            swipe={swipe}
           />
         ))}
       </ol>

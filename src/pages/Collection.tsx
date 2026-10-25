@@ -1,5 +1,5 @@
 import { ChevronLeft, Shuffle } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { ImportButton, ImportPlaylistDialog } from '../components/library/ImportPlaylistDialog'
 import { TrackList } from '../components/tracks/TrackList'
@@ -23,6 +23,7 @@ interface CollectionData {
   tracks: readonly Track[]
   removeAction?: (index: number) => RemoveAction
   empty?: string // qué decir si no tiene canciones
+  swipe?: 'cola' // «Tu Top 50»: izquierda = a continuación, derecha = quitar (las demás: izquierda = a la cola, derecha = ⋮)
 }
 
 /** Vista de una lista: «Lista de prueba» (álbum), «Tus me gusta» o una playlist tuya. */
@@ -32,6 +33,7 @@ export function Collection() {
   const { favorites, playlists } = useLibrary()
   const { open } = useNowPlaying()
   const [importing, setImporting] = useState(false)
+  useSyncExternalStore(listening.subscribe, listening.entries) // «Tu Top 50» cambia al quitar una o al escuchar más
   const data = resolve(tipo, id, favorites, playlists)
 
   if (!data) {
@@ -82,7 +84,7 @@ export function Collection() {
       {count === 0 ? (
         <p className="px-6 text-texto-sec">{data.empty ?? 'Todavía no hay canciones. Usa el menú ⋮ de cualquier canción para agregarlas.'}</p>
       ) : (
-        <TrackList tracks={data.tracks} onPlay={play} removeAction={data.removeAction} />
+        <TrackList tracks={data.tracks} onPlay={play} removeAction={data.removeAction} swipe={data.swipe} />
       )}
       {importing && <ImportPlaylistDialog onClose={() => setImporting(false)} />}
     </div>
@@ -116,6 +118,9 @@ function resolve(tipo: string, id: string, favorites: Track[], playlists: Return
       note: top.length ? `Las ${top.length} que más escuchaste aquí, de más a menos` : undefined,
       cover: <TopCover className={bigCover} />,
       tracks: top.map((entry) => entry.track),
+      // Quitarla olvida sus reproducciones (con Deshacer): si la vuelves a escuchar mucho, vuelve.
+      removeAction: (i) => ({ listName: 'Tu Top 50', remove: () => listening.forgetPlays(top[i].track.id) }),
+      swipe: 'cola',
       empty: 'Todavía no hay canciones en tu Top: cuentan las que escuchas 30 segundos o más.',
     }
   }
