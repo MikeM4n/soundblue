@@ -2,6 +2,8 @@
 
 ## 2026-10-25
 
+- Hotfix 3 (rama `hotfix/jam-a-la-derecha`, pedido por el dueño):
+  - «Sonando ahora»: Jam pasa a la esquina de arriba a la derecha, junto a ⋮. A la izquierda no queda nada (Minimizar sigue siendo deslizar hacia abajo, o Esc en el PC) y «Sonando desde» queda centrado. La barra tiene solo esas tres cosas; la pantalla flotante ya no existe desde el hotfix 2.
 - Hotfix 2 (rama `hotfix/sin-pantalla-flotante`, pedido por el dueño con captura del teléfono):
   - «Sonando ahora»: la barra de arriba queda con solo tres cosas: Jam, «Sonando desde» y ⋮. Se quitó la pantalla flotante por completo (botón y `FloatingPlayer.tsx`); en el celular solo mostraba un aviso de que no existe.
   - Actualizaciones: con música sonando, la versión nueva ya no queda olvidada. Se aplica sola en cuanto la música queda en pausa 3 s (la canción queda donde iba). «Actualizar ahora» sale cada vez que vuelves a la app (antes, una sola vez por sesión) y se revisa también cada 10 minutos. La versión se ve en Ajustes.

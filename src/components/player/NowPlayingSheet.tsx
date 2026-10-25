@@ -173,12 +173,14 @@ export function NowPlayingSheet() {
           cambiar de canción, así que el conjunto no salta y nunca hay scroll. */}
       <div className="relative mx-auto flex h-full max-w-5xl flex-col pt-[env(safe-area-inset-top)] pb-2">
         <header className={`flex shrink-0 items-center gap-1 px-2 py-2 ${fade}`}>
-          {/* Solo tres cosas: Jam, de dónde suena y ⋮ (minimizar: deslizar hacia abajo o, en el PC, la tecla Esc). */}
-          <JamButton />
+          {/* Izquierda vacía (del ancho de los dos botones de la derecha, para que el título quede centrado); centro: de
+              dónde suena; derecha: Jam y ⋮. Minimizar: deslizar hacia abajo o, en el PC, la tecla Esc. */}
+          <span className="w-20 shrink-0" aria-hidden="true" />
           <div className="min-w-0 flex-1 text-center">
             <p className="text-[11px] font-semibold tracking-wider text-white/70 uppercase">Sonando desde</p>
             <p className="truncate text-sm font-bold">{contextName ?? 'Tu música'}</p>
           </div>
+          <JamButton />
           <TrackMenu track={current} />
         </header>
 
