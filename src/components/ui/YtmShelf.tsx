@@ -24,7 +24,15 @@ export function YtmCardRow({ cards }: { cards: readonly YtmCard[] }) {
 }
 
 /** Estante de YouTube Music: sus canciones en lista y sus tarjetas en fila. */
-export function YtmShelf({ section, onPlay, maxTracks = 10 }: { section: YtmSection; onPlay: (tracks: Track[], index: number) => void; maxTracks?: number }) {
+export function YtmShelf({
+  section,
+  onPlay,
+  maxTracks = 10,
+}: {
+  section: YtmSection
+  onPlay: (tracks: Track[], index: number) => void
+  maxTracks?: number
+}) {
   const tracks = section.tracks.slice(0, maxTracks)
   return (
     <Section title={section.title}>

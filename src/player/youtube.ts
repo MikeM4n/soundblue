@@ -3,31 +3,14 @@
 import type { BackendEvents, BackendState, LoadOptions, MediaBackend } from './types'
 
 /**
- * De dónde carga el reproductor: www.youtube.com (por defecto) o youtube-nocookie.com (más privado).
- * Comprobado en un Android 10 real con Brave (oct. 2026): al salir de la app YouTube se pausa igual, pero con los
- * filtros de la comunidad de Brave (Ayuda → Brave) el ▶ de la notificación lo reanuda y sigue con la pantalla apagada.
- * Esos filtros solo alcanzan al reproductor si carga desde youtube.com; con nocookie, el ▶ no lo reanudó.
- * Por eso youtube.com es el valor por defecto en todos los navegadores; nocookie solo si el usuario lo elige en la
- * Ayuda. Cambiarlo recarga la app.
+ * El reproductor carga SIEMPRE desde www.youtube.com, para que se identifique como youtube.com: la opción de segundo
+ * plano de Brave y los filtros de su comunidad (Ayuda → Brave) solo lo alcanzan ahí. Comprobado en un Android 10 real
+ * con Brave (oct. 2026): con youtube-nocookie.com, el ▶ de la notificación no la reanudaba. Antes se podía elegir
+ * nocookie en la Ayuda; esa opción se quitó (storageMigration borra lo que había guardado).
  */
-const HOST_KEY = 'soundblue:reproductor-youtube'
-export type PlayerHost = 'nocookie' | 'youtube'
 export const playerHost = {
-  get(): PlayerHost {
-    try {
-      return localStorage.getItem(HOST_KEY) === 'nocookie' ? 'nocookie' : 'youtube'
-    } catch {
-      return 'youtube'
-    }
-  },
-  set(value: PlayerHost) {
-    try {
-      localStorage.setItem(HOST_KEY, value)
-    } catch {
-      /* sin almacenamiento: se queda el de siempre */
-    }
-  },
-  url: () => (playerHost.get() === 'youtube' ? 'https://www.youtube.com' : 'https://www.youtube-nocookie.com'),
+  url: () => 'https://www.youtube.com',
+  label: 'youtube.com',
 }
 
 declare global {

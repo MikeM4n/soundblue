@@ -1,10 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { useLocation, useSearchParams } from 'react-router'
+import { useLocation } from 'react-router'
+import { clearTopCache, readTopCache } from '../data/artistTop'
+import { artistKey, listening } from '../data/history'
+import { readRadioDiagnostics } from '../data/radio'
+import { readUsage } from '../lib/apiUsage'
 import { copyText } from '../lib/clipboard'
 import { clearDiagnostics, formatEvent, markTest, readDiagnostics } from '../lib/diagnostics'
+import { clearDuplicateLog, readDuplicateLog } from '../lib/duplicateLog'
 import { TAB_SWITCHER_TIP } from '../lib/tabSwitcherTip'
 import { BRAVE_LINKS } from '../lib/platform'
-import { playerHost, type PlayerHost } from '../player/youtube'
+import { playerHost } from '../player/youtube'
 import { showToast } from '../ui/toast'
 
 const linkClass = 'font-medium text-acento-texto underline-offset-2 hover:underline'
@@ -119,8 +124,19 @@ export function Help() {
         </p>
       </Section>
 
-      <Section id="ayuda-gestos" title="Gestos en «Sonando ahora»">
+      <Section id="ayuda-gestos" title="Gestos">
         <ul className="list-disc space-y-2 pl-5">
+          <li>
+            <B>En Buscar y en las listas</B> (playlists, álbumes, modos): desliza una canción <B>a la izquierda</B> para agregarla a la
+            cola de una vez (o a la Jam, si estás en la de un amigo); <B>a la derecha</B> abre el menú ⋮.
+          </li>
+          <li>
+            <B>En «Próximas en sonar»</B>: <B>a la derecha</B> la quitas de la cola (con «Deshacer»; la radio repone para que siempre
+            haya 10); <B>a la izquierda</B> abre el menú ⋮.
+          </li>
+          <li>
+            En los carruseles de Inicio, deslizar de lado solo mueve el carrusel: usa ▶ o el menú ⋮.
+          </li>
           <li>
             <B>Carátula a la izquierda</B>: siguiente canción. <B>A la derecha</B>: la anterior (si la canción lleva más de 3 segundos,
             vuelve a empezar).
@@ -130,7 +146,9 @@ export function Help() {
             sigue igual.
           </li>
           <li>
-            <B>Hacia abajo</B> desde arriba de la pantalla: minimizar.
+            <B>Hacia abajo</B> desde arriba de la pantalla: minimizar (en el PC también con la tecla Esc). Arriba a la izquierda,
+            <B> Jam</B> te lleva a tu sala; a la derecha, <B>Transmitir</B> abre la canción en la app de YouTube Music, que tiene el
+            botón para mandarla a tu TV con Chromecast.
           </li>
           <li>
             En la vista <B>«Video»</B> los toques sobre el video los recibe el reproductor de YouTube: ahí la carátula no se desliza. Usa
@@ -148,10 +166,25 @@ export function Help() {
             Abre <B>Jam</B> (en Inicio o en «Próximas en sonar») y toca <B>Iniciar Jam</B>. Sale un código QR y un código de 6 letras.
           </li>
           <li>
-            Tus amigos escanean el QR con la cámara del celular (o escriben el código en SoundBlue → Jam), ponen su nombre y agregan
-            canciones. Entran al final de tu «Siguiente en la cola» y te avisa quién agregó cada una.
+            Tus amigos escanean el QR con la cámara del celular (o escriben el código en SoundBlue → Jam) y ponen su nombre. Agregan
+            canciones con la búsqueda de la Jam (deslizando la canción a la izquierda o con +) o, desde cualquier canción de la app,
+            deslizándola a la izquierda o con <B>⋮ → Agregar a la Jam</B>: siguen en tu Jam
+            aunque cambien de página, hasta que toquen <B>Salir</B>.
           </li>
-          <li>La música suena solo en tu teléfono, como en una fiesta. Al terminar puedes guardar las canciones como playlist.</li>
+          <li>
+            Tú agregas igual: con la búsqueda de tu Jam o con <B>⋮ → Agregar a la cola</B>. Tu cola es la de todos: lo que agrega o
+            quita cualquiera lo ven todos al instante en «Próximas en sonar» («En camino» mientras tu teléfono lo pasa al final de tu
+            «Siguiente en la cola») y te avisa quién agregó cada una.
+          </li>
+          <li>
+            En la lista de la Jam, <B>desliza una canción a la derecha</B> para quitarla (con «Deshacer»): tú puedes quitar cualquiera;
+            cada amigo, solo las que agregó él. <B>A la izquierda</B> abre el menú ⋮.
+          </li>
+          <li>
+            La música suena solo en tu teléfono, como en una fiesta: deja SoundBlue abierto (en segundo plano el teléfono deja de
+            recibir la Jam; lo que agreguen espera «En camino» y al volver se pone al día). Al terminar puedes guardar las canciones
+            como playlist.
+          </li>
           <li>
             Para que tus amigos puedan entrar, abre SoundBlue desde su link <B>https</B>: con una dirección local (localhost o
             192.168…) solo funciona en tu equipo.
@@ -296,7 +329,146 @@ export function Help() {
       </Section>
 
       <DiagnosticsSection />
+      <RecommendationsSection />
     </div>
+  )
+}
+
+/** Nombres de los artistas que sueles saltar (como aparecen en tu historial). */
+function skippedArtistNames(): string[] {
+  const keys = listening.skippedArtists()
+  const names = new Map<string, string>()
+  for (const { track } of listening.entries()) {
+    const key = artistKey(track.artist)
+    if (keys.has(key) && !names.has(key)) names.set(key, track.artist.split(/,| y | & | x | feat\.? | ft\.? /i)[0].trim())
+  }
+  return [...names.values()]
+}
+
+const hoursAgo = (at: number) => {
+  const hours = (Date.now() - at) / 3600_000
+  return hours < 1 ? 'hace menos de 1 h' : `hace ${Math.floor(hours)} h`
+}
+
+/**
+ * Diagnóstico de las recomendaciones: cuánto se le pidió hoy a YouTube (YouTube Music no tiene cuota; la Data API sí:
+ * 10 000 unidades al día), qué artistas tienen sus canciones top guardadas (se renuevan cada 24 h), la última radio
+ * (género detectado, cuántas descartó y por qué, y las últimas 10 que generó con su motivo) y las canciones que no
+ * entraron a la cola por estar repetidas.
+ */
+function RecommendationsSection() {
+  const [usage, setUsage] = useState(readUsage)
+  const [saved, setSaved] = useState(readTopCache)
+  const [radio, setRadio] = useState(readRadioDiagnostics)
+  const [duplicates, setDuplicates] = useState(readDuplicateLog)
+  const [skipped, setSkipped] = useState(skippedArtistNames)
+  const entries = Object.entries(saved).sort(([, a], [, b]) => b.at - a.at)
+  const refresh = () => {
+    setUsage(readUsage())
+    setSaved(readTopCache())
+    setRadio(readRadioDiagnostics())
+    setDuplicates(readDuplicateLog())
+    setSkipped(skippedArtistNames())
+  }
+  return (
+    <Section id="ayuda-recomendaciones" title="Diagnóstico de recomendaciones">
+      <ul className="list-disc space-y-1 pl-5">
+        <li>
+          Consultas a YouTube Music hoy: <B>{usage.ytm}</B> (no tiene cuota).
+        </li>
+        <li>
+          YouTube Data API hoy: <B>{usage.dataApi}</B> de 10 000 unidades (solo se usa si YouTube Music falla).
+        </li>
+      </ul>
+      <p>Artistas con sus canciones top guardadas ({entries.length}; se renuevan cada 24 h):</p>
+      {entries.length === 0 ? (
+        <p>Todavía ninguno.</p>
+      ) : (
+        <ul className="space-y-1 rounded-md bg-black/30 p-3 text-sm">
+          {entries.map(([id, entry]) => (
+            <li key={id}>
+              <B>{entry.name}</B> · {entry.tracks.length} canciones · {hoursAgo(entry.at)} · {entry.source === 'youtube-music' ? 'YouTube Music' : 'YouTube Data API'}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p>Última radio (Buscar, «Iniciar radio», recomendadas o la cola infinita, a partir de la canción que sonaba):</p>
+      {!radio ? (
+        <p>Todavía ninguna.</p>
+      ) : (
+        <div className="space-y-2 rounded-md bg-black/30 p-3 text-sm">
+          <p>
+            Semilla: <B>{radio.seed}</B> · {hoursAgo(radio.at)}
+          </p>
+          {/* Diagnósticos guardados por versiones anteriores no traen género. */}
+          <p>
+            Género detectado: <B>{radio.genres?.length ? radio.genres.join(', ') : 'no se conoce'}</B>
+            {radio.guessed && ' (deducido de su radio)'}
+            {radio.accepts?.length ? ` · acepta ${radio.accepts.join(', ')} (de cualquier año)` : ' (no se filtra por género: queda la radio de YouTube tal cual)'}
+          </p>
+          <p>
+            Descartadas:{' '}
+            {Object.entries(radio.filtered)
+              .map(([reason, n]) => `${reason}: ${n}`)
+              .join(' · ')}
+          </p>
+          <ol className="list-decimal space-y-0.5 pl-5">
+            {radio.picks.map((pick, i) => (
+              <li key={`${pick.title}-${i}`}>
+                {pick.title} · {pick.artist}
+                {pick.year ? ` (${pick.year})` : ''} — <span className="text-texto-sec">{pick.reason}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      <p>
+        Artistas que sueles saltar (pasas a la siguiente antes de 30 s; no se recomiendan):{' '}
+        {skipped.length ? <B>{skipped.join(', ')}</B> : 'ninguno.'}
+      </p>
+      <p>Canciones descartadas por duplicado (mismo video; las últimas {duplicates.length}, la más reciente primero):</p>
+      {duplicates.length === 0 ? (
+        <p>Ninguna todavía.</p>
+      ) : (
+        <ol className="space-y-0.5 rounded-md bg-black/30 p-3 text-sm">
+          {duplicates
+            .slice()
+            .reverse()
+            .map((entry, i) => (
+              <li key={`${entry.at}-${i}`}>
+                <span className="tabular-nums">{new Date(entry.at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}</span> ·{' '}
+                {entry.title} · {entry.artist} — <span className="text-texto-sec">{entry.where}</span>
+              </li>
+            ))}
+        </ol>
+      )}
+      <div className="flex flex-wrap gap-2 pt-1">
+        <button type="button" onClick={refresh} className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-white/15">
+          Actualizar
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            clearDuplicateLog()
+            refresh()
+          }}
+          className="rounded-full px-4 py-1.5 text-sm font-semibold text-texto-sec hover:text-texto"
+        >
+          Borrar registro de duplicados
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            clearTopCache()
+            refresh()
+            showToast('Canciones guardadas borradas: se vuelven a pedir al abrir Inicio')
+          }}
+          className="rounded-full px-4 py-1.5 text-sm font-semibold text-texto-sec hover:text-texto"
+        >
+          Borrar canciones guardadas
+        </button>
+      </div>
+    </Section>
   )
 }
 
@@ -314,26 +486,10 @@ const BRAVE_FILTERS = 'youtube.com##+js(brave-video-bg-play)\nyoutube.com##+js(b
 
 /**
  * Brave: la receta comprobada en un Android 10 real (oct. 2026): «Reproducción en segundo plano» + los dos filtros
- * de la comunidad + el reproductor desde youtube.com. Al salir YouTube se pausa igual, pero el ▶ de la notificación
- * lo reanuda y sigue con la pantalla apagada. Los filtros no alcanzan al reproductor si carga desde nocookie.
+ * de la comunidad + el reproductor desde youtube.com (la app lo carga siempre desde ahí). Al salir YouTube se pausa
+ * igual, pero el ▶ de la notificación lo reanuda y sigue con la pantalla apagada.
  */
 function BraveBackgroundSection() {
-  const [host] = useState(playerHost.get)
-  // Atajo para el usuario: abrir …#/ayuda?reproductor=youtube (o =nocookie) cambia la opción sin buscar el botón.
-  const [params] = useSearchParams()
-  useEffect(() => {
-    const wanted = params.get('reproductor')
-    if (wanted !== 'youtube' && wanted !== 'nocookie') return
-    window.history.replaceState(null, '', window.location.href.replace(/\?reproductor=\w+/, ''))
-    if (wanted === playerHost.get()) return
-    playerHost.set(wanted)
-    window.location.reload() // el reproductor se crea una sola vez: se recarga para usar la nueva dirección
-  }, [params])
-  const choose = (value: PlayerHost) => {
-    if (value === host) return
-    playerHost.set(value)
-    window.location.reload() // el reproductor se crea una sola vez: se recarga para usar la nueva dirección
-  }
   const copy = async () =>
     showToast((await copyText(BRAVE_FILTERS)) ? 'Filtros copiados: pégalos en «Filtros personalizados» de Brave' : 'No se pudo copiar: escríbelos tal cual')
   return (
@@ -366,8 +522,8 @@ function BraveBackgroundSection() {
           </button>
         </li>
         <li>
-          El reproductor debe cargar desde <B>youtube.com</B>, porque los filtros solo actúan ahí. Viene así por defecto; con
-          «youtube-nocookie.com (más privado)», el ▶ de la notificación no la reanuda.
+          El reproductor carga siempre desde <B>youtube.com</B> (los filtros solo actúan ahí; con youtube-nocookie.com el ▶ de la
+          notificación no la reanudaba). No hay que cambiar nada.
         </li>
         <li>
           Prueba: canción de YouTube → sal con el botón de inicio (○) → se pausa → abre las notificaciones y pulsa <B>▶</B> → sigue
@@ -375,31 +531,8 @@ function BraveBackgroundSection() {
         </li>
       </Steps>
       <p>
-        Ahora el reproductor carga desde:{' '}
-        <B>{host === 'youtube' ? 'youtube.com ✓ (los filtros de Brave lo alcanzan)' : 'youtube-nocookie.com (los filtros de Brave no lo alcanzan)'}</B>
-      </p>
-      <div role="radiogroup" aria-label="Dirección del reproductor de YouTube" className="flex flex-wrap gap-2">
-        {(
-          [
-            ['youtube', 'youtube.com (para los filtros de Brave · recomendado)'],
-            ['nocookie', 'youtube-nocookie.com (más privado)'],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={host === value}
-            onClick={() => choose(value)}
-            className={`rounded-full px-4 py-1.5 text-sm font-semibold ${host === value ? 'bg-acento text-white' : 'bg-white/10 text-texto hover:bg-white/15'}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <p>
-        Con youtube.com, YouTube puede guardar sus cookies; con youtube-nocookie.com no, pero la música no vuelve con el ▶ de la
-        notificación. Cambiarlo recarga la app.
+        El reproductor carga desde: <B>{playerHost.label} ✓ (los filtros de Brave lo alcanzan)</B>. Desde ahí YouTube puede guardar
+        sus cookies, como en su propia página.
       </p>
       <p>
         <B>Si un día deja de funcionar:</B> actualiza Brave, revisa que las dos líneas sigan en «Filtros personalizados» y, en{' '}

@@ -10,9 +10,6 @@ export interface Track {
   artwork?: string // portada cuadrada de YouTube Music (si no, la imagen del video)
 }
 
-/** Etiqueta discreta de la fuente, por transparencia. */
-export const sourceLabel = (track: Track): string => (track.ytMusic ? 'YouTube Music' : 'YouTube')
-
 export type Repeat = 'off' | 'all' | 'one'
 
 /**

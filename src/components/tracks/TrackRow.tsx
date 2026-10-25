@@ -1,12 +1,15 @@
-import { AudioLines, ListEnd, Trash } from 'lucide-react'
-import { useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { AudioLines, EllipsisVertical, ListEnd, Trash, Users } from 'lucide-react'
+import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { useInGuestJam } from '../../jam/guestJam'
 import { formatDuration } from '../../lib/format'
-import { coverSources, sourceLabel, type Track } from '../../player/types'
+import { coverSources, type Track } from '../../player/types'
 import { onlyInYouTubeMusic } from '../../player/unavailable'
 import { Cover } from '../ui/Cover'
 import { TrackMenu } from './TrackMenu'
 import { addToSiguientes, removeWithUndo, type RemoveAction } from './trackActions'
 import { useSwipe } from './useSwipe'
+
+const SNAP_BACK_MS = 200 // lo que tarda la fila en volver a su lugar: el menú se abre después, junto a su «⋮»
 
 export interface TrackRowProps {
   track: Track
@@ -15,44 +18,73 @@ export interface TrackRowProps {
   isCurrent?: boolean
   isPlaying?: boolean
   duration?: number
-  removeAction?: RemoveAction // deslizar a la derecha / «Eliminar de…»; sin esto, a la derecha no pasa nada
+  removeAction?: RemoveAction // «Eliminar de…» en el menú; en «Próximas en sonar», también deslizar a la derecha
   trailing?: ReactNode // p. ej. el asa para reordenar en la cola
   style?: CSSProperties
+  // Gestos según la pantalla: 'lista' (Buscar, playlists, álbumes…) izquierda = agregar a la cola (o a la Jam) y
+  // derecha = menú «⋮»; 'cola' («Próximas en sonar») derecha = quitar e izquierda = menú.
+  swipe?: 'lista' | 'cola'
+  // Sin gestos de deslizar (carruseles de Inicio): deslizar de lado mueve el carrusel. Queda el ▶ y el menú «⋮».
+  plain?: boolean
 }
 
 /**
- * Fila de canción como en Spotify: portada pequeña, título, artista y menú «⋮».
- * En el celular: deslizar a la izquierda la agrega a siguientes; a la derecha la elimina de esta lista.
+ * Fila de canción como en Spotify: portada pequeña, título, artista y menú «⋮» (Reproducir, Agregar a la cola, Me
+ * gusta…). En el celular, deslizar depende de la pantalla (ver `swipe`): en las listas, a la izquierda la agrega a la
+ * cola de una vez y a la derecha abre el menú; en «Próximas en sonar», a la derecha la quita y a la izquierda abre el menú.
  */
-export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, duration, removeAction, trailing, style }: TrackRowProps) {
-  const swipe = useSwipe({
-    onLeft: () => addToSiguientes(track),
-    onRight: removeAction ? () => removeWithUndo(removeAction) : undefined,
-  })
+export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, duration, removeAction, trailing, style, swipe: mode = 'lista', plain = false }: TrackRowProps) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const inJam = useInGuestJam() // en la Jam de otro, «agregar» va a la cola compartida
+  const openMenu = () => window.setTimeout(() => setMenuOpen(true), SNAP_BACK_MS)
+  const inQueue = mode === 'cola'
+  const swipe = useSwipe(
+    plain
+      ? {}
+      : inQueue
+        ? { onLeft: openMenu, onRight: removeAction ? () => removeWithUndo(removeAction) : undefined }
+        : { onLeft: () => addToSiguientes(track), onRight: openMenu },
+  )
   const shownDuration = duration ?? track.duration
   // YouTube no deja reproducirla fuera de sus apps: se avisa antes de tocarla (al tocarla se ofrece abrirla allá).
   const onlyInYtm = useSyncExternalStore(onlyInYouTubeMusic.subscribe, onlyInYouTubeMusic.get).has(track.id)
+  const grow = `size-6 transition-transform ${swipe.armed ? 'scale-125' : ''}`
 
   return (
     <li className="relative overflow-hidden rounded-md" style={style}>
-      {/* Fondo que aparece mientras se desliza */}
+      {/* Fondo que aparece mientras se desliza: lo que pasa al soltar */}
       {swipe.dx < 0 && (
         <div className="absolute inset-0 flex items-center justify-end gap-2 bg-acento pr-5 text-sm font-semibold text-white">
-          <span>Siguientes</span>
-          <ListEnd className={`size-6 transition-transform ${swipe.armed ? 'scale-125' : ''}`} aria-hidden="true" />
+          {inQueue ? (
+            <>
+              <span>Opciones</span>
+              <EllipsisVertical className={grow} aria-hidden="true" />
+            </>
+          ) : (
+            <>
+              <span>{inJam ? 'A la Jam' : 'A la cola'}</span>
+              {inJam ? <Users className={grow} aria-hidden="true" /> : <ListEnd className={grow} aria-hidden="true" />}
+            </>
+          )}
         </div>
       )}
-      {swipe.dx > 0 && (
-        <div className="absolute inset-0 flex items-center justify-start gap-2 bg-red-600 pl-5 text-sm font-semibold text-white">
-          <Trash className={`size-6 transition-transform ${swipe.armed ? 'scale-125' : ''}`} aria-hidden="true" />
-          <span>Eliminar</span>
-        </div>
-      )}
+      {swipe.dx > 0 &&
+        (inQueue ? (
+          <div className="absolute inset-0 flex items-center justify-start gap-2 bg-red-600 pl-5 text-sm font-semibold text-white">
+            <Trash className={grow} aria-hidden="true" />
+            <span>Eliminar</span>
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-start gap-2 bg-tarjeta-claro pl-5 text-sm font-semibold text-white">
+            <EllipsisVertical className={grow} aria-hidden="true" />
+            <span>Opciones</span>
+          </div>
+        ))}
 
       <div
         ref={swipe.ref}
         {...swipe.handlers}
-        className="group relative flex h-16 touch-pan-y items-center gap-3 bg-panel pr-1 pl-2 select-none hover:bg-tarjeta md:pl-4"
+        className={`group relative flex h-16 items-center gap-3 bg-panel pr-1 pl-2 select-none hover:bg-tarjeta md:pl-4 ${plain ? '' : 'touch-pan-y'}`}
         style={{ transform: `translateX(${swipe.dx}px)`, transition: swipe.active ? 'none' : 'transform 200ms ease-out' }}
       >
         {position !== undefined && (
@@ -68,9 +100,10 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
               <span className="truncate">{track.title}</span>
             </span>
             <span className="flex items-center gap-1.5 text-sm text-texto-sec">
-              <span className={`shrink-0 rounded px-1 text-[10px] leading-4 font-semibold tracking-wide uppercase ${onlyInYtm ? 'bg-red-500/20 text-red-200' : 'bg-white/10'}`}>
-                {onlyInYtm ? 'Solo en YouTube Music' : sourceLabel(track)}
-              </span>
+              {/* Solo se marca la que no suena aquí (al tocarla se ofrece abrirla en la app de YouTube Music). */}
+              {onlyInYtm && (
+                <span className="shrink-0 rounded bg-red-500/20 px-1 text-[10px] leading-4 font-semibold tracking-wide text-red-200 uppercase">No disponible aquí</span>
+              )}
               <span className="truncate">
                 {track.artist}
                 {track.album && ` · ${track.album}`}
@@ -79,7 +112,7 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
           </span>
         </button>
         {shownDuration ? <span className="hidden w-12 shrink-0 text-right text-sm text-texto-sec tabular-nums md:block">{formatDuration(shownDuration)}</span> : null}
-        <TrackMenu track={track} removeAction={removeAction} />
+        <TrackMenu track={track} removeAction={removeAction} onPlay={onPlay} open={menuOpen} onOpenChange={setMenuOpen} />
         {trailing}
       </div>
     </li>

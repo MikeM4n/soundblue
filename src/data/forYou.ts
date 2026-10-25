@@ -5,19 +5,30 @@
 //   2. YouTube Music (API interna, NO oficial: puede fallar sin aviso): canciones de tus artistas y su radio.
 //   3. La YouTube Data API oficial (solo si la anterior falla y hay clave; guarda 24 h para no gastar cuota).
 // Si algo falla se usa lo anterior guardado o la siguiente capa: nunca se muestra un error.
+//
+// Filtros estrictos en todos los estantes: nada de artistas que sueles saltar, como mucho 2 canciones por artista en
+// cada estante y ninguna canción en dos estantes (mismo videoId). Las que vienen de una radio pasan además por los
+// filtros de data/radio.ts (covers, otras versiones, otro género).
+// «Selecciones rápidas» y «Muy sonadas» van por género (data/genres.ts), no salen de aquí.
 import { library } from '../library/store'
 import type { Track } from '../player/types'
-import { listening } from './history'
+import { artistTopSongs } from './artistTop'
+import { artistKey, listening } from './history'
+import { artistKeys, capPerArtist, interleave, unique } from './lists'
+import { createRadio } from './radio'
 import { readTastes } from './tastes'
 import { youtubeSearch, youtubeSearchEnabled } from './youtube'
-import { ytmPage, ytmRadio, ytmSearchArtists, type YtmCard } from './ytmusic'
+import { ytmPage, ytmRadioItems, ytmSearchArtists, type YtmCard } from './ytmusic'
 
 const DAY = 24 * 3600 * 1000
 const RADIOS_KEY = 'soundblue:ultimas-radios' // la última radio que funcionó, por canción semilla
 const SEED_KEY = 'soundblue:semilla' // qué semilla le toca a la radio (cambia en cada apertura)
+const GENRE_SEEDS = 10 // tus géneros: los artistas de las radios de las últimas 10 que sonaron
+const PER_ARTIST = 2 // como mucho 2 canciones de un mismo artista por estante
+const TOP_ARTISTS_SHOWN = 8 // «Tus artistas» muestra hasta 8 (components/tracks/ArtistTopSongs.tsx)
 
 export interface Shelf {
-  key: 'nuevo' | 'radio' | 'sonadas' | 'volver'
+  key: 'nuevo' | 'radio' | 'volver'
   title: string
   note: string
   tracks: Track[]
@@ -27,6 +38,9 @@ export interface ForYou {
   shelves: Shelf[] // carruseles de canciones
   artists: YtmCard[] // «Tus artistas» (los que elegiste)
   similar: YtmCard[] // «Artistas recomendados para ti»
+  shownIds: string[] // lo que ya muestran «Tus artistas» y los estantes (para no repetirlo en otro lado de Inicio)
+  genreArtists: string[] // artistKey de los artistas de tus géneros (para filtrar las tendencias)
+  skippedArtists: string[] // artistKey de los que sueles saltar
 }
 
 const simplify = (text: string) =>
@@ -38,18 +52,6 @@ const simplify = (text: string) =>
 
 /** «Bad Bunny y Jhayco» → «Bad Bunny». */
 const mainArtist = (artist: string) => artist.split(/,| y | & | x | feat\.? | ft\.? /i)[0].trim()
-
-function unique<T extends { id: string }>(items: T[]): T[] {
-  const seen = new Set<string>()
-  return items.filter((item) => !seen.has(item.id) && !!seen.add(item.id))
-}
-
-/** Intercala listas: la 1ª de cada una, luego la 2ª… (para no poner todo de un mismo artista seguido). */
-function interleave<T>(lists: T[][]): T[] {
-  const out: T[] = []
-  for (let i = 0; i < Math.max(0, ...lists.map((l) => l.length)); i++) for (const list of lists) if (list[i]) out.push(list[i])
-  return out
-}
 
 interface ArtistScore {
   id?: string
@@ -118,14 +120,29 @@ function seedIndex(rotate: boolean, count: number): number {
   return index % count
 }
 
+/**
+ * El «vecindario» de tus géneros: los artistas que aparecen en la radio de YouTube Music de las últimas 10 canciones que
+ * sonaron (sin historial todavía, de tus favoritas). Con eso se filtran las tendencias.
+ */
+async function genreNeighborhood(skipped: Set<string>): Promise<Set<string>> {
+  const listened = listening.entries().map((entry) => entry.track) // de la más reciente a la más vieja
+  const seeds = unique([...listened, ...library.get().favorites])
+    .filter((track) => !skipped.has(artistKey(track.artist)))
+    .slice(0, GENRE_SEEDS)
+  const radios = await Promise.all(seeds.map((seed) => ytmRadioItems(seed.id).catch(() => [])))
+  return new Set(radios.flat().flatMap((item) => artistKeys(item.track.artist)))
+}
+
 /** Calcula «Para ti». `rotate`: al abrir la app, la radio cambia de semilla. */
 export async function computeForYou({ rotate = false } = {}): Promise<ForYou> {
   const favorites = library.get().favorites
   const favoriteIds = new Set(favorites.map((track) => track.id))
   const recent = listening.playedWithin(DAY)
   const ever = new Set(listening.entries().map((entry) => entry.track.id))
-  // No repetir lo que sonó en las últimas 24 h, salvo tus favoritas.
-  const fresh = (track: Track) => favoriteIds.has(track.id) || !recent.has(track.id)
+  const skipped = listening.skippedArtists()
+  // No repetir lo que sonó en las últimas 24 h, salvo tus favoritas; nunca artistas que sueles saltar.
+  const fresh = (track: Track) => (favoriteIds.has(track.id) || !recent.has(track.id)) && !skipped.has(artistKey(track.artist))
+  const neighborhood = genreNeighborhood(skipped)
 
   const top = scoreArtists().slice(0, 3)
   const ids = await Promise.all(top.map(artistId))
@@ -145,22 +162,16 @@ export async function computeForYou({ rotate = false } = {}): Promise<ForYou> {
   const seeds = unique([favorites[0], topSongs[0]?.[0], listening.entries().find((entry) => entry.count <= 1)?.track].filter((t): t is Track => !!t))
   if (seeds.length) {
     const seed = seeds[seedIndex(rotate, seeds.length)]
-    const radio = await ytmRadio(seed.id)
-      .then((tracks) => {
+    // Con los filtros de la radio (sin covers ni otras versiones, mismo género o parecido); sin conexión, la última guardada.
+    const radio = await createRadio(seed, { artistTop: false, diagnostics: false })(20, recent)
+      .then((picks) => {
+        const tracks = picks.map(({ track }) => track)
         saveRadio(seed.id, tracks)
         return tracks
       })
       .catch(() => readRadios()[seed.id]?.tracks ?? [])
     const tracks = radio.filter((track) => track.id !== seed.id && fresh(track))
     if (tracks.length) shelves.push({ key: 'radio', title: `Radio de «${seed.title}»`, note: `A partir de ${seed.title}, de ${mainArtist(seed.artist)}`, tracks: tracks.slice(0, 20) })
-  }
-
-  // 3) Muy sonadas: lo más escuchado en YouTube Music de tus artistas top (aunque ya las hayas escuchado).
-  if (top[0]) {
-    const popular = unique(interleave(topSongs.map((songs) => songs.slice(0, 8)))).filter(fresh)
-    const names = top.filter((_, i) => topSongs[i]?.length).map((artist) => artist.name)
-    const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} y ${names.at(-1)}` : names[0]
-    if (popular.length) shelves.push({ key: 'sonadas', title: 'Muy sonadas', note: `Lo más escuchado de ${who} en YouTube Music`, tracks: popular.slice(0, 16) })
   }
 
   // Sin YouTube Music (sin conexión o falló): de tus favoritas y lo que más escuchas.
@@ -173,5 +184,21 @@ export async function computeForYou({ rotate = false } = {}): Promise<ForYou> {
   const chosen = readTastes()?.artists ?? []
   const chosenIds = new Set(chosen.map((artist) => artist.id))
   const similar = unique(pages.flatMap((page) => page?.sections.flatMap((section) => section.cards.filter((card) => card.kind === 'artist')) ?? []))
-  return { shelves, artists: chosen, similar: similar.filter((card) => !chosenIds.has(card.id)).slice(0, 15) }
+
+  // Filtros estrictos: lo que ya muestra «Tus artistas» (sus 5 más conocidas, guardadas 24 h) no se repite; los demás
+  // estantes, cada canción en uno solo y 2 por artista como mucho.
+  const [genre, tops] = await Promise.all([neighborhood, Promise.all(chosen.slice(0, TOP_ARTISTS_SHOWN).map((artist) => artistTopSongs(artist).catch(() => null)))])
+  const taken = new Set(tops.flatMap((top) => top?.tracks.map((track) => track.id) ?? []))
+  const strict = shelves.map((shelf) => ({ ...shelf, tracks: capPerArtist(shelf.tracks, PER_ARTIST, taken) })).filter((shelf) => shelf.tracks.length)
+  // Tus géneros: los artistas de esas radios, más los tuyos (elegidos, favoritas y escuchados), menos los que saltas.
+  const yours = [...chosen.map((artist) => artist.title), ...scoreArtists().map((artist) => artist.name)].flatMap(artistKeys)
+  const genreArtists = [...new Set([...genre, ...yours])].filter((key) => !skipped.has(key))
+  return {
+    shelves: strict,
+    shownIds: [...taken],
+    artists: chosen,
+    similar: similar.filter((card) => !chosenIds.has(card.id) && !skipped.has(artistKey(card.title))).slice(0, 15),
+    genreArtists,
+    skippedArtists: [...skipped],
+  }
 }

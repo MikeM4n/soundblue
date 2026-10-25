@@ -1,5 +1,7 @@
 // Acciones sobre una canción, compartidas por el menú «⋮» y los gestos de deslizar.
-import { ytmRadio } from '../../data/ytmusic'
+import { createRadio } from '../../data/radio'
+import { guestJam } from '../../jam/guestJam'
+import { hostJam } from '../../jam/hostJam'
 import { library } from '../../library/store'
 import { player } from '../../player/engine'
 import { sheetState } from '../../player/stage'
@@ -12,16 +14,24 @@ export interface RemoveAction {
   remove: () => () => void // quita y devuelve la función para deshacer
 }
 
-/** Al final de «Siguiente en la cola» (deslizar a la izquierda o «Agregar a la cola»). */
+/**
+ * Al final de «Siguiente en la cola» (deslizar a la izquierda o «Agregar a la cola»). Si estás en la Jam de otro
+ * (invitado), va a la cola compartida, que suena en el teléfono del anfitrión: no a la tuya.
+ */
 export function addToSiguientes(track: Track) {
+  if (guestJam.isActive()) {
+    void guestJam.add(track)
+    return
+  }
   const result = player.addToQueue(track)
-  showToast(result === 'repetida' ? 'Ya está en siguientes' : result === 'lista' ? 'Lista para sonar: toca ▶ para escucharla' : 'Agregada a siguientes')
+  const where = hostJam.getState().code ? 'la cola de la Jam' : 'siguientes' // con tu Jam abierta, tu cola es la de todos
+  showToast(result === 'repetida' ? `Ya está en ${where}` : result === 'lista' ? 'Lista para sonar: toca ▶ para escucharla' : `Agregada a ${where}`)
 }
 
 /** Al principio de la cola: suena justo después de la actual. */
 export function playNext(track: Track) {
   const result = player.playNext(track)
-  showToast(result === 'lista' ? 'Lista para sonar: toca ▶ para escucharla' : 'Sonará a continuación')
+  showToast(result === 'repetida' ? 'Ya está sonando' : result === 'lista' ? 'Lista para sonar: toca ▶ para escucharla' : 'Sonará a continuación')
 }
 
 export function removeFromQueue(track: Track) {
@@ -35,18 +45,12 @@ export function toggleFavorite(track: Track) {
 }
 
 /**
- * «Iniciar radio», como en YouTube Music: suena la canción y después las que YouTube Music recomienda a partir
- * de ella. `open` abre «Sonando ahora» (si ya está abierta, no se vuelve a abrir).
+ * «Iniciar radio»: suena la canción y la cola se va llenando con el mismo artista y el mismo género o uno parecido, de
+ * cualquier año (ver data/radio.ts). `open` abre «Sonando ahora» (si ya está abierta, no se vuelve a abrir).
  */
-export async function startRadio(track: Track, open: () => void) {
-  showToast('Preparando la radio…')
-  try {
-    const radio = await ytmRadio(track.id)
-    if (sheetState.get() !== 'open') open()
-    player.playContext(`Radio de ${track.title}`, [track, ...radio.filter((t) => t.id !== track.id)], 0)
-  } catch {
-    showToast('No se pudo iniciar la radio. Revisa tu conexión.')
-  }
+export function startRadio(track: Track, open: () => void) {
+  if (sheetState.get() !== 'open') open()
+  player.playRadio(`Radio de «${track.title}»`, track, createRadio(track))
 }
 
 /** Deslizar a la derecha / «Eliminar de…»: quita y ofrece «Deshacer» durante 4 s. */

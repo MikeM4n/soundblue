@@ -1,21 +1,45 @@
 import { GripVertical } from 'lucide-react'
 import type { ReactNode } from 'react'
+import type { QueueGroup } from '../../data/radio'
+import { useInGuestJam } from '../../jam/guestJam'
 import { player } from '../../player/engine'
 import type { Track } from '../../player/types'
 import { usePlayer } from '../../player/usePlayer'
 import { showToast } from '../../ui/toast'
+import { GuestJamQueue } from '../jam/JamQueue'
 import { stableKeys } from './TrackList'
 import { TrackRow } from './TrackRow'
 import type { RemoveAction } from './trackActions'
 import { useDragReorder } from './useDragReorder'
 
+/** Tramos seguidos de «Próximas» que van bajo el mismo encabezado (la lista elegida o un bloque de la radio). */
+interface Run {
+  start: number // índice en `upcoming`
+  tracks: Track[]
+  group: QueueGroup | null
+}
+
+function runsOf(upcoming: readonly Track[], groups: readonly (QueueGroup | null)[]): Run[] {
+  const runs: Run[] = []
+  upcoming.forEach((track, i) => {
+    const group = groups[i] ?? null
+    const last = runs.at(-1)
+    if (last && last.group?.kind === group?.kind && last.group?.seed === group?.seed) last.tracks.push(track)
+    else runs.push({ start: i, tracks: [track], group })
+  })
+  return runs
+}
+
 /**
- * «Siguiente en la cola» (las que agregaste) y «Siguiente de: …» (el resto de la lista). Se reordenan
- * arrastrando ≡, se quitan deslizando a la derecha (con Deshacer). La usan la página Cola y el panel
- * que sube en «Sonando ahora».
+ * «Siguiente en la cola» (las que agregaste) y lo que sigue de la lista, con un encabezado por bloque: «Siguiente de: …»
+ * (la lista que elegiste), «Recomendadas basadas en esta canción» y «Nuevas para ti» (las que agrega la radio). Se
+ * reordenan arrastrando ≡ dentro de cada bloque, se quitan deslizando a la derecha o con «⋮» (con Deshacer; la radio
+ * repone para que siempre haya 10). La usan la página Cola y el panel que sube en «Sonando ahora». Si estás en la Jam
+ * de otro, arriba va la cola compartida (la de su teléfono).
  */
 export function QueueSections({ beforePlay }: { beforePlay?: () => void }) {
-  const { queue, upcoming, contextName } = usePlayer()
+  const { queue, upcoming, upcomingGroups, contextName } = usePlayer()
+  const inJam = useInGuestJam()
 
   const clearQueue = () => {
     const undo = player.clearQueue()
@@ -23,11 +47,18 @@ export function QueueSections({ beforePlay }: { beforePlay?: () => void }) {
   }
 
   if (queue.length === 0 && upcoming.length === 0) {
-    return <p className="mt-6 px-2 text-sm text-texto-sec">No hay más canciones. Desliza una canción a la izquierda en cualquier lista para agregarla aquí.</p>
+    if (inJam) return <GuestJamQueue />
+    return <p className="mt-6 px-2 text-sm text-texto-sec">No hay más canciones. En Buscar o en una lista, desliza una canción a la izquierda para agregarla aquí.</p>
   }
 
   return (
     <>
+      {inJam && (
+        <>
+          <GuestJamQueue />
+          <p className="mt-8 px-2 text-xs font-semibold tracking-wider text-texto-sec uppercase">En tu teléfono</p>
+        </>
+      )}
       {queue.length > 0 && (
         <>
           <SectionTitle
@@ -50,28 +81,40 @@ export function QueueSections({ beforePlay }: { beforePlay?: () => void }) {
           />
         </>
       )}
-      {upcoming.length > 0 && (
-        <>
-          <SectionTitle>Siguiente de: {contextName}</SectionTitle>
+      {runsOf(upcoming, upcomingGroups).map(({ start, tracks, group }) => (
+        <section key={`${start}-${tracks[0].id}`} aria-label={group ? GROUP_TITLE[group.kind] : `Siguiente de: ${contextName}`}>
+          {group ? (
+            <SectionTitle note={group.kind === 'nuevas' ? 'Nunca sonaron aquí, del mismo género' : `A partir de ${group.seed}`}>{GROUP_TITLE[group.kind]}</SectionTitle>
+          ) : (
+            <SectionTitle>Siguiente de: {contextName}</SectionTitle>
+          )}
           <ReorderableList
-            tracks={upcoming}
+            tracks={tracks}
             onPlay={(i) => {
               beforePlay?.()
-              player.jumpToUpcoming(i)
+              player.jumpToUpcoming(start + i)
             }}
-            onMove={(from, to) => player.moveUpcoming(from, to)}
-            remove={(i) => ({ listName: 'la cola', remove: () => player.removeUpcomingAt(i) })}
+            onMove={(from, to) => player.moveUpcoming(start + from, start + to)}
+            remove={(i) => ({ listName: 'la cola', remove: () => player.removeUpcomingAt(start + i) })}
           />
-        </>
-      )}
+        </section>
+      ))}
     </>
   )
 }
 
-export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
+const GROUP_TITLE: Record<QueueGroup['kind'], string> = {
+  recomendadas: 'Recomendadas basadas en esta canción',
+  nuevas: 'Nuevas para ti',
+}
+
+export function SectionTitle({ children, action, note }: { children: ReactNode; action?: ReactNode; note?: string }) {
   return (
-    <div className="mt-6 mb-1 flex items-center justify-between px-2">
-      <h2 className="truncate font-bold">{children}</h2>
+    <div className="mt-6 mb-1 flex items-center justify-between gap-2 px-2">
+      <div className="min-w-0">
+        <h2 className="truncate font-bold">{children}</h2>
+        {note && <p className="truncate text-xs text-texto-sec">{note}</p>}
+      </div>
       {action}
     </div>
   )
@@ -95,6 +138,7 @@ function ReorderableList({ tracks, onPlay, onMove, remove }: ReorderableListProp
           track={track}
           onPlay={() => onPlay(i)}
           removeAction={remove(i)}
+          swipe="cola"
           style={rowStyle(i)}
           trailing={
             <button

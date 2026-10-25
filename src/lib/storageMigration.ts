@@ -18,6 +18,7 @@ export function migrateStorage() {
       localStorage.removeItem(oldKey)
     }
     localStorage.removeItem(`${NEW_PREFIX}pantalla-encendida`) // la opción «Pantalla encendida» ya no existe
+    localStorage.removeItem(`${NEW_PREFIX}reproductor-youtube`) // el reproductor ya no se puede cambiar a nocookie
   } catch {
     /* sin almacenamiento (modo privado estricto): no hay nada que pasar */
   }

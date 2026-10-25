@@ -4,6 +4,7 @@ import { TrackList } from '../components/tracks/TrackList'
 import { YtmCardRow } from '../components/ui/YtmShelf'
 import { categories } from '../data/categories'
 import { searchCatalog, testList } from '../data/catalog'
+import { createRadio } from '../data/radio'
 import { KeyError, QuotaError, youtubeSearch, youtubeSearchEnabled } from '../data/youtube'
 import { ytmSearch, type YtmCard } from '../data/ytmusic'
 import { player } from '../player/engine'
@@ -40,7 +41,7 @@ async function searchMusic(query: string): Promise<MusicResults> {
   } catch {
     const found = searchCatalog(query)
     const catalog = { ...empty, videos: found.length ? found : testList, source: 'catalogo' as const }
-    if (!youtubeSearchEnabled) return { ...catalog, notice: 'No se pudo conectar con YouTube Music. Mientras tanto, la lista de prueba.' }
+    if (!youtubeSearchEnabled) return { ...catalog, notice: 'No se pudo conectar con el catálogo. Mientras tanto, la lista de prueba.' }
     try {
       const api = await youtubeSearch(query)
       return { ...empty, songs: api.songs, videos: api.videos, source: 'api', notice: null }
@@ -80,15 +81,18 @@ export function Search() {
   const videos = fromMusic?.videos ?? []
   const results = [...songs, ...videos] // en este orden sigue sonando al terminar cada una
 
+  // Suena la elegida y después su radio (mismo artista y mismo género o parecido; ver data/radio.ts). Antes seguían los
+  // demás resultados de la búsqueda, que solo comparten palabras con lo que escribiste (covers, otras canciones).
   const play = (index: number) => {
+    const track = results[index]
+    if (!track) return
     open() // primero «Sonando ahora», así el video aparece ya en su sitio
-    player.playContext(`Búsqueda «${q}»`, results, index)
+    player.playRadio(`Radio de «${track.title}»`, track, createRadio(track))
   }
 
-  const songsNote = fromMusic?.source === 'api' ? 'YouTube Music · API oficial' : 'YouTube Music'
   const lists = [
-    { title: 'Canciones', note: songsNote, tracks: songs, offset: 0 },
-    { title: fromMusic?.source === 'catalogo' ? 'Lista de prueba' : 'Videos', note: fromMusic?.source === 'catalogo' ? 'YouTube Music' : 'YouTube', tracks: videos, offset: songs.length },
+    { title: 'Canciones', tracks: songs, offset: 0 },
+    { title: fromMusic?.source === 'catalogo' ? 'Lista de prueba' : 'Videos', tracks: videos, offset: songs.length },
   ]
   const nothing = !searching && results.length === 0 && !fromMusic?.albums.length && !fromMusic?.artists.length
 
@@ -126,25 +130,25 @@ export function Search() {
             )}
           </label>
         </form>
-        <p className="mt-2 text-xs text-texto-sec">Canciones, álbumes y artistas de YouTube Music.</p>
+        <p className="mt-2 text-xs text-texto-sec">Canciones, álbumes y artistas.</p>
       </div>
 
       {q ? (
         <div className="mt-2">
-          {lists.slice(0, 1).map(({ title, note, tracks, offset }) => tracks.length > 0 && <ResultList key={title} title={title} note={note} tracks={tracks} onPlay={(i) => play(offset + i)} />)}
+          {lists.slice(0, 1).map(({ title, tracks, offset }) => tracks.length > 0 && <ResultList key={title} title={title} tracks={tracks} onPlay={(i) => play(offset + i)} />)}
           {!!fromMusic?.artists.length && (
             <section aria-label="Artistas" className="mt-4">
-              <ListTitle title="Artistas" note="YouTube Music" />
+              <ListTitle title="Artistas" />
               <YtmCardRow cards={fromMusic.artists} />
             </section>
           )}
           {!!fromMusic?.albums.length && (
             <section aria-label="Álbumes" className="mt-4">
-              <ListTitle title="Álbumes" note="YouTube Music" />
+              <ListTitle title="Álbumes" />
               <YtmCardRow cards={fromMusic.albums} />
             </section>
           )}
-          {lists.slice(1).map(({ title, note, tracks, offset }) => tracks.length > 0 && <ResultList key={title} title={title} note={note} tracks={tracks} onPlay={(i) => play(offset + i)} />)}
+          {lists.slice(1).map(({ title, tracks, offset }) => tracks.length > 0 && <ResultList key={title} title={title} tracks={tracks} onPlay={(i) => play(offset + i)} />)}
           <div className="mt-3 space-y-1 px-4 text-sm text-texto-sec md:px-6">
             {searching && <p>Buscando…</p>}
             {fromMusic?.notice && <p role="status">{fromMusic.notice}</p>}
@@ -175,19 +179,14 @@ export function Search() {
   )
 }
 
-function ListTitle({ title, note }: { title: string; note: string }) {
-  return (
-    <h2 className="flex items-baseline gap-2 px-4 pb-1 text-lg font-bold md:px-6">
-      {title}
-      <span className="text-xs font-normal text-texto-sec">{note}</span>
-    </h2>
-  )
+function ListTitle({ title }: { title: string }) {
+  return <h2 className="px-4 pb-1 text-lg font-bold md:px-6">{title}</h2>
 }
 
-function ResultList({ title, note, tracks, onPlay }: { title: string; note: string; tracks: Track[]; onPlay: (index: number) => void }) {
+function ResultList({ title, tracks, onPlay }: { title: string; tracks: Track[]; onPlay: (index: number) => void }) {
   return (
     <section aria-label={title} className="mt-4">
-      <ListTitle title={title} note={note} />
+      <ListTitle title={title} />
       <TrackList tracks={tracks} numbered={false} onPlay={onPlay} />
     </section>
   )

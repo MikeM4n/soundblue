@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "iconos": "node scripts/iconos.ts",
     "worker:dev": "npx --yes wrangler@4.149.0 dev --config worker/wrangler.jsonc",
-    "worker:publicar": "npx --yes wrangler@4.149.0 deploy --config worker/wrangler.jsonc"
+    "worker:publicar": "npx --yes wrangler@4.149.0 deploy --config worker/wrangler.jsonc",
+    "worker:jam:dev": "npx --yes wrangler@4.149.0 dev --config worker/jam.wrangler.jsonc --port 8787",
+    "worker:jam:publicar": "npx --yes wrangler@4.149.0 deploy --config worker/jam.wrangler.jsonc",
+    "worker:jam:staging": "npx --yes wrangler@4.149.0 deploy --config worker/jam.staging.wrangler.jsonc"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

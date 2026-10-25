@@ -1,16 +1,29 @@
 // Historial de escucha (en este navegador): qué canciones sonaron, cuántas veces y cuándo. Alimenta «Para ti».
-// Una canción cuenta como escuchada a los 30 s (o al terminar, si es más corta), como en Spotify.
+// Una canción cuenta como escuchada a los 30 s (o al terminar, si es más corta), como en Spotify; si pasas a la
+// siguiente antes, cuenta como saltada (los artistas que sueles saltar no se recomiendan).
 // Se guarda en localStorage, como el resto de la biblioteca: son pocos datos (máx. 400 canciones).
 import { isTrack, type Track } from '../player/types'
 
 const KEY = 'soundblue:historial'
 const MAX = 400
+const SKIPS_TO_HIDE = 2 // saltado 2 veces o más, y más veces saltado que escuchado: no se recomienda
 
 export interface ListenEntry {
   track: Track
   count: number // veces escuchada (30 s o más)
   last: number // última vez que empezó a sonar (ms)
+  skips?: number // veces que pasaste a la siguiente antes de los 30 s
 }
+
+/** «Bad Bunny y Jhayco» → «badbunny» (el primer artista, sin tildes ni espacios): para comparar artistas. */
+export const artistKey = (artist: string) =>
+  artist
+    .split(/,| y | & | x | feat\.? | ft\.? /i)[0]
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '')
 
 let entries: ListenEntry[] = read()
 const listeners = new Set<() => void>()
@@ -41,12 +54,27 @@ export const listening = {
   /** Empezó a sonar: se anota la hora (para no repetirla en «Para ti» durante 24 h). */
   started(track: Track) {
     const found = entries.find((e) => e.track.id === track.id)
-    commit([{ track: plain(track), count: found?.count ?? 0, last: Date.now() }, ...entries.filter((e) => e !== found)], false)
+    commit([{ ...found, track: plain(track), count: found?.count ?? 0, last: Date.now() }, ...entries.filter((e) => e !== found)], false)
   },
   /** Se escuchó de verdad (30 s o hasta el final): suma una reproducción y avisa para recalcular «Para ti». */
   counted(track: Track) {
     const found = entries.find((e) => e.track.id === track.id)
-    commit([{ track: plain(track), count: (found?.count ?? 0) + 1, last: found?.last ?? Date.now() }, ...entries.filter((e) => e !== found)], true)
+    commit([{ ...found, track: plain(track), count: (found?.count ?? 0) + 1, last: found?.last ?? Date.now() }, ...entries.filter((e) => e !== found)], true)
+  },
+  /** Pasaste a la siguiente antes de los 30 s. */
+  skipped(track: Track) {
+    const found = entries.find((e) => e.track.id === track.id)
+    commit([{ track: plain(track), count: found?.count ?? 0, last: found?.last ?? Date.now(), skips: (found?.skips ?? 0) + 1 }, ...entries.filter((e) => e !== found)], false)
+  },
+  /** Artistas (artistKey) que sueles saltar: no se recomiendan. */
+  skippedArtists(): Set<string> {
+    const totals = new Map<string, { skips: number; count: number }>()
+    for (const e of entries) {
+      const key = artistKey(e.track.artist)
+      const total = totals.get(key) ?? { skips: 0, count: 0 }
+      totals.set(key, { skips: total.skips + (e.skips ?? 0), count: total.count + e.count })
+    }
+    return new Set([...totals].filter(([, t]) => t.skips >= SKIPS_TO_HIDE && t.skips > t.count).map(([key]) => key))
   },
   entries: () => entries,
   /** Ids de lo que empezó a sonar en las últimas `ms` (por defecto, 24 h). */

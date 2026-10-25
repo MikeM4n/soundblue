@@ -1,15 +1,16 @@
-import { ChevronDown, ChevronUp, Heart, PictureInPicture2 } from 'lucide-react'
+import { Cast, ChevronUp, Heart, PictureInPicture2, Users } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
+import { useGuestJam } from '../../jam/guestJam'
 import { useLibrary } from '../../library/store'
+import { useSettings } from '../../lib/settings'
 import { usePreventTouchMove } from '../../lib/usePreventTouchMove'
 import { openInYouTubeMusic } from '../../lib/youtubeMusicLink'
 import { player } from '../../player/engine'
 import { sheetState, stageBox, stagePulse, useStageSlot, youtubeView, type YouTubeView } from '../../player/stage'
-import { coverSources, sourceLabel, type Track } from '../../player/types'
+import { coverSources, type Track } from '../../player/types'
 import { onlyInYouTubeMusic } from '../../player/unavailable'
 import { usePlayer } from '../../player/usePlayer'
-import { playerHost } from '../../player/youtube'
 import { inBrowserTab, TAB_SWITCHER_TIP } from '../../lib/tabSwitcherTip'
 import { showToast } from '../../ui/toast'
 import { TrackMenu } from '../tracks/TrackMenu'
@@ -42,6 +43,7 @@ export function NowPlayingSheet() {
   const videoSlot = useStageSlot('pantalla')
   const video = useSyncExternalStore(stageBox.subscribe, stageBox.get)
   const view = useSyncExternalStore(youtubeView.subscribe, youtubeView.get)
+  const { hideViewToggle } = useSettings() // Ajustes: ocultar «Canción | Video»
   const [shown, setShown] = useState(false) // para la animación de entrada
   const [closing, setClosing] = useState(false)
   const [dragY, setDragY] = useState<number | null>(null)
@@ -49,6 +51,7 @@ export function NowPlayingSheet() {
   const [controlsHidden, setControlsHidden] = useState(false)
   const drag = useRef<{ pointerId: number; startY: number; startX: number; axis: 'x' | 'y' | null; dy: number } | null>(null)
   const showTimer = useRef<number | undefined>(undefined)
+  const closeTimer = useRef<number | undefined>(undefined)
   const rootRef = useRef<HTMLDivElement>(null)
   usePreventTouchMove(rootRef, () => drag.current?.axis === 'y')
 
@@ -60,6 +63,8 @@ export function NowPlayingSheet() {
     return () => {
       cancelAnimationFrame(frame)
       window.clearTimeout(showTimer.current)
+      // Si mientras bajaba ya fuiste a otra pantalla, no se vuelve atrás (te sacaría de donde estás).
+      window.clearTimeout(closeTimer.current)
       sheetState.set('closed')
     }
   }, [])
@@ -69,12 +74,23 @@ export function NowPlayingSheet() {
     setClosing(true)
     sheetState.set('closing')
     stagePulse.emit()
-    window.setTimeout(() => {
+    closeTimer.current = window.setTimeout(() => {
       const background = (location.state as { background?: unknown } | null)?.background
       if (background) navigate(-1)
       else navigate('/', { replace: true })
     }, SLIDE_MS)
   }
+
+  // En el PC, Esc minimiza (o cierra «Próximas en sonar» si está abierta). Si Esc ya cerró un menú, no hace nada más.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (queueOpen) setQueueOpen(false)
+      else close()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   // Deslizar: hacia abajo minimiza; hacia arriba abre «Próximas en sonar». La dirección dominante decide.
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -157,14 +173,14 @@ export function NowPlayingSheet() {
           el espacio que sobra para la carátula o el video, centrados. Nada entra ni sale del flujo al deslizar o al
           cambiar de canción, así que el conjunto no salta y nunca hay scroll. */}
       <div className="relative mx-auto flex h-full max-w-5xl flex-col pt-[env(safe-area-inset-top)] pb-2">
-        <header className={`flex shrink-0 items-center gap-2 px-2 py-2 ${fade}`}>
-          <IconButton label="Minimizar" onClick={close} className="text-white">
-            <ChevronDown className="size-7" />
-          </IconButton>
+        <header className={`flex shrink-0 items-center gap-1 px-2 py-2 ${fade}`}>
+          {/* «Jam» en vez de minimizar (minimizar: deslizar hacia abajo o, en el PC, la tecla Esc). */}
+          <JamButton />
           <div className="min-w-0 flex-1 text-center">
             <p className="text-[11px] font-semibold tracking-wider text-white/70 uppercase">Sonando desde</p>
             <p className="truncate text-sm font-bold">{contextName ?? 'Tu música'}</p>
           </div>
+          <CastButton track={current} />
           <FloatingButton />
           <TrackMenu track={current} />
         </header>
@@ -172,7 +188,7 @@ export function NowPlayingSheet() {
         {/* Centro: la carátula nítida (como Spotify y YouTube Music) o, si eliges «Video», el reproductor oficial a
             todo el ancho y sin nada encima. */}
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-          <ViewToggle view={view} fade={fade} />
+          {!hideViewToggle && <ViewToggle view={view} fade={fade} />}
           {showVideo ? (
             <div className="flex min-h-0 w-full flex-1 items-center">
               {/* Espacio del video: VideoStage coloca aquí el reproductor oficial. */}
@@ -207,7 +223,6 @@ export function NowPlayingSheet() {
  * y, si no lo logra, queda el ▶ de la notificación.
  */
 function BackgroundNotice({ fade }: { fade: string }) {
-  const [host] = useState(playerHost.get) // cambiarlo recarga la app
   const [tab] = useState(inBrowserTab)
   const navigate = useNavigate()
   const { status, pausedOnExit } = usePlayer()
@@ -227,7 +242,7 @@ function BackgroundNotice({ fade }: { fade: string }) {
       </p>
     )
   }
-  if (host === 'youtube' && tab) {
+  if (tab) {
     const showTip = () =>
       showToast(TAB_SWITCHER_TIP, { label: 'Ayuda', run: () => navigate('/ayuda', { state: { seccion: 'ayuda-truco-pestanas' } }) }, 15000)
     return (
@@ -241,14 +256,37 @@ function BackgroundNotice({ fade }: { fade: string }) {
   }
   return (
     <p className={`mx-6 mt-3 line-clamp-2 h-7 text-center text-[11px] leading-[14px] text-white/55 ${fade}`}>
-      {host === 'youtube' ? (
-        <>Al salir se pausa un instante y la app intenta reanudarla sola; si no lo logra, pulsa ▶ en la notificación ({help}).</>
-      ) : (
-        <>
-          Segundo plano: con el reproductor «más privado», YouTube se pausa al salir. Para que siga sonando, mira la {help}.
-        </>
-      )}
+      Al salir se pausa un instante y la app intenta reanudarla sola; si no lo logra, pulsa ▶ en la notificación ({help}).
     </p>
+  )
+}
+
+/** «Jam»: lleva a tu sala (o a la del amigo en cuya Jam estás) sin buscarla en el menú. */
+function JamButton() {
+  const navigate = useNavigate()
+  const { code } = useGuestJam()
+  return (
+    <IconButton label="Jam: escuchar en grupo" onClick={() => navigate(code ? `/jam/${code}` : '/jam', { replace: true })} className="text-white">
+      <Users className="size-6" />
+    </IconButton>
+  )
+}
+
+/**
+ * «Transmitir» (Chromecast): SoundBlue no puede mandar la música a la TV (el reproductor de YouTube no lo deja desde otra
+ * página y el kit de Google Cast es un script de terceros). Abre la canción en la app de YouTube Music, que sí tiene el
+ * botón para transmitir; aquí se pausa para que no suenen las dos.
+ */
+function CastButton({ track }: { track: Track }) {
+  const cast = () => {
+    player.pause()
+    showToast('Abriendo en YouTube Music: ahí toca el ícono de transmitir para mandarla a tu TV', undefined, 6000)
+    openInYouTubeMusic(track.id)
+  }
+  return (
+    <IconButton label="Transmitir a la TV (abre YouTube Music)" onClick={cast} className="text-white">
+      <Cast className="size-6" />
+    </IconButton>
   )
 }
 
@@ -301,7 +339,7 @@ function TrackInfo({ track, liked, fade, error }: { track: Track; liked: boolean
           {error && onlyInYtm ? (
             // YouTube no la deja sonar fuera de sus apps: se ofrece abrirla en YouTube Music (en una línea, como el resto).
             <p role="alert" aria-label={error} className="flex items-center gap-2 text-xs">
-              <span className="truncate text-red-300">Solo en YouTube Music</span>
+              <span className="truncate text-red-300">No disponible aquí</span>
               <button type="button" onClick={() => openInYouTubeMusic(track.id)} className="shrink-0 font-semibold text-white underline underline-offset-2">
                 Abrir en YouTube Music
               </button>
@@ -311,7 +349,7 @@ function TrackInfo({ track, liked, fade, error }: { track: Track; liked: boolean
               {error}
             </p>
           ) : (
-            <p className="truncate text-xs text-white/50">{[track.album, sourceLabel(track)].filter(Boolean).join(' · ')}</p>
+            <p className="h-4 truncate text-xs text-white/50">{track.album}</p>
           )}
         </div>
         <IconButton label={liked ? 'Quitar de favoritos' : 'Agregar a favoritos'} active={liked} onClick={() => toggleFavorite(track)} className={liked ? '' : 'text-white'}>

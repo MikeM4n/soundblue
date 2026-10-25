@@ -113,7 +113,7 @@ export function Tastes() {
         )}
       </label>
 
-      {failed && !q && <p className="mt-8 text-texto-sec">No se pudo conectar con YouTube Music. Puedes omitir este paso y elegir después.</p>}
+      {failed && !q && <p className="mt-8 text-texto-sec">No se pudo conectar con el catálogo. Puedes omitir este paso y elegir después.</p>}
       {!shown && !failed && <p className="mt-8 text-texto-sec">{q ? 'Buscando…' : 'Cargando artistas…'}</p>}
       {shown && shown.length === 0 && <p className="mt-8 text-texto-sec">No encontramos «{q}».</p>}
       {shown && shown.length > 0 && (
