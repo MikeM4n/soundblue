@@ -30,6 +30,10 @@ export function Settings() {
           <LinkRow to="/gustos">Cambiar tus artistas</LinkRow>
           <LinkRow to="/ayuda">Ayuda: escuchar con Brave y diagnóstico</LinkRow>
         </ul>
+        {/* Para saber si el teléfono ya tiene la última versión publicada. */}
+        <p className="mt-3 text-sm text-texto-sec">
+          Versión: <span className="font-semibold text-texto">{__APP_VERSION__}</span>
+        </p>
       </section>
     </div>
   )
