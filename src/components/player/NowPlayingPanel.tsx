@@ -22,8 +22,8 @@ export function NowPlayingPanel() {
   const view = useSyncExternalStore(youtubeView.subscribe, youtubeView.get)
   if (!current || sheet === 'open') return null
 
-  // Con «Video» elegido en «Sonando ahora», aquí también se ve el reproductor; si no, la carátula.
-  const showVideo = view === 'video'
+  // Con «Letra» elegida en «Sonando ahora», aquí también se ve el reproductor; si no, la carátula.
+  const showVideo = view === 'letra'
   const liked = favorites.some((t) => t.id === current.id)
   const next = [...queue, ...upcoming].slice(0, 4)
 

@@ -2,6 +2,12 @@
 
 ## 2026-10-25
 
+- Ajustes de UI, filtros y letras (rama `feat/letra-y-filtros`, pedido por el dueño):
+  - Canciones no disponibles: si una no se deja reproducir aquí (ni ella ni sus otras versiones), sale de tu cola, de lo que sigue y de las pestañas (la Fila Dinámica pone otra), no se deja agregar («no está disponible aquí») y deja de aparecer en todas las listas (Buscar, playlists, Inicio, búsqueda de la Jam). YouTube Music no dice de antemano cuáles son: probado, el oEmbed de YouTube solo avisó de 5 de 56 videos bloqueados, así que no se usa como filtro.
+  - «Próximas en sonar»: sin el botón «Jam · código» (Jam sigue arriba a la derecha de «Sonando ahora»). Las pestañas quedan igual.
+  - «Selecciones rápidas»: botón «+» para elegir qué géneros ver (16 para elegir: Salsa, Reggaetón, Merengue, Popular, Vallenato, Bachata, Cumbia, Regional mexicano, Pop latino, Baladas, Boleros, Trap latino, Dancehall, Electrónica, Rock en español, Música colombiana). Se recuerda en el navegador; siempre queda al menos uno.
+  - «Canción | Video» pasa a «Canción | Letra»: con «Letra», el video oficial 16:9 (sin recortar) y la letra debajo, que se desplaza con el dedo. Letra de YouTube Music (Musixmatch/LyricFind, con su fuente) y, si no la tiene, de lyrics.ovh.
+  - «Modo TikTok» (zoom del video y letra encima): no se hizo, porque recorta el logo y «Ver en YouTube» y taparía el reproductor. Queda la alternativa del mismo pedido: video normal y letra en un panel debajo.
 - Rediseño de «Próximas en sonar» (rama `feat/proximas-pestanas`, pedido por el dueño):
   - Tres pestañas: **En Cola** (lo que va a sonar: tu cola, lo que sigue de la lista y lo que agregó la Fila Dinámica), **Recomendadas** y **Por Descubrir** (solo canciones que nunca sonaron aquí). Las dos últimas salen de la radio de la canción que suena y ya no suenan solas: pasan a la cola cuando tú quieras (o la Fila Dinámica). Siempre abre en «En Cola».
   - Gestos en todas: izquierda = a la cola (en «En Cola», a continuación); derecha = quitar o descartar, con «Deshacer». Lo descartado no vuelve en esa radio y la pestaña se repone.

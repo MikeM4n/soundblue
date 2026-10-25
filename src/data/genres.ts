@@ -85,8 +85,26 @@ export const INDEX_GENRES = {
   cpop: { key: 'cpop', label: 'Mandopop', category: 'Mandopop y cantopop', queries: ['mandopop'], match: /mandopop|cantopop|c-?pop|chin/i },
 } satisfies Record<string, GenreSource>
 
-/** «Selecciones rápidas»: canciones por género. */
-export const QUICK_PICK_GENRES = [SALSA, REGGAETON, MERENGUE, POPULAR]
+/** «Selecciones rápidas»: canciones por género. Con «+» se eligen cuáles (por defecto, los 4 primeros). */
+export const QUICK_PICK_OPTIONS: GenreSource[] = [
+  SALSA,
+  REGGAETON,
+  MERENGUE,
+  POPULAR,
+  VALLENATO,
+  INDEX_GENRES.bachata,
+  INDEX_GENRES.cumbia,
+  INDEX_GENRES.regional,
+  INDEX_GENRES.pop,
+  INDEX_GENRES.baladas,
+  INDEX_GENRES.boleros,
+  INDEX_GENRES.trap,
+  INDEX_GENRES.dancehall,
+  INDEX_GENRES.electronica,
+  INDEX_GENRES.rock,
+  COLOMBIANA,
+]
+export const QUICK_PICK_DEFAULT = [SALSA, REGGAETON, MERENGUE, POPULAR].map((genre) => genre.key)
 /** «Muy sonadas»: playlists por género. */
 export const POPULAR_GENRES = [SALSA, REGGAETON, MERENGUE, POPULAR, VALLENATO, COLOMBIANA]
 

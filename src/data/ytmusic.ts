@@ -431,3 +431,26 @@ export function ytmRadioItems(videoId: string): Promise<RadioItem[]> {
 
 /** Radio de una canción: solo las canciones (ver ytmRadioItems). */
 export const ytmRadio = (videoId: string): Promise<Track[]> => ytmRadioItems(videoId).then((items) => items.map((item) => item.track))
+
+/** Letra de una canción con su fuente («Fuente: Musixmatch»). */
+export interface YtmLyrics {
+  text: string
+  source: string
+}
+
+/**
+ * Letra de la pestaña «Letra» de YouTube Music (la que licencia con Musixmatch o LyricFind): «A continuación» de la
+ * canción da el id de esa pestaña (MPLY…) y con él se pide el texto. Null si YouTube Music no la tiene.
+ */
+export function ytmLyrics(videoId: string): Promise<YtmLyrics | null> {
+  return remember(`letra:${videoId}`, async () => {
+    const next = await call('next', { videoId, isAudioOnly: true })
+    const tabs: Json[] = next?.contents?.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs ?? []
+    const browseId: string | undefined = tabs.map((tab) => tab?.tabRenderer?.endpoint?.browseEndpoint?.browseId).find((id) => id?.startsWith('MPLY'))
+    if (!browseId) return null
+    const json = await call('browse', { browseId })
+    const shelf = json?.contents?.sectionListRenderer?.contents?.[0]?.musicDescriptionShelfRenderer
+    const text = plain(shelf?.description).trim()
+    return text ? { text, source: plain(shelf?.footer).trim() } : null
+  })
+}

@@ -1,14 +1,10 @@
-import { Users } from 'lucide-react'
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
-import { Link } from 'react-router'
-import { useGuestJam } from '../../jam/guestJam'
-import { useHostJam } from '../../jam/hostJam'
 import { usePreventTouchMove } from '../../lib/usePreventTouchMove'
 import { QueueSections } from '../tracks/QueueSections'
 
 interface QueuePanelProps {
   open: boolean
-  top: number // hasta dónde sube (con YouTube en «Video», justo debajo del video)
+  top: number // hasta dónde sube (en «Letra», justo debajo del video)
   onClose: () => void
 }
 
@@ -58,11 +54,6 @@ export function QueuePanel({ open, top, onClose }: QueuePanelProps) {
   const fling = useRef(createFlingTracker()).current
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
-  // «Jam»: la tuya (anfitrión) o la de otro en la que estás (invitado).
-  const hostCode = useHostJam().code
-  const guest = useGuestJam()
-  const guestCode = !hostCode && guest.code && !guest.missing ? guest.code : null
-  const jamCode = hostCode ?? guestCode
   usePreventTouchMove(handleRef, () => drag.current !== null)
 
   // ¿Al soltar, se cierra o vuelve a abrirse?
@@ -120,7 +111,7 @@ export function QueuePanel({ open, top, onClose }: QueuePanelProps) {
 
   // Desde el borde superior (asa y título).
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    if ((e.target as Element).closest('button, a')) return // «Jam» y «Cerrar» funcionan como botones normales
+    if ((e.target as Element).closest('button, a')) return // «Cerrar» funciona como botón normal
     drag.current = { pointerId: e.pointerId, startY: e.clientY, dy: 0 }
     fling.reset(e.clientY)
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -183,16 +174,10 @@ export function QueuePanel({ open, top, onClose }: QueuePanelProps) {
           <div className="mx-auto h-1 w-10 rounded-full bg-white/30" aria-hidden="true" />
           <div className="mt-2 flex items-center justify-between gap-3">
             <h2 className="text-lg font-bold">Próximas en sonar</h2>
-            <div className="flex items-center gap-3">
-              {/* Jam: que tus amigos agreguen canciones a esta cola escaneando un código QR. */}
-              <Link to={guestCode ? `/jam/${guestCode}` : '/jam'} className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-sm font-semibold hover:bg-white/15">
-                <Users className="size-4" aria-hidden="true" />
-                {jamCode ? `Jam · ${jamCode}` : 'Jam'}
-              </Link>
-              <button type="button" onClick={onClose} className="text-sm text-texto-sec hover:text-texto">
-                Cerrar
-              </button>
-            </div>
+            {/* Sin Jam aquí: se abre con el botón de arriba a la derecha de «Sonando ahora». */}
+            <button type="button" onClick={onClose} className="text-sm text-texto-sec hover:text-texto">
+              Cerrar
+            </button>
           </div>
         </div>
         <div ref={listRef} className="scroll-fino min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+12px)]">

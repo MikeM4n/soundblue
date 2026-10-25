@@ -26,13 +26,25 @@ export function addToSiguientes(track: Track) {
   }
   const result = player.addToQueue(track)
   const where = hostJam.getState().code ? 'la cola de la Jam' : 'siguientes' // con tu Jam abierta, tu cola es la de todos
-  showToast(result === 'repetida' ? `Ya está en ${where}` : result === 'lista' ? 'Lista para sonar: toca ▶ para escucharla' : `Agregada a ${where}`)
+  showToast(
+    result === 'no-disponible'
+      ? NOT_HERE
+      : result === 'repetida'
+        ? `Ya está en ${where}`
+        : result === 'lista'
+          ? 'Lista para sonar: toca ▶ para escucharla'
+          : `Agregada a ${where}`,
+  )
 }
+
+const NOT_HERE = 'Esta canción no está disponible aquí (YouTube no la deja reproducir fuera de sus apps)'
 
 /** Al principio de la cola: suena justo después de la actual. */
 export function playNext(track: Track) {
   const result = player.playNext(track)
-  showToast(result === 'repetida' ? 'Ya está sonando' : result === 'lista' ? 'Lista para sonar: toca ▶ para escucharla' : 'Sonará a continuación')
+  showToast(
+    result === 'no-disponible' ? NOT_HERE : result === 'repetida' ? 'Ya está sonando' : result === 'lista' ? 'Lista para sonar: toca ▶ para escucharla' : 'Sonará a continuación',
+  )
 }
 
 export function removeFromQueue(track: Track) {

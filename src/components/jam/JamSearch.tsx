@@ -2,6 +2,7 @@ import { Check, EllipsisVertical, LoaderCircle, Plus, Search as SearchIcon, User
 import { useEffect, useState } from 'react'
 import { ytmSearch } from '../../data/ytmusic'
 import { coverSources, type Track } from '../../player/types'
+import { onlyInYouTubeMusic } from '../../player/unavailable'
 import { TrackMenu } from '../tracks/TrackMenu'
 import { useSwipe } from '../tracks/useSwipe'
 import { Cover } from '../ui/Cover'
@@ -33,7 +34,8 @@ export function JamSearch({ onAdd, isIn }: JamSearchProps) {
     let alive = true
     const timer = window.setTimeout(() => {
       ytmSearch(q)
-        .then((found) => alive && setResults({ query: q, songs: found.songs.slice(0, 15) }))
+        // Sin las que ya se sabe que YouTube no deja reproducir aquí (no sonarían en el teléfono del anfitrión).
+        .then((found) => alive && setResults({ query: q, songs: found.songs.filter((track) => !onlyInYouTubeMusic.has(track.id)).slice(0, 15) }))
         .catch(() => alive && setResults({ query: q, songs: [] }))
     }, 450)
     return () => {

@@ -49,9 +49,12 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
   // YouTube no deja reproducirla fuera de sus apps: se avisa antes de tocarla (al tocarla se ofrece abrirla allá).
   const onlyInYtm = useSyncExternalStore(onlyInYouTubeMusic.subscribe, onlyInYouTubeMusic.get).has(track.id)
   const grow = `size-6 transition-transform ${swipe.armed ? 'scale-125' : ''}`
+  // Ya se sabe que YouTube no la deja reproducir aquí (falló ella y sus otras versiones): no se muestra en ninguna lista.
+  // Solo queda a la vista si es la que está sonando (con su aviso y «Abrir en YouTube Music» en «Sonando ahora»).
+  if (onlyInYtm && !isCurrent) return null
 
   return (
-    <li className="relative overflow-hidden rounded-md" style={style}>
+    <li data-id={track.id} className="relative overflow-hidden rounded-md" style={style}>
       {/* Fondo que aparece mientras se desliza: lo que pasa al soltar */}
       {swipe.dx < 0 && (
         <div className="absolute inset-0 flex items-center justify-end gap-2 bg-acento pr-5 text-sm font-semibold text-white">
