@@ -135,7 +135,7 @@ export function JamGuest() {
 
       <section aria-label="Próximas en sonar" className="mt-6">
         <h2 className="text-lg font-bold">Próximas en sonar</h2>
-        <p className="mb-1 text-xs text-texto-sec">Las que agregaste tú se quitan deslizándolas a la derecha (con «Deshacer»); a la izquierda, más opciones.</p>
+        <p className="mb-1 text-xs text-texto-sec">Desliza una canción a la derecha (o toca ⋮) para ver opciones: ahí quitas las que agregaste tú (con «Deshacer»).</p>
         <JamUpcoming jam={jam} />
       </section>
     </div>

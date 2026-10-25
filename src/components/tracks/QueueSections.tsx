@@ -33,7 +33,8 @@ function runsOf(upcoming: readonly Track[], groups: readonly (QueueGroup | null)
 /**
  * «Siguiente en la cola» (las que agregaste) y lo que sigue de la lista, con un encabezado por bloque: «Siguiente de: …»
  * (la lista que elegiste), «Recomendadas basadas en esta canción» y «Nuevas para ti» (las que agrega la radio). Se
- * reordenan arrastrando ≡ dentro de cada bloque, se quitan deslizando a la derecha o con «⋮» (con Deshacer; la radio
+ * reordenan arrastrando ≡ dentro de cada bloque, deslizar a la izquierda las pone a continuación y se quitan con «⋮»
+ * (deslizar a la derecha lo abre; con Deshacer; la radio
  * repone para que siempre haya 10). La usan la página Cola y el panel que sube en «Sonando ahora». Si estás en la Jam
  * de otro, arriba va la cola compartida (la de su teléfono).
  */
