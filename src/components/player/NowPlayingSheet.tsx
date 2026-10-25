@@ -1,4 +1,4 @@
-import { ChevronUp, Heart, PictureInPicture2, Users } from 'lucide-react'
+import { ChevronUp, Heart, Users } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useGuestJam } from '../../jam/guestJam'
@@ -19,7 +19,6 @@ import { Cover } from '../ui/Cover'
 import { IconButton } from '../ui/IconButton'
 import { Backdrop } from './Backdrop'
 import { CoverSwipe } from './CoverSwipe'
-import { toggleFloatingPlayer } from './FloatingPlayer'
 import { QueuePanel } from './QueuePanel'
 import { SeekBar } from './SeekBar'
 import { TransportControls } from './TransportControls'
@@ -174,13 +173,12 @@ export function NowPlayingSheet() {
           cambiar de canción, así que el conjunto no salta y nunca hay scroll. */}
       <div className="relative mx-auto flex h-full max-w-5xl flex-col pt-[env(safe-area-inset-top)] pb-2">
         <header className={`flex shrink-0 items-center gap-1 px-2 py-2 ${fade}`}>
-          {/* En esta esquina, solo «Jam» (minimizar: deslizar hacia abajo o, en el PC, la tecla Esc). */}
+          {/* Solo tres cosas: Jam, de dónde suena y ⋮ (minimizar: deslizar hacia abajo o, en el PC, la tecla Esc). */}
           <JamButton />
           <div className="min-w-0 flex-1 text-center">
             <p className="text-[11px] font-semibold tracking-wider text-white/70 uppercase">Sonando desde</p>
             <p className="truncate text-sm font-bold">{contextName ?? 'Tu música'}</p>
           </div>
-          <FloatingButton />
           <TrackMenu track={current} />
         </header>
 
@@ -267,15 +265,6 @@ function JamButton() {
   return (
     <IconButton label="Jam: escuchar en grupo" onClick={() => navigate(code ? `/jam/${code}` : '/jam', { replace: true })} className="text-white">
       <Users className="size-6" />
-    </IconButton>
-  )
-}
-
-/** Pantalla flotante (experimental): ventanita con la carátula y los controles en el PC; en el celular, un aviso. */
-function FloatingButton() {
-  return (
-    <IconButton label="Pantalla flotante" onClick={() => void toggleFloatingPlayer()} className="text-white">
-      <PictureInPicture2 className="size-6" />
     </IconButton>
   )
 }

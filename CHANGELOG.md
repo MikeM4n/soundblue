@@ -2,6 +2,10 @@
 
 ## 2026-10-25
 
+- Hotfix 2 (rama `hotfix/sin-pantalla-flotante`, pedido por el dueño con captura del teléfono):
+  - «Sonando ahora»: la barra de arriba queda con solo tres cosas: Jam, «Sonando desde» y ⋮. Se quitó la pantalla flotante por completo (botón y `FloatingPlayer.tsx`); en el celular solo mostraba un aviso de que no existe.
+  - Actualizaciones: con música sonando, la versión nueva ya no queda olvidada. Se aplica sola en cuanto la música queda en pausa 3 s (la canción queda donde iba). «Actualizar ahora» sale cada vez que vuelves a la app (antes, una sola vez por sesión) y se revisa también cada 10 minutos. La versión se ve en Ajustes.
+  - Gestos: comprobados otra vez con toques reales en Buscar, playlists, «Próximas» (página y panel de «Sonando ahora») y la Jam. Deslizar a la izquierda nunca abre un menú. Lo que se veía en el teléfono era la versión anterior (f5f9e5d), donde «Próximas» y la cola de la Jam sí abrían el menú; esa versión no se actualizaba si la música estaba sonando.
 - Hotfix (rama `hotfix/jam-y-deslizar`, pedido por el dueño):
   - «Sonando ahora»: en la esquina queda solo el botón Jam. Se quitaron «Minimizar» (ya no estaba desde la versión anterior; se minimiza deslizando hacia abajo o con Esc) y «Transmitir» (Chromecast).
   - Regla única de deslizar en todas las pantallas:
