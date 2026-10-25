@@ -3,15 +3,16 @@ import { createRadio } from '../../data/radio'
 import { guestJam } from '../../jam/guestJam'
 import { hostJam } from '../../jam/hostJam'
 import { library } from '../../library/store'
-import { player } from '../../player/engine'
+import { player, type RecsKind } from '../../player/engine'
 import { sheetState } from '../../player/stage'
 import type { Track } from '../../player/types'
 import { showToast } from '../../ui/toast'
 
 /** Cómo quitar una canción de la lista donde aparece (playlist propia, favoritos o cola). */
 export interface RemoveAction {
-  listName: string // para el aviso: «Eliminada de …»
+  listName: string // para el aviso y el menú: «Eliminada de …», «Eliminar de …»
   remove: () => () => void // quita y devuelve la función para deshacer
+  notice?: string // otro aviso («Descartada»: en «Recomendadas» y «Por Descubrir»)
 }
 
 /**
@@ -56,7 +57,13 @@ export function startRadio(track: Track, open: () => void) {
 /** Deslizar a la derecha / «Eliminar de…»: quita y ofrece «Deshacer» durante 4 s. */
 export function removeWithUndo(action: RemoveAction) {
   const undo = action.remove()
-  showToast(`Eliminada de ${action.listName}`, { label: 'Deshacer', run: undo })
+  showToast(action.notice ?? `Eliminada de ${action.listName}`, { label: 'Deshacer', run: undo })
+}
+
+/** «Reproducir a continuación» de «Recomendadas» o «Por Descubrir»: todas, justo después de la que suena. */
+export function playRecommendationsNext(kind: RecsKind) {
+  const count = player.playRecommendationsNext(kind)
+  if (count) showToast(count === 1 ? 'Sonará a continuación' : `${count} canciones sonarán a continuación`)
 }
 
 /** Vibración corta (Android). En iPhone no existe y no pasa nada. */

@@ -4,8 +4,9 @@
 // Usa el reproductor oficial de YouTube y recuerda la sesión.
 import { isGenreKey, type GenreKey } from '../data/genreIndex'
 import { listening } from '../data/history'
-import { createRadio, type QueueGroup, type RadioSource } from '../data/radio'
+import { createRadio, type QueueGroup, type RadioPick, type RadioSource } from '../data/radio'
 import { logDuplicate } from '../lib/duplicateLog'
+import { settings } from '../lib/settings'
 import { ytmAlternatives } from '../data/ytmusic'
 import { isLocalNetworkAddress } from '../lib/platform'
 import { openInYouTubeMusic } from '../lib/youtubeMusicLink'
@@ -37,7 +38,11 @@ export interface PlayerSnapshot {
   contextName: string | null
   queue: readonly Track[] // «Siguiente en la cola»
   upcoming: readonly Track[] // «Siguiente de: contextName»
-  upcomingGroups: readonly (QueueGroup | null)[] // bloque de cada una de `upcoming` (null: de la lista que elegiste)
+  upcomingGroups: readonly (QueueGroup | null)[] // de cada una de `upcoming`: la agregó la Fila Dinámica (null: de la lista)
+  recommended: readonly Track[] // pestaña «Recomendadas» (no suenan hasta que pasan a la cola)
+  discover: readonly Track[] // pestaña «Por Descubrir»: de la misma radio, solo las que nunca sonaron aquí
+  recsSeed: string | null // de qué canción salen («Gasolina · Daddy Yankee»)
+  recsLoading: boolean
   status: Status
   time: number
   duration: number
@@ -52,6 +57,10 @@ export interface PlayerSnapshot {
 
 // 'lista': no sonaba nada, así que quedó como canción actual, en pausa (los gestos no reproducen solos).
 export type QueueResult = 'agregada' | 'repetida' | 'lista'
+
+/** Pestañas de recomendaciones en «Próximas en sonar»: «Recomendadas» y «Por Descubrir». */
+export type RecsKind = QueueGroup['kind']
+const RECS_KINDS: readonly RecsKind[] = ['recomendadas', 'nuevas'] // la Fila Dinámica toma primero de «Recomendadas»
 
 interface Context {
   name: string
@@ -77,8 +86,9 @@ export interface PlayOptions {
 }
 
 const HISTORY_LIMIT = 50
-const MIN_UPCOMING = 10 // en «Próximas en sonar» siempre hay al menos 10 (la radio rellena)…
-const RADIO_BATCH = 5 // …pidiendo como mínimo de a 5
+const MIN_UPCOMING = 10 // con la Fila Dinámica, en la cola siempre hay al menos 10 por sonar
+const POOL_SIZE = 10 // «Recomendadas» y «Por Descubrir» muestran hasta 10 cada una…
+const POOL_LOW = 6 // …y se reponen (en tanda, para variar artistas) cuando les quedan menos de 6
 const SKIP_SECONDS = 30 // pasar a la siguiente antes de esto cuenta como saltada (data/history.ts)
 
 const UNAVAILABLE = new Set([100, 101, 150]) // borrado/privado o el dueño no permite incrustarlo
@@ -160,9 +170,14 @@ export class PlayerEngine {
   private resumeMuted = false // un intento silenció el reproductor: el volumen vuelve a los 0,8 s o al volver a la app
   private unmuteTimer: number | undefined
   private resumeOnStart = false // al cerrar la app sonaba (no la pausaste tú): al abrirla vuelve a sonar sola
-  private radioMore: RadioSource | null = null // la lista actual es una radio (playRadio o la cola infinita)
-  private radioOwn = new Set<string>() // la semilla de esa radio y lo que agregó (si suena otra, se arma su radio)
-  private radioLoading: { context: Context; more: RadioSource; done: Promise<void> } | null = null // pedido en curso
+  private radioMore: RadioSource | null = null // la radio de la canción que suena (playRadio o la de extendRadio)
+  private radioOwn = new Set<string>() // la semilla de esa radio y lo que dio (si suena otra, se arma su radio)
+  // «Recomendadas» y «Por Descubrir»: lo que da esa radio. No suenan hasta que pasan a la cola (tú o la Fila Dinámica).
+  private pools: Record<RecsKind, Track[]> = { recomendadas: [], nuevas: [] }
+  private poolsDone = new Set<RecsKind>() // la radio ya no tiene más de ese bloque
+  private poolsLoading: Promise<void> | null = null // pedido en curso (uno a la vez)
+  private poolSeed: string | null = null
+  private discarded = new Set<string>() // descartadas en las pestañas: esta radio no las vuelve a dar
   private resumeWhenOnline = false // falló por falta de internet: al volver la conexión, suena sola
   private playingWhenOffline = false // sonaba cuando se fue internet
   private resumeListeners = new Set<(event: AutoResumeEvent, detail: string) => void>()
@@ -195,6 +210,8 @@ export class PlayerEngine {
     // se salta nada; al volver la conexión sigue la misma lista donde iba.
     window.addEventListener('offline', () => this.onOffline())
     window.addEventListener('online', () => this.onOnline())
+    // Al encender la Fila Dinámica, la cola se completa enseguida.
+    settings.subscribe(() => void this.extendRadio())
   }
 
   /**
@@ -275,20 +292,20 @@ export class PlayerEngine {
   }
 
   /**
-   * Radio (data/radio.ts): suena `seed` y su lista se llena con lo que dé `more` hasta tener 10 por sonar, y se rellena
-   * a medida que suenan o las quitas (no se piden 50 de golpe). Nunca entra una canción que ya esté en la lista o en tu
-   * cola.
+   * Radio (data/radio.ts): suena `seed` y lo que dé `more` llena «Recomendadas» y «Por Descubrir»; con la Fila Dinámica,
+   * la cola se completa desde ahí hasta tener 10 por sonar, y se rellena a medida que suenan o las quitas. Nunca entra
+   * una canción que ya esté en la lista o en tu cola.
    */
   playRadio(name: string, seed: Track, more: RadioSource, options: PlayOptions = {}) {
     this.startContext(name, [seed], 0, options, more)
   }
 
-  // `radio`: la lista es una radio; se pone antes de sonar para que la primera tanda la pida ella y no la cola infinita.
+  // `radio`: la lista es una radio; se pone antes de sonar para que las pestañas las llene ella y no una nueva.
   private startContext(name: string, tracks: readonly Track[], start: number, { replaceQueue = false, genres }: PlayOptions, radio: RadioSource | null) {
     if (!tracks.length) return
     const chosen = tracks[clamp(start, 0, tracks.length - 1)]
-    this.radioMore = radio
-    this.radioOwn = new Set(radio ? [chosen.id] : [])
+    if (radio) this.startRecommendations(chosen, radio)
+    else this.stopRecommendations() // al sonar, extendRadio arma la radio de la elegida
     this.queue = replaceQueue ? [] : this.queue.filter((track) => track.id !== chosen.id)
     const queued = new Set(this.queue.map((track) => track.id))
     const seen = new Set<string>()
@@ -315,11 +332,12 @@ export class PlayerEngine {
   }
 
   /**
-   * Cuando quedan menos de 10 por sonar (tu cola + la lista; también al quitar una), la radio agrega las que falten para
-   * 10 (mínimo 5), así la música no se detiene. La semilla es SIEMPRE la canción que suena: si la radio actual la trajo,
-   * sigue esa radio; si no (es de la lista que elegiste, de tu cola o la agregó alguien en la Jam), las recomendaciones
-   * que venían se quitan y se arma la radio de esa canción (1 de cada 5 del mismo artista, el resto de su género o uno
-   * parecido, de cualquier año). Con «repetir» activado no se arma ninguna (la lista vuelve a empezar).
+   * La radio de la canción que suena llena «Recomendadas» y «Por Descubrir» (hasta 10 cada una) y, con la Fila Dinámica
+   * encendida, pasa de ahí a la cola las que falten para que siempre haya 10 por sonar (tu cola + la lista; también al
+   * quitar una), así la música no se detiene. La semilla es SIEMPRE la canción que suena: si la radio actual la trajo,
+   * sigue esa radio; si no (es de la lista que elegiste, de tu cola o la agregó alguien en la Jam), las que la Fila
+   * Dinámica había agregado se quitan y se arma la radio de esa canción (1 de cada 5 del mismo artista, el resto de su
+   * género o uno parecido, de cualquier año). Con «repetir» activado no se arma ninguna (la lista vuelve a empezar).
    */
   private extendRadio(): Promise<void> {
     const context = this.context
@@ -329,52 +347,170 @@ export class PlayerEngine {
       this.restartRadio(seed)
       this.changed()
     }
-    const remaining = this.queue.length + (this.order.length - this.pos - 1)
-    if (!context || remaining >= MIN_UPCOMING || !this.radioMore) return Promise.resolve()
-    const loading = this.radioLoading
-    // Ya se está pidiendo para esta lista: se espera ese pedido (uno de otra lista se descarta solo al llegar).
-    if (loading && loading.context === context && loading.more === this.radioMore) return loading.done
-    const request = { context, more: this.radioMore, done: Promise.resolve() }
-    // Una radio nueva (todavía solo su semilla) empieza con el bloque completo de 10 recomendadas, aunque tu cola tenga
-    // canciones; después, las que falten para 10 (mínimo 5).
-    const count = this.radioOwn.size <= 1 ? MIN_UPCOMING : Math.max(RADIO_BATCH, MIN_UPCOMING - remaining)
-    request.done = this.fetchRadio(context, this.radioMore, count).then((added) => {
-      if (this.radioLoading === request) this.radioLoading = null
-      if (added) void this.extendRadio() // si todavía faltan para 10 (p. ej. la radio dio menos), otra tanda
-    })
-    this.radioLoading = request
-    return request.done
+    this.topUp()
+    return this.fillPools()
   }
 
-  /** Pide `count` a la radio y las agrega al final de la lista. Devuelve cuántas agregó. */
-  private async fetchRadio(context: Context, more: RadioSource, count: number): Promise<number> {
-    try {
-      const inUse = () => new Set([...context.tracks, ...this.queue].map((track) => track.id))
-      const fresh = await more(count, inUse())
-      if (this.context !== context || this.radioMore !== more) return 0 // mientras tanto pusiste otra lista
-      const have = inUse()
-      const added = fresh.filter(({ track }) => {
-        if (have.has(track.id)) {
-          logDuplicate(track, 'radio')
-          return false
-        }
-        have.add(track.id)
-        return true
-      })
-      if (!added.length) {
-        this.radioMore = null // esta radio no tiene más que cumplan sus reglas (con la próxima canción se arma otra)
-        return 0
-      }
-      for (const { track } of added) this.radioOwn.add(track.id)
-      const start = context.tracks.length
-      context.tracks.push(...added.map(({ track }) => track))
-      context.groups = { ...context.groups, ...Object.fromEntries(added.map(({ track, group }) => [track.id, group])) }
-      this.order.push(...added.map((_, i) => start + i))
-      this.changed()
-      return added.length
-    } catch {
-      return 0 // sin conexión: se intenta otra vez con la siguiente canción o al volver internet
+  /**
+   * Fila Dinámica: si quedan menos de 10 por sonar, pasan al final de la cola las primeras de «Recomendadas» (o, si ya no
+   * hay, de «Por Descubrir»). Apagada, la cola no se rellena: queda como la dejaste.
+   */
+  private topUp() {
+    const context = this.context
+    if (!context || !this.current || !settings.get().dynamicQueue) return
+    const added: RadioPick[] = []
+    for (let remaining = this.queue.length + (this.order.length - this.pos - 1); remaining < MIN_UPCOMING; remaining++) {
+      const kind = RECS_KINDS.find((k) => this.pools[k].length)
+      if (!kind) break
+      added.push({ track: this.pools[kind].shift()!, group: { kind, seed: this.poolSeed ?? '' } })
     }
+    if (!added.length) return
+    const start = context.tracks.length
+    context.tracks.push(...added.map(({ track }) => track))
+    context.groups = { ...context.groups, ...Object.fromEntries(added.map(({ track, group }) => [track.id, group])) }
+    this.order.push(...added.map((_, i) => start + i))
+    this.changed()
+  }
+
+  /**
+   * Repone «Recomendadas» y «Por Descubrir» cuando les quedan menos de 6 (pide hasta 10 de cada una, de a una pestaña).
+   * Un solo pedido a la vez; si mientras tanto cambió la canción (otra radio), lo que llega se descarta.
+   */
+  private fillPools(): Promise<void> {
+    const more = this.radioMore
+    const low = () => RECS_KINDS.filter((kind) => this.pools[kind].length < POOL_LOW && !this.poolsDone.has(kind))
+    if (!more || !this.context) return Promise.resolve()
+    if (this.poolsLoading) return this.poolsLoading
+    const kinds = low()
+    if (!kinds.length) return Promise.resolve()
+    let progress = false
+    const request: Promise<void> = (async () => {
+      for (const kind of kinds) {
+        const picks = await more(POOL_SIZE - this.pools[kind].length, this.inUse(), kind)
+        if (this.radioMore !== more) return
+        const have = this.inUse()
+        const fresh = picks.filter(({ track }) => {
+          if (have.has(track.id)) {
+            logDuplicate(track, 'radio')
+            return false
+          }
+          have.add(track.id)
+          return true
+        })
+        if (!fresh.length) this.poolsDone.add(kind) // esta radio no tiene más que cumplan sus reglas
+        progress ||= fresh.length > 0
+        for (const { track } of fresh) this.radioOwn.add(track.id)
+        this.pools[kind].push(...fresh.map(({ track }) => track))
+        this.topUp()
+        this.changed()
+      }
+    })()
+      .catch(() => {}) // sin conexión: se intenta otra vez con la siguiente canción o al volver internet
+      .finally(() => {
+        if (this.poolsLoading !== request) return
+        this.poolsLoading = null
+        this.emit()
+        // La Fila Dinámica pudo tomar de ellas mientras llegaban: otra tanda si hace falta (y si esta sirvió).
+        if (progress && this.radioMore === more && low().length) void this.fillPools()
+      })
+    this.poolsLoading = request
+    this.emit()
+    return request
+  }
+
+  /** Radio nueva a partir de `seed`: «Recomendadas» y «Por Descubrir» vuelven a empezar (las llena fillPools). */
+  private startRecommendations(seed: Track, radio: RadioSource) {
+    this.radioMore = radio
+    this.radioOwn = new Set([seed.id])
+    this.pools = { recomendadas: [], nuevas: [] }
+    this.poolsDone = new Set()
+    this.poolsLoading = null
+    this.discarded = new Set()
+    this.poolSeed = `${seed.title} · ${seed.artist}`
+  }
+
+  private stopRecommendations() {
+    this.radioMore = null
+    this.radioOwn = new Set()
+    this.pools = { recomendadas: [], nuevas: [] }
+    this.poolsLoading = null
+    this.poolSeed = null
+  }
+
+  /** La radio de `seed` con las reglas de la lista: en un Modo, sus géneros, y los artistas de su lista cuentan como del género. */
+  private radioFor(seed: Track, context: Context): RadioSource {
+    const groups = context.groups ?? {}
+    const trusted = context.genres && context.tracks.filter((track) => !groups[track.id])
+    return createRadio(seed, { genres: context.genres, trusted })
+  }
+
+  /** Cero duplicados: la que suena, la lista, tu cola, las dos pestañas y las descartadas. */
+  private inUse(): Set<string> {
+    const tracks = [...(this.context?.tracks ?? []), ...this.queue, ...this.pools.recomendadas, ...this.pools.nuevas]
+    const ids = new Set([...tracks.map((track) => track.id), ...this.discarded])
+    if (this.current) ids.add(this.current.id)
+    return ids
+  }
+
+  /** Lo que pasó a sonar o a la cola por cualquier camino (Buscar, la Jam…) sale de las pestañas. True si quitó algo. */
+  private prunePools(): boolean {
+    const playing = new Set([this.current?.id, ...this.queue.map((track) => track.id), ...this.upcomingIndexes().map((i) => this.context!.tracks[i].id)])
+    let pruned = false
+    for (const kind of RECS_KINDS) {
+      const kept = this.pools[kind].filter((track) => !playing.has(track.id))
+      pruned ||= kept.length !== this.pools[kind].length
+      this.pools[kind] = kept
+    }
+    return pruned
+  }
+
+  // ---- «Recomendadas» y «Por Descubrir» ----
+
+  /** Al abrir «Próximas en sonar» sin radio (recién abierta la app): se arma la de la que suena, sin tocar la cola. */
+  ensureRecommendations() {
+    const context = this.context
+    const seed = this.current
+    if (this.radioMore || !context || !seed || this.repeat !== 'off') return
+    this.startRecommendations(seed, this.radioFor(seed, context))
+    for (const id of Object.keys(context.groups ?? {})) this.radioOwn.add(id) // lo que ya agregó la Fila Dinámica sigue
+    void this.fillPools()
+  }
+
+  /** «Reproducir a continuación»: todas las de la pestaña, en su orden, justo después de la que suena. Devuelve cuántas. */
+  playRecommendationsNext(kind: RecsKind): number {
+    const tracks = this.pools[kind]
+    if (!tracks.length || !this.current) return 0
+    const ids = new Set(tracks.map((track) => track.id))
+    this.queue = [...tracks, ...this.queue.filter((track) => !ids.has(track.id))]
+    this.pools[kind] = []
+    this.changed()
+    void this.fillPools()
+    return tracks.length
+  }
+
+  /** Deslizar a la derecha en una pestaña: la descarta (esta radio no la vuelve a dar). Devuelve cómo deshacerlo. */
+  discardRecommendation(kind: RecsKind, index: number): () => void {
+    const [track] = this.pools[kind].splice(index, 1)
+    if (!track) return () => {}
+    const radio = this.radioMore
+    this.discarded.add(track.id)
+    this.changed()
+    void this.fillPools()
+    return () => {
+      if (this.radioMore !== radio) return // ya suena otra canción: sus recomendaciones son otras
+      this.discarded.delete(track.id)
+      if (this.inUse().has(track.id)) return
+      this.pools[kind].splice(Math.min(index, this.pools[kind].length), 0, track)
+      this.changed()
+    }
+  }
+
+  /** Tocar una de las pestañas: suena ya (como tocar una de tu cola) y las recomendaciones pasan a salir de ella. */
+  playRecommendation(kind: RecsKind, index: number) {
+    const [track] = this.pools[kind].splice(index, 1)
+    if (!track) return
+    this.queue.unshift(track)
+    this.jumpToQueue(0)
   }
 
   /** Activa aleatorio y reproduce la lista empezando por una canción al azar. */
@@ -586,19 +722,16 @@ export class PlayerEngine {
   }
 
   /**
-   * Tocaste a mano otra canción: las recomendaciones que venían (las que agregó la radio, de la canción anterior) se
-   * quitan y la radio vuelve a empezar desde esta (al sonar, playTrack pide el bloque nuevo). Lo de la lista que
-   * elegiste y tu cola se quedan. Con «repetir» activado no se toca nada.
+   * Tocaste a mano otra canción: las que la Fila Dinámica había agregado (de la canción anterior) se quitan y la radio
+   * vuelve a empezar desde esta: «Recomendadas» y «Por Descubrir» se llenan de nuevo (al sonar, playTrack las pide). Lo
+   * de la lista que elegiste y tu cola se quedan. Con «repetir» activado no se toca nada.
    */
   private restartRadio(seed: Track) {
     const context = this.context
     if (!context || this.repeat !== 'off') return
     const groups = context.groups ?? {}
     this.order = [...this.order.slice(0, this.pos + 1), ...this.order.slice(this.pos + 1).filter((i) => !groups[context.tracks[i].id])]
-    // En un Modo, la radio es de sus géneros y los artistas de su lista (no la agregó la radio) cuentan como del género.
-    const trusted = context.genres && context.tracks.filter((track) => !groups[track.id])
-    this.radioMore = createRadio(seed, { genres: context.genres, trusted })
-    this.radioOwn = new Set([seed.id])
+    this.startRecommendations(seed, this.radioFor(seed, context))
   }
 
   // ---- Modos y volumen ----
@@ -1121,6 +1254,7 @@ export class PlayerEngine {
   }
 
   private changed() {
+    if (this.prunePools()) void this.fillPools()
     this.emit()
     this.save()
   }
@@ -1140,6 +1274,10 @@ export class PlayerEngine {
       queue: [...this.queue],
       upcoming: this.upcomingIndexes().map((i) => this.context!.tracks[i]),
       upcomingGroups: this.upcomingIndexes().map((i) => this.context!.groups?.[this.context!.tracks[i].id] ?? null),
+      recommended: [...this.pools.recomendadas],
+      discover: [...this.pools.nuevas],
+      recsSeed: this.poolSeed,
+      recsLoading: this.poolsLoading !== null,
       status: this.status,
       time: this.time,
       duration: this.duration,

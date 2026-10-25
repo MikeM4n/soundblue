@@ -3,8 +3,9 @@
 // artista y de otros artistas del MISMO GÉNERO O UNO PARECIDO, de cualquier año (reggaetón viejo y nuevo, dancehall…).
 // NUNCA a partir del título: eso llenaba la cola de covers y de canciones que solo comparten palabras con el nombre.
 //
-// En bloques, con su encabezado en «Próximas en sonar»: primero 10 «Recomendadas basadas en esta canción»; después,
-// de a 5, «Nuevas para ti» (canciones que nunca sonaron aquí) y más recomendadas, alternando.
+// En «Próximas en sonar» llenan dos pestañas: «Recomendadas» y «Por Descubrir» (solo canciones que nunca sonaron aquí);
+// la Fila Dinámica pasa de ahí a la cola las que hagan falta. En «Para ti», 10 recomendadas y luego de a 5 nuevas y
+// recomendadas, alternando.
 //
 // De dónde salen (sin cuota: YouTube Music vía el intermediario):
 //  - Mismo artista: las suyas que trae la radio y sus más conocidas (data/artistTop.ts).
@@ -69,8 +70,12 @@ export interface RadioPick {
   group: QueueGroup
 }
 
-/** Las siguientes `count` canciones de la radio, sin ninguna de `exclude` (lo que ya está en la lista o en la cola). */
-export type RadioSource = (count: number, exclude?: ReadonlySet<string>) => Promise<RadioPick[]>
+/**
+ * Las siguientes `count` canciones de la radio, sin ninguna de `exclude` (lo que ya está en la lista o en la cola). Con
+ * `kind`, solo de ese bloque: 'recomendadas' (cualquiera de la radio) o 'nuevas' (solo las que nunca sonaron aquí, para
+ * «Por Descubrir»); sin él, alternando como en «Para ti».
+ */
+export type RadioSource = (count: number, exclude?: ReadonlySet<string>, kind?: QueueGroup['kind']) => Promise<RadioPick[]>
 
 export interface RadioOptions {
   artistTop?: boolean // sumar las más conocidas del artista (una consulta más; «Selecciones rápidas» no las usa)
@@ -259,7 +264,7 @@ export function createRadio(seed: Track, { artistTop = true, diagnostics: logDia
   const groupAt = (n: number): QueueGroup['kind'] =>
     n < FIRST_BLOCK || Math.floor((n - FIRST_BLOCK) / BLOCK) % 2 === 1 ? 'recomendadas' : 'nuevas'
 
-  return async (count: number, exclude: ReadonlySet<string> = new Set()) => {
+  return async (count: number, exclude: ReadonlySet<string> = new Set(), kind?: QueueGroup['kind']) => {
     ready ??= init()
     await ready
     const batch: { candidate: Candidate; kind: QueueGroup['kind'] }[] = []
@@ -285,12 +290,13 @@ export function createRadio(seed: Track, { artistTop = true, diagnostics: logDia
       return null
     }
     while (batch.length < count) {
-      const wantNew = groupAt(given + batch.length) === 'nuevas'
+      const wantNew = (kind ?? groupAt(given + batch.length)) === 'nuevas'
       let pick = !wantNew && random() < SAME_ARTIST_SHARE ? take(same, false) : null
       pick ??= take(others, wantNew)
       if (!pick && (await refill())) continue
       pick ??= take(same, wantNew)
-      if (!pick && wantNew) pick = take(others, false) ?? take(same, false) // ya no quedan nuevas: una recomendada
+      // Ya no quedan nuevas: una recomendada (salvo que se pidieran solo nuevas, para «Por Descubrir»).
+      if (!pick && wantNew && !kind) pick = take(others, false) ?? take(same, false)
       if (!pick) break
       if (pick.reason !== 'mismo artista') lastOther = pick.track
       batch.push({ candidate: pick, kind: wantNew && !heard.has(pick.track.id) ? 'nuevas' : 'recomendadas' })

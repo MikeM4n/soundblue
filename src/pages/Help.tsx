@@ -132,8 +132,17 @@ export function Help() {
             a sonar a continuación.
           </li>
           <li>
-            <B>A la derecha</B>: en «Próximas en sonar», <B>la quita de la cola</B> (con «Deshacer»; la radio repone para que siempre
-            haya 10). En Buscar y en las listas, abre el menú de opciones.
+            <B>A la derecha</B>: en «Próximas en sonar», <B>la quita de la cola</B> o <B>descarta la recomendación</B> (con «Deshacer»).
+            En Buscar y en las listas, abre el menú de opciones.
+          </li>
+          <li>
+            «Próximas en sonar» tiene tres pestañas: <B>En Cola</B> (lo que va a sonar), <B>Recomendadas</B> y <B>Por Descubrir</B>{' '}
+            (canciones que nunca sonaron aquí), a partir de la canción que suena. En las dos últimas, a la izquierda la agregas a la
+            cola y <B>Reproducir a continuación</B> pone todas justo después de la que suena. Una canción nunca sale en dos pestañas.
+          </li>
+          <li>
+            <B>Fila Dinámica</B> (en «En Cola» o en Ajustes): encendida, siempre hay al menos 10 por sonar; si quitas una, entra otra de
+            «Recomendadas». Apagada, la cola queda como la dejas y la música se detiene al acabarse. Te recomendamos dejarla encendida.
           </li>
           <li>
             <B>Tocar ⋮</B>: siempre el menú de opciones.
