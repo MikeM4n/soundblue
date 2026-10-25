@@ -1,4 +1,4 @@
-import { AudioLines, EllipsisVertical, ListEnd, ListStart, Users } from 'lucide-react'
+import { AudioLines, EllipsisVertical, ListEnd, ListStart, Trash, Users } from 'lucide-react'
 import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { useInGuestJam } from '../../jam/guestJam'
 import { formatDuration } from '../../lib/format'
@@ -6,7 +6,7 @@ import { coverSources, type Track } from '../../player/types'
 import { onlyInYouTubeMusic } from '../../player/unavailable'
 import { Cover } from '../ui/Cover'
 import { TrackMenu } from './TrackMenu'
-import { addToSiguientes, playNext, type RemoveAction } from './trackActions'
+import { addToSiguientes, playNext, removeWithUndo, type RemoveAction } from './trackActions'
 import { useSwipe } from './useSwipe'
 
 const SNAP_BACK_MS = 200 // lo que tarda la fila en volver a su lugar: el menú se abre después, junto a su «⋮»
@@ -21,8 +21,8 @@ export interface TrackRowProps {
   removeAction?: RemoveAction // «Eliminar de…» / «Quitar de la cola» en el menú
   trailing?: ReactNode // p. ej. el asa para reordenar en la cola
   style?: CSSProperties
-  // Qué hace deslizar a la izquierda: 'lista' (Buscar, playlists, álbumes, modos…) la agrega al final de la cola (o a la
-  // Jam); 'cola' («Próximas en sonar») la pone a sonar a continuación. A la derecha, siempre el menú «⋮».
+  // 'lista' (Buscar, playlists, álbumes, modos…): izquierda la agrega al final de la cola (o a la Jam), derecha abre el
+  // menú «⋮». 'cola' («Próximas en sonar»): izquierda la pone a sonar a continuación, derecha la quita (`removeAction`).
   swipe?: 'lista' | 'cola'
   // Sin gestos de deslizar (carruseles de Inicio): deslizar de lado mueve el carrusel. Queda el ▶ y el menú «⋮».
   plain?: boolean
@@ -30,16 +30,18 @@ export interface TrackRowProps {
 
 /**
  * Fila de canción como en Spotify: portada pequeña, título, artista y menú «⋮» (Reproducir, Agregar a la cola, Me
- * gusta…). En el celular, en todas las pantallas: deslizar a la IZQUIERDA es la acción rápida y nunca abre un menú (en
- * las listas, agregar a la cola o a la Jam; en «Próximas en sonar», que suene a continuación); deslizar a la DERECHA (o
- * tocar «⋮») abre el menú, donde también está quitarla.
+ * gusta…). En el celular, deslizar a la IZQUIERDA es la acción rápida y nunca abre un menú (en las listas, agregar a la
+ * cola o a la Jam; en «Próximas en sonar», que suene a continuación). A la DERECHA: en «Próximas en sonar» la quita de la
+ * cola (con «Deshacer»); en las listas abre el menú. Tocar «⋮» siempre abre el menú.
  */
 export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, duration, removeAction, trailing, style, swipe: mode = 'lista', plain = false }: TrackRowProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const inJam = useInGuestJam() // en la Jam de otro, «agregar» va a la cola compartida
   const openMenu = () => window.setTimeout(() => setMenuOpen(true), SNAP_BACK_MS)
   const inQueue = mode === 'cola'
-  const swipe = useSwipe(plain ? {} : { onLeft: () => (inQueue ? playNext(track) : addToSiguientes(track)), onRight: openMenu })
+  // En la cola, a la derecha solo si se puede quitar (la que suena no): nunca abre el menú.
+  const onRight = inQueue ? removeAction && (() => removeWithUndo(removeAction)) : openMenu
+  const swipe = useSwipe(plain ? {} : { onLeft: () => (inQueue ? playNext(track) : addToSiguientes(track)), onRight })
   const shownDuration = duration ?? track.duration
   // YouTube no deja reproducirla fuera de sus apps: se avisa antes de tocarla (al tocarla se ofrece abrirla allá).
   const onlyInYtm = useSyncExternalStore(onlyInYouTubeMusic.subscribe, onlyInYouTubeMusic.get).has(track.id)
@@ -63,12 +65,18 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
           )}
         </div>
       )}
-      {swipe.dx > 0 && (
-        <div className="absolute inset-0 flex items-center justify-start gap-2 bg-tarjeta-claro pl-5 text-sm font-semibold text-white">
-          <EllipsisVertical className={grow} aria-hidden="true" />
-          <span>Opciones</span>
-        </div>
-      )}
+      {swipe.dx > 0 &&
+        (inQueue ? (
+          <div className="absolute inset-0 flex items-center justify-start gap-2 bg-red-600 pl-5 text-sm font-semibold text-white">
+            <Trash className={grow} aria-hidden="true" />
+            <span>Quitar</span>
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-start gap-2 bg-tarjeta-claro pl-5 text-sm font-semibold text-white">
+            <EllipsisVertical className={grow} aria-hidden="true" />
+            <span>Opciones</span>
+          </div>
+        ))}
 
       <div
         ref={swipe.ref}

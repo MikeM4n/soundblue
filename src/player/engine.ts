@@ -2,6 +2,7 @@
 // - «Siguiente en la cola»: las canciones que agregas tú, en el orden en que las agregaste. Suenan primero.
 // - «Siguiente de: …»: el resto de la lista, álbum o búsqueda desde donde diste play.
 // Usa el reproductor oficial de YouTube y recuerda la sesión.
+import { isGenreKey, type GenreKey } from '../data/genreIndex'
 import { listening } from '../data/history'
 import { createRadio, type QueueGroup, type RadioSource } from '../data/radio'
 import { logDuplicate } from '../lib/duplicateLog'
@@ -56,6 +57,7 @@ interface Context {
   name: string
   tracks: Track[]
   groups?: Record<string, QueueGroup> // las que agregó la radio, por id: su bloque en «Próximas en sonar»
+  genres?: GenreKey[] // lista de un Modo: su radio es de estos géneros (PlayOptions)
 }
 
 /** Una canción que ya sonó, con lo necesario para volver a ella con «anterior». */
@@ -65,9 +67,13 @@ interface Step {
   pos: number
 }
 
-/** `replaceQueue`: lo que tocas reemplaza tu cola (Inicio). */
+/**
+ * `replaceQueue`: lo que tocas reemplaza tu cola (Inicio). `genres`: la lista es de un Modo (Tomar): las
+ * recomendaciones que siguen son solo de esos géneros, con los artistas de la lista como del género.
+ */
 export interface PlayOptions {
   replaceQueue?: boolean
+  genres?: readonly GenreKey[]
 }
 
 const HISTORY_LIMIT = 50
@@ -278,7 +284,7 @@ export class PlayerEngine {
   }
 
   // `radio`: la lista es una radio; se pone antes de sonar para que la primera tanda la pida ella y no la cola infinita.
-  private startContext(name: string, tracks: readonly Track[], start: number, { replaceQueue = false }: PlayOptions, radio: RadioSource | null) {
+  private startContext(name: string, tracks: readonly Track[], start: number, { replaceQueue = false, genres }: PlayOptions, radio: RadioSource | null) {
     if (!tracks.length) return
     const chosen = tracks[clamp(start, 0, tracks.length - 1)]
     this.radioMore = radio
@@ -296,7 +302,7 @@ export class PlayerEngine {
       return true
     })
     const first = list.findIndex((track) => track.id === chosen.id)
-    this.context = { name, tracks: list }
+    this.context = { name, tracks: list, genres: genres?.length ? [...genres] : undefined }
     this.history = [] // «anterior» se mueve dentro de la nueva lista
     if (this.shuffle) {
       this.order = [first, ...shuffled(range(list.length).filter((i) => i !== first))]
@@ -589,7 +595,9 @@ export class PlayerEngine {
     if (!context || this.repeat !== 'off') return
     const groups = context.groups ?? {}
     this.order = [...this.order.slice(0, this.pos + 1), ...this.order.slice(this.pos + 1).filter((i) => !groups[context.tracks[i].id])]
-    this.radioMore = createRadio(seed)
+    // En un Modo, la radio es de sus géneros y los artistas de su lista (no la agregó la radio) cuentan como del género.
+    const trusted = context.genres && context.tracks.filter((track) => !groups[track.id])
+    this.radioMore = createRadio(seed, { genres: context.genres, trusted })
     this.radioOwn = new Set([seed.id])
   }
 
@@ -1046,7 +1054,13 @@ export class PlayerEngine {
       const tracks: Track[] = saveds.filter(isTrack)
       if (tracks.length) {
         const groups = saved.context.groups
-        this.context = { name: String(saved.context.name || 'Tu música'), tracks, groups: groups && typeof groups === 'object' ? groups : undefined }
+        const genres = Array.isArray(saved.context.genres) ? saved.context.genres.filter(isGenreKey) : []
+        this.context = {
+          name: String(saved.context.name || 'Tu música'),
+          tracks,
+          groups: groups && typeof groups === 'object' ? groups : undefined,
+          genres: genres.length ? genres : undefined,
+        }
         // Si se descartaron canciones (las de la fuente retirada), el orden guardado ya no corresponde: se empieza la lista.
         const sameList = tracks.length === saveds.length
         this.order =

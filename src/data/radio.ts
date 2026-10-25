@@ -13,10 +13,13 @@
 //
 // Género: YouTube no lo publica. Lo sabe el índice de géneros (data/genreIndex.ts: qué artistas aparecen en las
 // playlists de cada género) y la matriz de géneros parecidos: si suena reggaetón, entran reggaetón, dancehall y trap
-// latino; si suena salsa, salsa, merengue y bachata; si suena una ranchera, regional mexicano y popular. Una canción de
-// un artista que el índice no conoce entra (la radio de YouTube ya la trajo por parecida), salvo si está en escritura
-// asiática (cuenta como K-Pop, J-Pop o Mandopop). Si el índice no conoce la canción que suena, su género es el de la
-// mayoría de su radio; si tampoco así se sabe, no se filtra por género.
+// latino; si suena salsa, salsa, merengue y bachata. Popular, ranchera y vallenato son una familia cerrada: entre ellos
+// sí, pero nunca salsa, merengue, bachata ni urbano (ni un artista que también sea de esos géneros, ni uno que el índice
+// no conoce). Fuera de esa familia, una canción de un artista que el índice no conoce entra (la radio de YouTube ya la
+// trajo por parecida), salvo si está en escritura asiática (cuenta como K-Pop, J-Pop o Mandopop). Si el índice no
+// conoce la canción que suena, su género es el de la mayoría de su radio; si tampoco así se sabe, no se filtra.
+// En un Modo de ambiente el género no se adivina: es el del Modo (Tomar: popular, ranchera y vallenato), y los artistas
+// de su lista cuentan como de ese género aunque el índice no los conozca.
 //
 // Filtros: solo audio o video oficial (fuera los subidos por usuarios: covers); fuera los «Canción – Otro Artista» de
 // un intérprete distinto (covers); nada que comparta más del 40 % de las palabras del título de la semilla (covers,
@@ -28,7 +31,7 @@ import { logDuplicate } from '../lib/duplicateLog'
 import { hashText, seededRandom, sessionSeed, shuffle } from '../lib/random'
 import type { Track } from '../player/types'
 import { artistTopSongs } from './artistTop'
-import { dominantGenres, genreIndexSoon, genreLabel, genresOf, similarTo, type GenreIndex, type GenreKey } from './genreIndex'
+import { clashes, dominantGenres, genreIndexSoon, genreLabel, genreScope, genresOf, type GenreIndex, type GenreKey, type GenreScope } from './genreIndex'
 import { artistKey, listening } from './history'
 import { ytmRadioItems, ytmSearchArtists, type RadioItem } from './ytmusic'
 
@@ -72,6 +75,8 @@ export type RadioSource = (count: number, exclude?: ReadonlySet<string>) => Prom
 export interface RadioOptions {
   artistTop?: boolean // sumar las más conocidas del artista (una consulta más; «Selecciones rápidas» no las usa)
   diagnostics?: boolean // anotarla como «última radio» en Ayuda
+  genres?: readonly GenreKey[] // los de un Modo: la radio es de estos géneros (no se adivinan de la canción)
+  trusted?: readonly Track[] // la lista del Modo: sus artistas cuentan como de esos géneros aunque el índice no los conozca
 }
 
 export interface RadioDiagnostics {
@@ -123,7 +128,7 @@ function writeRadioDiagnostics(diagnostics: RadioDiagnostics) {
  * que ya está en la cola), cada una con su bloque; el motor la llama cuando quedan menos de 10 por sonar. Si ya no hay
  * más que cumplan las reglas, da menos (o ninguna) y la radio termina.
  */
-export function createRadio(seed: Track, { artistTop = true, diagnostics: logDiagnostics = true }: RadioOptions = {}): RadioSource {
+export function createRadio(seed: Track, { artistTop = true, diagnostics: logDiagnostics = true, genres: fixedGenres, trusted = [] }: RadioOptions = {}): RadioSource {
   const served = new Set([seed.id])
   const skipped = listening.skippedArtists()
   const heard = new Set(listening.entries().map((entry) => entry.track.id)) // lo que ya sonó aquí alguna vez
@@ -145,16 +150,23 @@ export function createRadio(seed: Track, { artistTop = true, diagnostics: logDia
     'título parecido a la semilla': 0,
     'otra versión del mismo título': 0,
     'de otro género': 0,
+    'artista que el índice no conoce (popular, ranchera o vallenato)': 0,
     'artista que sueles saltar': 0,
   }
   const knownArtists = new Set([seedArtist]) // los artistas que aparecen en las radios (para reconocer covers)
   // Género: lo que acepta la radio (el de la semilla y los parecidos). Sin índice o semilla desconocida: no se filtra.
   let index: GenreIndex | null = null
-  let accepts = new Set<GenreKey>()
-  const otherGenre = (track: Track) => {
-    if (!index || !accepts.size) return false
+  let scope: GenreScope = genreScope(new Set())
+  // El artista principal (no los invitados: «Versión Mariachi — Camila Fernández y Morat» no vuelve ranchero a Morat).
+  const vouched = new Set([seedArtist, ...trusted.map((track) => artistKey(track.artist))])
+  /** Por qué no cabe en el género de la radio (null: cabe). */
+  const genreMiss = (track: Track) => {
+    if (!index || !scope.accepts.size) return null
+    if (clashes(track, index, scope)) return 'de otro género'
+    if (vouched.has(artistKey(track.artist))) return null // el mismo artista, o uno de la lista del Modo
     const genres = genresOf(track, index)
-    return genres.size > 0 && ![...genres].some((genre) => accepts.has(genre))
+    if (genres.size) return [...genres].some((genre) => scope.accepts.has(genre)) ? null : 'de otro género'
+    return scope.strict ? 'artista que el índice no conoce (popular, ranchera o vallenato)' : null
   }
   let lastOther: Track | null = null
   let refills = 0
@@ -188,11 +200,12 @@ export function createRadio(seed: Track, { artistTop = true, diagnostics: logDia
       const { track } = item
       if (served.has(track.id)) continue
       const base = baseTitle(track.title)
+      const miss = genreMiss(track)
       if (item.videoType && !OFFICIAL.has(item.videoType)) filtered['no oficial (cover o subida por usuario)']++
       else if (coverOf(track)) filtered['cover (título con el nombre de otro artista)']++
       else if (sharesTitle(track.title)) filtered['título parecido a la semilla']++
       else if (titles.has(base) || best.get(base) !== item) filtered['otra versión del mismo título']++
-      else if (otherGenre(track)) filtered['de otro género']++
+      else if (miss) filtered[miss]++
       else if (skipped.has(artistKey(track.artist))) filtered['artista que sueles saltar']++
       else {
         titles.add(base)
@@ -206,16 +219,16 @@ export function createRadio(seed: Track, { artistTop = true, diagnostics: logDia
   const init = async () => {
     const [radio, found] = await Promise.all([ytmRadioItems(seed.id).catch(() => []), genreIndexSoon(INDEX_WAIT_MS)])
     index = found
-    let seedGenres = index ? genresOf(seed, index) : new Set<GenreKey>()
+    let seedGenres = fixedGenres ? new Set(fixedGenres) : index ? genresOf(seed, index) : new Set<GenreKey>()
     // Si el índice no conoce la canción que suena, su género es el de la mayoría de su radio de YouTube Music.
     const guessed = !!index && !seedGenres.size
     if (index && guessed) seedGenres = dominantGenres(radio.map((item) => item.track), index)
-    accepts = similarTo(seedGenres)
+    scope = genreScope(seedGenres)
     Object.assign(diagnostics, {
       seedYear: radio.find((item) => item.track.id === seed.id)?.year,
       genres: [...seedGenres].map(genreLabel),
       guessed: guessed && seedGenres.size > 0,
-      accepts: [...accepts].map(genreLabel),
+      accepts: [...scope.accepts].map(genreLabel),
     })
     add(radio, 'mismo género')
     if (artistTop) {

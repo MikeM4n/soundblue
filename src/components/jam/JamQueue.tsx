@@ -1,4 +1,4 @@
-import { EllipsisVertical, ListStart } from 'lucide-react'
+import { ListStart, Trash } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { pendingItems, type JamState } from '../../jam/api'
@@ -7,7 +7,7 @@ import { hostJam, useHostJam } from '../../jam/hostJam'
 import { coverSources, type Track } from '../../player/types'
 import { usePlayer } from '../../player/usePlayer'
 import { TrackMenu } from '../tracks/TrackMenu'
-import { playNext, type RemoveAction } from '../tracks/trackActions'
+import { playNext, removeWithUndo, type RemoveAction } from '../tracks/trackActions'
 import { useSwipe } from '../tracks/useSwipe'
 import { Cover } from '../ui/Cover'
 import { JamTrackRow } from './JamTrackRow'
@@ -19,7 +19,7 @@ function Tag({ children, accent = false }: { children: ReactNode; accent?: boole
   return <span className={`shrink-0 pr-1 text-xs font-semibold ${accent ? 'text-acento-texto' : 'text-texto-sec'}`}>{children}</span>
 }
 
-// Quitar de la Jam, con el aviso de 4 s y «Deshacer» de siempre («⋮ → Eliminar de la Jam»; deslizar a la derecha abre ⋮).
+// Quitar de la Jam, con el aviso de 4 s y «Deshacer» de siempre (deslizar a la derecha o «⋮ → Eliminar de la Jam»).
 // Invitado: solo las que agregó él (el servidor lo comprueba con su id). Anfitrión: cualquiera.
 const guestRemove = (track: Track): RemoveAction => ({
   listName: 'la Jam',
@@ -34,21 +34,18 @@ interface JamQueueRowProps {
   track: Track
   detail: string
   tag?: ReactNode
-  removeAction?: RemoveAction // «Eliminar de la Jam» en el menú (si puedes quitarla)
+  removeAction?: RemoveAction // deslizar a la derecha y «Eliminar de la Jam» en el menú (si puedes quitarla)
   onLeft?: () => void // deslizar a la izquierda (anfitrión: que suene a continuación); sin esto, no se desliza
 }
 
 /**
- * Fila de la lista compartida. Como en el resto de la app: deslizar a la IZQUIERDA es la acción rápida (el anfitrión la
- * pone a sonar a continuación; nunca abre un menú) y a la DERECHA abre el menú «⋮», donde está «Eliminar de la Jam».
+ * Fila de la lista compartida. Como en «Próximas en sonar» de la app: deslizar a la IZQUIERDA es la acción rápida (el
+ * anfitrión la pone a sonar a continuación) y a la DERECHA la quita de la Jam, con «Deshacer» (el anfitrión cualquiera;
+ * el invitado, las que agregó él). Ningún gesto abre el menú: para eso está «⋮».
  */
 function JamQueueRow({ track, detail, tag, removeAction, onLeft }: JamQueueRowProps) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const swipe = useSwipe({
-    onLeft,
-    // El menú se abre cuando la fila terminó de volver a su lugar (200 ms): así queda junto a su botón «⋮».
-    onRight: () => window.setTimeout(() => setMenuOpen(true), SNAP_BACK_MS),
-  })
+  const swipe = useSwipe({ onLeft, onRight: removeAction && (() => removeWithUndo(removeAction)) })
   const grow = `size-6 transition-transform ${swipe.armed ? 'scale-125' : ''}`
   return (
     <li className="relative overflow-hidden rounded-md">
@@ -59,9 +56,9 @@ function JamQueueRow({ track, detail, tag, removeAction, onLeft }: JamQueueRowPr
         </div>
       )}
       {swipe.dx > 0 && (
-        <div className="absolute inset-0 flex items-center justify-start gap-2 bg-tarjeta-claro pl-5 text-sm font-semibold text-white">
-          <EllipsisVertical className={grow} aria-hidden="true" />
-          <span>Opciones</span>
+        <div className="absolute inset-0 flex items-center justify-start gap-2 bg-red-600 pl-5 text-sm font-semibold text-white">
+          <Trash className={grow} aria-hidden="true" />
+          <span>Quitar</span>
         </div>
       )}
       <div
