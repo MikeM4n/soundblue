@@ -1,6 +1,7 @@
 import { ChevronLeft, Radio, Shuffle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { SavePlaylistButton } from '../components/library/SavePlaylistButton'
 import { TrackList } from '../components/tracks/TrackList'
 import { startRadio } from '../components/tracks/trackActions'
 import { Cover } from '../components/ui/Cover'
@@ -8,16 +9,25 @@ import { IconButton } from '../components/ui/IconButton'
 import { PlayButton } from '../components/ui/PlayButton'
 import { YtmShelf } from '../components/ui/YtmShelf'
 import { ytmPage, type YtmPage as PageData } from '../data/ytmusic'
+import { refreshSaved, savedTracks } from '../library/savedPlaylists'
+import { useLibrary } from '../library/store'
 import { player } from '../player/engine'
 import type { Track } from '../player/types'
 import { useNowPlaying } from '../player/useNowPlaying'
 
-/** Página de YouTube Music: playlist o álbum (lista de canciones) o artista (sus estantes). */
+/**
+ * Página de YouTube Music: playlist o álbum (lista de canciones) o artista (sus estantes). Una playlist se puede guardar
+ * en Tu biblioteca («+»); guardada, se ven al instante todas sus canciones (las guardadas; también sin conexión) y se
+ * actualizan desde YouTube Music.
+ */
 export function YtmPage() {
   const { browseId = '' } = useParams()
   const navigate = useNavigate()
   const { open } = useNowPlaying()
   const [page, setPage] = useState<{ id: string; data: PageData | null } | null>(null)
+  const [full, setFull] = useState<{ id: string; tracks: Track[] } | null>(null) // todas las canciones (si está guardada)
+  const savedMeta = useLibrary().saved.find((p) => p.id === browseId)
+  const isSaved = !!savedMeta
 
   useEffect(() => {
     let alive = true
@@ -29,9 +39,26 @@ export function YtmPage() {
     }
   }, [browseId])
 
+  useEffect(() => {
+    if (!isSaved) return
+    let alive = true
+    const show = (tracks: Track[] | null) => alive && tracks?.length && setFull({ id: browseId, tracks })
+    void savedTracks(browseId).then(show) // lo guardado, al instante
+    void refreshSaved(browseId).then(show, () => {}) // y lo de ahora, cuando llegue
+    return () => {
+      alive = false
+    }
+  }, [browseId, isSaved])
+
   const current = page?.id === browseId ? page : null
-  const data = current?.data
+  const fullTracks = full?.id === browseId ? full.tracks : null
+  const fetched = current?.data // undefined: cargando · null: no se pudo
+  // Una guardada se ve enseguida (y sin conexión) con sus datos y sus canciones guardadas.
+  const offline: PageData | null =
+    savedMeta && fullTracks ? { kind: 'Playlist', title: savedMeta.title, subtitle: savedMeta.subtitle, image: savedMeta.image, tracks: fullTracks, sections: [] } : null
+  const data = fetched ? { ...fetched, tracks: fullTracks ?? fetched.tracks } : (offline ?? fetched)
   const isArtist = !!data && data.sections.length > 0 && data.tracks.length === 0
+  const isPlaylist = browseId.startsWith('VL')
 
   const play = (tracks: readonly Track[], index = 0, name = data?.title ?? '') => {
     open() // primero «Sonando ahora», así el video aparece ya en su sitio
@@ -44,7 +71,7 @@ export function YtmPage() {
         <IconButton label="Volver" onClick={() => navigate(-1)} className="-ml-2">
           <ChevronLeft className="size-6" />
         </IconButton>
-        {!current && <p className="mt-6 text-texto-sec">Cargando…</p>}
+        {!current && !data && <p className="mt-6 text-texto-sec">Cargando…</p>}
         {current && !data && <p className="mt-6 text-texto-sec">No se pudo abrir esta página. Revisa tu conexión.</p>}
         {data && (
           <>
@@ -76,6 +103,7 @@ export function YtmPage() {
                 <IconButton label={`Radio a partir de ${data.title}`} onClick={() => startRadio(data.tracks[0], open)}>
                   <Radio className="size-6" />
                 </IconButton>
+                {isPlaylist && <SavePlaylistButton playlist={{ id: browseId, title: data.title, subtitle: data.subtitle, image: data.image }} className="size-10" />}
               </div>
             )}
           </>

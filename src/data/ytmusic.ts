@@ -19,7 +19,9 @@ const FILTER = {
   albums: 'EgWKAQIYAWoKEAkQChAFEAMQBA%3D%3D',
   artists: 'EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D',
   featuredPlaylists: 'EgeKAQQoADgBagwQDhAKEAMQBRAJEAQ%3D',
+  communityPlaylists: 'EgeKAQQoAEABagwQDhAKEAMQBRAJEAQ%3D',
 }
+const SEARCH_PLAYLISTS = 12 // playlists en Buscar (primero las de YouTube Music, después las de la comunidad)
 
 /** Playlist, álbum o artista: se abre en su propia página (/ytm/:id). */
 export interface YtmCard {
@@ -50,6 +52,7 @@ export interface YtmSearchResults {
   songs: Track[]
   albums: YtmCard[]
   artists: YtmCard[]
+  playlists: YtmCard[] // de YouTube Music y de la comunidad: se pueden guardar en Tu biblioteca
 }
 
 // La app de Android de YouTube Music: es la que recibe la letra con tiempos (para el karaoke).
@@ -283,19 +286,26 @@ export function ytmHome(): Promise<YtmSection[]> {
   })
 }
 
-/** Búsqueda como en YouTube Music: canciones, álbumes y artistas. */
+/** Búsqueda como en YouTube Music: canciones, álbumes, artistas y playlists. */
 export function ytmSearch(query: string): Promise<YtmSearchResults> {
   const q = query.trim().toLowerCase().replace(/\s+/g, ' ')
   return remember(`buscar:${q}`, async () => {
-    const [songs, albums, artists] = await Promise.all([
+    const [songs, albums, artists, featured, community] = await Promise.all([
       call('search', { query: q, params: FILTER.songs }),
       call('search', { query: q, params: FILTER.albums }).catch(() => null),
       call('search', { query: q, params: FILTER.artists }).catch(() => null),
+      call('search', { query: q, params: FILTER.featuredPlaylists }).catch(() => null),
+      call('search', { query: q, params: FILTER.communityPlaylists }).catch(() => null),
     ])
+    const cards = (json: Json) => searchShelf(json).map((item) => cardFromListItem(item.musicResponsiveListItemRenderer)).filter(notEmpty)
+    const seen = new Set<string>()
     return {
       songs: searchShelf(songs).map((item) => fromListItem(item.musicResponsiveListItemRenderer)).filter(notEmpty),
-      albums: searchShelf(albums).map((item) => cardFromListItem(item.musicResponsiveListItemRenderer)).filter(notEmpty),
-      artists: searchShelf(artists).map((item) => cardFromListItem(item.musicResponsiveListItemRenderer)).filter(notEmpty),
+      albums: cards(albums),
+      artists: cards(artists),
+      playlists: [...cards(featured), ...cards(community)]
+        .filter((card) => card.kind === 'playlist' && !seen.has(card.id) && !!seen.add(card.id))
+        .slice(0, SEARCH_PLAYLISTS),
     }
   })
 }

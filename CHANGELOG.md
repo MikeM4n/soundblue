@@ -2,6 +2,10 @@
 
 ## 2026-10-25
 
+- Playlists guardadas (rama `feat/playlists-guardadas`, pedido por el dueño):
+  - Buscar trae también «Playlists» (las de YouTube Music y las de la comunidad), cada una con «+» para guardarla en Tu biblioteca (queda ✓; tocar ✓ la quita). Con aviso y «Deshacer». También en la página de la playlist.
+  - Tu biblioteca → «Playlists guardadas»: portada, título y cuántas canciones; al tocarla se abre con TODAS sus canciones (sigue las páginas, hasta 1000) para reproducirla o agregarlas a la cola. En el PC, también en la barra lateral.
+  - Sus datos se guardan en la biblioteca (localStorage) y sus canciones en IndexedDB (se leen en segundo plano al guardarla): abre al instante, también sin conexión, y se actualiza desde YouTube Music al abrirla.
 - Hotfix (rama `hotfix/top50-gestos`, pedido por el dueño): gestos de «Tu Top 50». Izquierda = suena a continuación (sin menú); derecha = la quita de tu Top (sin menú, con «Deshacer»; se olvidan sus reproducciones y, si la vuelves a escuchar mucho, regresa); ⋮ = menú. La lista se actualiza al momento.
 - Tema, temporizador, vibración, Tu Top 50 y compartir (rama `feat/tema-temporizador-top50`, pedido por el dueño):
   - Tema en Ajustes: «Predeterminado del sistema» (por defecto: claro u oscuro como el teléfono, también si cambia con la app abierta), «Claro» u «Oscuro» (AMOLED: fondos y paneles en negro puro). Se aplica antes de pintar (sin destello) y cambia el color de la barra del sistema. «Sonando ahora», la mini barra y el panel del PC se ven siempre oscuros, sobre la carátula.

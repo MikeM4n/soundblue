@@ -1,6 +1,9 @@
 import { AudioWaveform, Search as SearchIcon, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
+import { SavePlaylistButton } from '../components/library/SavePlaylistButton'
 import { TrackList } from '../components/tracks/TrackList'
+import { Cover } from '../components/ui/Cover'
 import { YtmCardRow } from '../components/ui/YtmShelf'
 import { categories } from '../data/categories'
 import { searchCatalog, testList } from '../data/catalog'
@@ -12,7 +15,7 @@ import type { Track } from '../player/types'
 import { useNowPlaying } from '../player/useNowPlaying'
 
 // Música, en este orden de respaldo:
-// 1) YouTube Music (su API interna, ver data/ytmusic.ts): canciones, álbumes y artistas, como en su app.
+// 1) YouTube Music (su API interna, ver data/ytmusic.ts): canciones, álbumes, artistas y playlists, como en su app.
 // 2) Si falla y hay clave: la YouTube Data API oficial (data/youtube.ts).
 // 3) Si tampoco: la lista de prueba (lo que coincida o, si nada coincide, la lista entera), con un aviso discreto.
 
@@ -22,6 +25,7 @@ interface MusicResults {
   videos: Track[] // solo con la API oficial: videos musicales; con la lista de prueba: sus canciones
   albums: YtmCard[]
   artists: YtmCard[]
+  playlists: YtmCard[] // con «+» para guardarlas en Tu biblioteca
   source: 'ytm' | 'api' | 'catalogo'
   notice: string | null // por qué se usó un respaldo
 }
@@ -35,7 +39,7 @@ function youtubeErrorMessage(error: unknown): string {
 }
 
 async function searchMusic(query: string): Promise<MusicResults> {
-  const empty = { query, songs: [], videos: [], albums: [], artists: [] }
+  const empty = { query, songs: [], videos: [], albums: [], artists: [], playlists: [] }
   try {
     return { ...empty, ...(await ytmSearch(query)), source: 'ytm', notice: null }
   } catch {
@@ -51,7 +55,7 @@ async function searchMusic(query: string): Promise<MusicResults> {
   }
 }
 
-/** Buscar: canciones, álbumes y artistas de YouTube Music, como en Spotify. */
+/** Buscar: canciones, álbumes, artistas y playlists (que se pueden guardar con «+») de YouTube Music, como en Spotify. */
 export function Search() {
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
@@ -94,7 +98,7 @@ export function Search() {
     { title: 'Canciones', tracks: songs, offset: 0 },
     { title: fromMusic?.source === 'catalogo' ? 'Lista de prueba' : 'Videos', tracks: videos, offset: songs.length },
   ]
-  const nothing = !searching && results.length === 0 && !fromMusic?.albums.length && !fromMusic?.artists.length
+  const nothing = !searching && results.length === 0 && !fromMusic?.albums.length && !fromMusic?.artists.length && !fromMusic?.playlists.length
 
   return (
     <div className="pt-6 pb-10">
@@ -130,7 +134,7 @@ export function Search() {
             )}
           </label>
         </form>
-        <p className="mt-2 text-xs text-texto-sec">Canciones, álbumes y artistas.</p>
+        <p className="mt-2 text-xs text-texto-sec">Canciones, álbumes, artistas y playlists.</p>
       </div>
 
       {q ? (
@@ -146,6 +150,12 @@ export function Search() {
             <section aria-label="Álbumes" className="mt-4">
               <ListTitle title="Álbumes" />
               <YtmCardRow cards={fromMusic.albums} />
+            </section>
+          )}
+          {!!fromMusic?.playlists.length && (
+            <section aria-label="Playlists" className="mt-4">
+              <ListTitle title="Playlists" />
+              <PlaylistResults cards={fromMusic.playlists} />
             </section>
           )}
           {lists.slice(1).map(({ title, tracks, offset }) => tracks.length > 0 && <ResultList key={title} title={title} tracks={tracks} onPlay={(i) => play(offset + i)} />)}
@@ -181,6 +191,26 @@ export function Search() {
 
 function ListTitle({ title }: { title: string }) {
   return <h2 className="px-4 pb-1 text-lg font-bold md:px-6">{title}</h2>
+}
+
+/** Playlists encontradas: tocarla abre su página; «+» la guarda en Tu biblioteca («Playlists guardadas»). */
+function PlaylistResults({ cards }: { cards: readonly YtmCard[] }) {
+  return (
+    <ul className="px-2 md:px-4">
+      {cards.map((card) => (
+        <li key={card.id} className="flex items-center gap-2 pr-2">
+          <Link to={`/ytm/${encodeURIComponent(card.id)}`} className="flex h-16 min-w-0 flex-1 items-center gap-3 rounded-md pl-2 hover:bg-tarjeta md:pl-4">
+            <Cover seed={card.id} src={card.image} className="size-12 shrink-0 rounded" />
+            <span className="min-w-0">
+              <span className="block truncate">{card.title}</span>
+              <span className="block truncate text-sm text-texto-sec">{card.subtitle || 'Playlist'}</span>
+            </span>
+          </Link>
+          <SavePlaylistButton playlist={{ id: card.id, title: card.title, subtitle: card.subtitle, image: card.image }} />
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 function ResultList({ title, tracks, onPlay }: { title: string; tracks: Track[]; onPlay: (index: number) => void }) {
