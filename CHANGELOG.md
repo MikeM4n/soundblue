@@ -2,6 +2,12 @@
 
 ## 2026-10-25
 
+- Tema, temporizador, vibración, Tu Top 50 y compartir (rama `feat/tema-temporizador-top50`, pedido por el dueño):
+  - Tema en Ajustes: «Predeterminado del sistema» (por defecto: claro u oscuro como el teléfono, también si cambia con la app abierta), «Claro» u «Oscuro» (AMOLED: fondos y paneles en negro puro). Se aplica antes de pintar (sin destello) y cambia el color de la barra del sistema. «Sonando ahora», la mini barra y el panel del PC se ven siempre oscuros, sobre la carátula.
+  - Temporizador (⋮ de «Sonando ahora»): 15, 30 o 45 min; al llegar, la música baja de volumen en 5 s y se pausa (tu volumen no cambia). El menú muestra cuánto falta.
+  - Vibración corta (10 ms) al dar ▶/⏸ y al soltar un gesto de deslizar, si el teléfono la tiene.
+  - «Tu Top 50» en Inicio: las 50 que más escuchaste aquí, de más a menos.
+  - Compartir (⋮ de cualquier canción): imagen con la carátula, el título y el artista y un enlace que abre la canción en SoundBlue (#/cancion/…), con la función de compartir del celular.
 - Karaoke, importar playlists y todo dentro de SoundBlue (rama `feat/karaoke-e-importar`, pedido por el dueño):
   - El video de YouTube no se muestra en ninguna parte (ni en «Sonando ahora», ni en el panel del PC): su reproductor suena oculto. «Canción» = la carátula grande.
   - «Letra» tipo karaoke: la línea que se canta se resalta y la lista avanza sola; tocar una línea lleva la canción a ese momento; deslizar con el dedo pausa el avance 4 s. Letra con tiempos de YouTube Music (como su app de Android, sincronizada con esa grabación) y, si no, de LRCLib (la versión que dura lo mismo). Sin tiempos, el texto (YouTube Music o lyrics.ovh). Con su fuente.

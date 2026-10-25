@@ -1,15 +1,15 @@
 @import 'tailwindcss';
 
 /*
- * Paleta de SoundBlue: todo negro con azul rey. Cada color crea sus clases de Tailwind (bg-fondo,
- * text-acento, hover:bg-tarjeta…) y una variable CSS (var(--color-fondo)…). Cámbialos aquí y se
- * actualiza toda la app.
+ * Paleta de SoundBlue: tema oscuro AMOLED (fondos en negro puro, ahorra batería en pantallas OLED) con azul rey. Cada
+ * color crea sus clases de Tailwind (bg-fondo, text-acento, hover:bg-tarjeta…) y una variable CSS (var(--color-fondo)…).
+ * El tema claro (más abajo) cambia estas mismas variables. Cámbialos aquí y se actualiza toda la app.
  */
 @theme {
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 
   --color-fondo: #000000; /* fondo principal */
-  --color-panel: #121212; /* paneles y barra lateral */
+  --color-panel: #000000; /* paneles y barra lateral (negro puro: AMOLED) */
   --color-tarjeta: #1a1a1a; /* tarjetas y filas al pasar el dedo o el mouse */
   --color-elevado: #242424; /* elementos elevados: barra del reproductor, menús, diálogos */
   --color-acento: #4169e1; /* azul rey: botones, play/pausa, progreso, íconos activos, favoritos, switches */
@@ -21,6 +21,46 @@
   --color-acento-texto: #7c9cf5; /* azul para TEXTO (la canción actual); el azul rey como texto pequeño no llega a 4.5:1 */
   --color-tarjeta-claro: #242424; /* hover de elementos que ya usan «tarjeta» de fondo (= elevado) */
   --color-acento-oscuro: #2b4fc2; /* azul para texto sobre fondos claros (avisos), contraste 6.4:1 */
+  --color-acento-inverso: #2b4fc2; /* azul sobre los avisos (que van en el color del texto: claros en el tema oscuro) */
+  --color-contraste: #ffffff; /* velos, bordes y fichas activas: blanco en el oscuro, negro en el claro (bg-contraste/10…) */
+  --color-inverso: #000000; /* texto sobre bg-contraste */
+  /* text-white / bg-white quedan blancos en los dos temas: sobre azul, rojo, degradados o la carátula. */
+}
+
+/*
+ * Tema claro (Ajustes → Tema, o el teléfono en modo claro con «Predeterminado del sistema»: lo pone data-tema en <html>,
+ * ver src/lib/theme.ts). Lo que va sobre la carátula difuminada («Sonando ahora», la mini barra, el panel del PC) lleva
+ * la clase siempre-oscuro y conserva la paleta oscura.
+ */
+:root[data-tema='claro'] {
+  --color-fondo: #ffffff;
+  --color-panel: #ffffff;
+  --color-tarjeta: #f1f2f5;
+  --color-elevado: #eceef2;
+  --color-texto: #111111;
+  --color-texto-sec: #5b6170;
+  --color-acento-texto: #2b4fc2;
+  --color-tarjeta-claro: #e2e5ea;
+  --color-acento-inverso: #9db4ff;
+  --color-contraste: #000000;
+  --color-inverso: #ffffff;
+  color-scheme: light;
+}
+
+.siempre-oscuro {
+  /* Los mismos valores del tema oscuro (@theme). */
+  --color-fondo: #000000;
+  --color-panel: #000000;
+  --color-tarjeta: #1a1a1a;
+  --color-elevado: #242424;
+  --color-texto: #ffffff;
+  --color-texto-sec: #a7a7a7;
+  --color-acento-texto: #7c9cf5;
+  --color-tarjeta-claro: #242424;
+  --color-acento-inverso: #2b4fc2;
+  --color-contraste: #ffffff;
+  --color-inverso: #000000;
+  color-scheme: dark;
 }
 
 @layer base {
@@ -57,7 +97,7 @@
 /* Barra de desplazamiento fina y discreta. */
 @utility scroll-fino {
   scrollbar-width: thin;
-  scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+  scrollbar-color: color-mix(in srgb, var(--color-contraste) 20%, transparent) transparent;
 }
 
 /* Oculta la barra en carruseles horizontales (se siguen pudiendo desplazar). */

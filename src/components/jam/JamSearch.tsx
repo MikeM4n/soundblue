@@ -10,7 +10,7 @@ import { Cover } from '../ui/Cover'
 const SNAP_BACK_MS = 200 // lo que tarda la fila en volver a su lugar: el menú se abre después, junto a su «⋮»
 
 export const jamInputClass =
-  'h-12 w-full rounded-full bg-tarjeta px-5 text-texto ring-1 ring-white/10 outline-none placeholder:text-texto-sec focus:ring-2 focus:ring-acento'
+  'h-12 w-full rounded-full bg-tarjeta px-5 text-texto ring-1 ring-contraste/10 outline-none placeholder:text-texto-sec focus:ring-2 focus:ring-acento'
 
 interface JamSearchProps {
   onAdd: (track: Track) => boolean | Promise<boolean> // true: quedó en la cola compartida
@@ -115,7 +115,7 @@ function JamSearchRow({ track, done, busy, adding, onAdd }: JamSearchRowProps) {
         </div>
       )}
       {swipe.dx > 0 && (
-        <div className="absolute inset-0 flex items-center justify-start gap-2 bg-tarjeta-claro pl-5 text-sm font-semibold text-white">
+        <div className="absolute inset-0 flex items-center justify-start gap-2 bg-tarjeta-claro pl-5 text-sm font-semibold text-texto">
           <EllipsisVertical className={grow} aria-hidden="true" />
           <span>Opciones</span>
         </div>

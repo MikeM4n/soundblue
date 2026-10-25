@@ -78,10 +78,13 @@ export function playRecommendationsNext(kind: RecsKind) {
   if (count) showToast(count === 1 ? 'Sonará a continuación' : `${count} canciones sonarán a continuación`)
 }
 
-/** Vibración corta (Android). En iPhone no existe y no pasa nada. */
+/**
+ * Vibración muy corta (Android): al soltar un gesto de deslizar (agregar a la cola, quitar…) y al dar ▶ o ⏸. En iPhone
+ * no existe y no pasa nada.
+ */
 export function vibrate() {
   try {
-    navigator.vibrate?.(15)
+    navigator.vibrate?.(10)
   } catch {
     /* sin vibración */
   }

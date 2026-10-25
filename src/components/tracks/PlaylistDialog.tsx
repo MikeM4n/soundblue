@@ -54,7 +54,7 @@ export function PlaylistDialog({ track, onClose, onCreated }: PlaylistDialogProp
         role="dialog"
         aria-modal="true"
         aria-labelledby="playlist-dialog-title"
-        className="w-full max-w-sm rounded-xl bg-panel p-4 shadow-2xl ring-1 ring-white/10"
+        className="w-full max-w-sm rounded-xl bg-panel p-4 shadow-2xl ring-1 ring-contraste/10"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -99,7 +99,7 @@ export function PlaylistDialog({ track, onClose, onCreated }: PlaylistDialogProp
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Nombre de la nueva playlist"
-            className="h-10 min-w-0 flex-1 rounded-md bg-tarjeta px-3 text-texto ring-1 ring-white/10 outline-none placeholder:text-texto-sec focus:ring-2 focus:ring-acento"
+            className="h-10 min-w-0 flex-1 rounded-md bg-tarjeta px-3 text-texto ring-1 ring-contraste/10 outline-none placeholder:text-texto-sec focus:ring-2 focus:ring-acento"
           />
           <button
             type="submit"

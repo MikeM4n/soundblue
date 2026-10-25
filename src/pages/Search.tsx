@@ -116,7 +116,7 @@ export function Search() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="¿Qué quieres escuchar?"
               enterKeyHint="search"
-              className="h-12 w-full rounded-full bg-tarjeta pr-11 pl-12 text-texto ring-1 ring-white/10 outline-none placeholder:text-texto-sec focus:ring-2 focus:ring-acento [&::-webkit-search-cancel-button]:hidden"
+              className="h-12 w-full rounded-full bg-tarjeta pr-11 pl-12 text-texto ring-1 ring-contraste/10 outline-none placeholder:text-texto-sec focus:ring-2 focus:ring-acento [&::-webkit-search-cancel-button]:hidden"
             />
             {query && (
               <button

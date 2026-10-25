@@ -77,6 +77,13 @@ export const listening = {
     return new Set([...totals].filter(([, t]) => t.skips >= SKIPS_TO_HIDE && t.skips > t.count).map(([key]) => key))
   },
   entries: () => entries,
+  /** «Tu Top 50»: las más escuchadas (30 s o más), de más a menos; a igual cantidad, la más reciente primero. */
+  top(limit = 50): ListenEntry[] {
+    return entries
+      .filter((e) => e.count > 0)
+      .sort((a, b) => b.count - a.count || b.last - a.last)
+      .slice(0, limit)
+  },
   /** Ids de lo que empezó a sonar en las últimas `ms` (por defecto, 24 h). */
   playedWithin(ms = 24 * 3600 * 1000): Set<string> {
     const since = Date.now() - ms

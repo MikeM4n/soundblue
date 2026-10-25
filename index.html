@@ -9,6 +9,16 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <script>
+      // Tema antes de pintar nada (Ajustes → Tema; por defecto, el del teléfono): sin destello oscuro con el tema claro.
+      // Lo mismo hace src/lib/theme.ts cuando la app ya está abierta.
+      try {
+        var tema = JSON.parse(localStorage.getItem('soundblue:ajustes') || '{}').theme || 'sistema'
+        if (tema === 'sistema') tema = matchMedia('(prefers-color-scheme: dark)').matches ? 'oscuro' : 'claro'
+        document.documentElement.dataset.tema = tema
+        if (tema === 'claro') document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+      } catch (e) {}
+    </script>
     <!-- Pantalla de carga: aparece al instante (antes de que cargue la app); src/lib/splash.ts la desvanece. -->
     <style>
       /* El mismo negro del manifiesto (background_color) desde el primer instante: sin destellos entre la pantalla de
@@ -45,6 +55,15 @@
         letter-spacing: -0.02em;
         opacity: 0;
         animation: splash-fade 900ms ease 250ms forwards;
+      }
+      /* Tema claro: fondo blanco desde el primer instante (el logo azul se ve igual). */
+      html[data-tema='claro'],
+      html[data-tema='claro'] body,
+      html[data-tema='claro'] #splash {
+        background: #fff;
+      }
+      html[data-tema='claro'] #splash p {
+        color: #111;
       }
       @keyframes splash-fade {
         to {

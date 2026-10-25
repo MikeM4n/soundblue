@@ -6,7 +6,7 @@ export function Switch({ label, note, checked, onChange, className = '' }: { lab
         <span className="block font-semibold">{label}</span>
         <span className="block text-sm text-texto-sec">{note}</span>
       </span>
-      <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? 'bg-acento' : 'bg-white/20'}`} aria-hidden="true">
+      <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? 'bg-acento' : 'bg-contraste/20'}`} aria-hidden="true">
         <span className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${checked ? 'left-5.5' : 'left-0.5'}`} />
       </span>
     </button>

@@ -9,7 +9,7 @@ export function Chips({ label, options, value, onChange }: { label: string; opti
           aria-pressed={value === option.key}
           onClick={() => onChange(option.key)}
           className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
-            value === option.key ? 'bg-white text-black' : 'bg-white/10 text-texto hover:bg-white/15'
+            value === option.key ? 'bg-contraste text-inverso' : 'bg-contraste/10 text-texto hover:bg-contraste/15'
           }`}
         >
           {option.label}

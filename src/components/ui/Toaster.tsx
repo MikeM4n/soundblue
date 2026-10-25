@@ -34,7 +34,7 @@ export function Toaster() {
               toast.action!.run()
               dismissToast()
             }}
-            className="shrink-0 rounded px-2 py-1 font-bold text-acento-oscuro hover:bg-black/5"
+            className="shrink-0 rounded px-2 py-1 font-bold text-acento-inverso hover:bg-fondo/10"
           >
             {toast.action.label}
           </button>

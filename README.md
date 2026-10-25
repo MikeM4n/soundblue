@@ -32,6 +32,14 @@ npm run iconos     # regenera los íconos y el favicon desde el logo
 
 Para probar en el teléfono, usa la versión publicada: <https://mikem4n.github.io/soundblue/>.
 
+## Tema, temporizador, compartir y Tu Top 50
+
+- **Tema** (Ajustes, `src/lib/theme.ts`): «Predeterminado del sistema» (por defecto: `prefers-color-scheme`, también si cambia con la app abierta), «Claro» u «Oscuro» (AMOLED: fondos y paneles en negro puro). Se guarda en `soundblue:ajustes` y va en `<html data-tema>`; `index.html` lo aplica antes de pintar (sin destello) y cambia el color de la barra (`theme-color`). En `src/index.css`, el tema claro cambia las variables de la paleta; `contraste`/`inverso` son los velos, bordes y fichas (blanco en el oscuro, negro en el claro); `text-white` queda blanco en los dos (sobre azul, rojo o la carátula). «Sonando ahora», la mini barra y el panel del PC llevan `siempre-oscuro`.
+- **Temporizador** (⋮ de «Sonando ahora», `src/lib/sleepTimer.ts`): 15, 30 o 45 min; al llegar, `player.fadeOutAndPause(5000)` baja el volumen en 5 s y pausa (tu volumen no cambia). No se guarda al cerrar la app.
+- **Vibración** (`vibrate()`, 10 ms, si el teléfono la tiene): al soltar un gesto de deslizar y al dar ▶/⏸.
+- **Compartir** (⋮ de cualquier canción, `src/lib/share.ts`): tarjeta PNG de 1080×1350 dibujada en `<canvas>` (carátula sobre su versión difuminada, título, artista, «SoundBlue») y enlace `#/cancion/:id` (`src/pages/Song.tsx`: la abre con ▶ y su radio), con `navigator.share`; sin imágenes, solo texto y enlace; sin `share`, copia el enlace.
+- **Tu Top 50** (acceso en Inicio → `#/coleccion/top/50`): `listening.top(50)` del historial (`soundblue:historial`, hasta 400 canciones), por veces escuchadas (30 s o más) y, a igual cantidad, la más reciente.
+
 ## Cambiar los colores
 
 Toda la paleta está en `src/index.css`, dentro de `@theme`. Cada color crea sus clases de Tailwind (`bg-fondo`, `text-acento`, `hover:bg-tarjeta`…), así que basta con cambiar el valor ahí.

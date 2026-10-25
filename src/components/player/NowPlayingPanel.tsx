@@ -25,7 +25,7 @@ export function NowPlayingPanel() {
   const next = [...queue, ...upcoming].slice(0, 4)
 
   return (
-    <aside aria-label="Sonando ahora" className="relative hidden w-[380px] shrink-0 overflow-hidden rounded-lg text-white lg:flex">
+    <aside aria-label="Sonando ahora" className="siempre-oscuro relative hidden w-[380px] shrink-0 overflow-hidden rounded-lg text-white lg:flex">
       <Backdrop track={current} />
       <div className="scroll-fino relative flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
         <header className="mb-3 flex items-center justify-between">

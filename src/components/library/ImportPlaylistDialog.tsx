@@ -14,7 +14,7 @@ type Found = { title: string; image?: string; tracks: Track[] }
 /** «Importar playlist»: en «Tu biblioteca» y en «Tus me gusta». */
 export function ImportButton({ onClick }: { onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15">
+    <button type="button" onClick={onClick} className="inline-flex items-center gap-2 rounded-full bg-contraste/10 px-4 py-2 text-sm font-semibold hover:bg-contraste/15">
       <Download className="size-4" aria-hidden="true" />
       Importar playlist
     </button>
@@ -72,7 +72,7 @@ export function ImportPlaylistDialog({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="importar-titulo"
-        className="flex max-h-[85dvh] w-full max-w-md min-w-0 flex-col rounded-xl bg-panel p-4 shadow-2xl ring-1 ring-white/10"
+        className="flex max-h-[85dvh] w-full max-w-md min-w-0 flex-col rounded-xl bg-panel p-4 shadow-2xl ring-1 ring-contraste/10"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -105,12 +105,12 @@ export function ImportPlaylistDialog({ onClose }: { onClose: () => void }) {
               if (playlistIdFrom(text)) window.setTimeout(() => void search(text), 0)
             }}
             placeholder="Pega el enlace de YouTube o YouTube Music"
-            className="h-10 min-w-0 flex-1 rounded-md bg-tarjeta px-3 text-texto ring-1 ring-white/10 outline-none placeholder:text-texto-sec focus:ring-2 focus:ring-acento"
+            className="h-10 min-w-0 flex-1 rounded-md bg-tarjeta px-3 text-texto ring-1 ring-contraste/10 outline-none placeholder:text-texto-sec focus:ring-2 focus:ring-acento"
           />
           <button
             type="submit"
             disabled={!link.trim() || (state !== null && 'loading' in state)}
-            className="h-10 shrink-0 rounded-md bg-white/10 px-3 text-sm font-semibold enabled:hover:bg-white/15 disabled:opacity-40"
+            className="h-10 shrink-0 rounded-md bg-contraste/10 px-3 text-sm font-semibold enabled:hover:bg-contraste/15 disabled:opacity-40"
           >
             Buscar
           </button>
