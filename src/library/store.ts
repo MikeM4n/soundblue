@@ -70,6 +70,18 @@ export const library = {
     return true
   },
 
+  /**
+   * Importar: agrega a favoritos las que falten, arriba y en su orden. Devuelve cuántas agregó y una función para
+   * deshacerlo (quita solo esas).
+   */
+  addFavorites(tracks: readonly Track[]): { added: number; undo: () => void } {
+    const have = new Set(state.favorites.map((t) => t.id))
+    const fresh = tracks.filter((t) => !have.has(t.id) && !!have.add(t.id))
+    if (fresh.length) commit({ ...state, favorites: [...fresh, ...state.favorites] })
+    const ids = new Set(fresh.map((t) => t.id))
+    return { added: fresh.length, undo: () => commit({ ...state, favorites: state.favorites.filter((t) => !ids.has(t.id)) }) }
+  },
+
   /** Quita el favorito de esa posición. Devuelve una función para deshacer. */
   removeFavoriteAt(index: number): () => void {
     const removed = state.favorites[index]

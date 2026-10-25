@@ -1,5 +1,5 @@
 // Canciones que YouTube no deja reproducir fuera de sus apps (ni ellas ni otra versión de la misma): se recuerdan
-// para no volver a intentarlo, saltarlas al avanzar y ofrecer «Abrir en YouTube Music» en su lugar.
+// para no volver a intentarlo, saltarlas al avanzar y no mostrarlas en ninguna lista.
 const KEY = 'soundblue:solo-youtube-music'
 const MAX = 500
 

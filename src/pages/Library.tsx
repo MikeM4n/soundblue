@@ -1,5 +1,7 @@
 import { ChevronRight, Plus } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router'
+import { ImportButton, ImportPlaylistDialog } from '../components/library/ImportPlaylistDialog'
 import { LibraryList, useCreatePlaylist } from '../components/library/LibraryList'
 import { IconButton } from '../components/ui/IconButton'
 
@@ -24,6 +26,7 @@ function PlaybackInfo() {
 /** Tu biblioteca: «Tus me gusta» y tus playlists. En escritorio también está en la barra lateral. */
 export function Library() {
   const createPlaylist = useCreatePlaylist()
+  const [importing, setImporting] = useState(false)
   return (
     <div className="px-2 pt-6 pb-10 md:px-4">
       <div className="flex items-center justify-between px-2">
@@ -32,15 +35,19 @@ export function Library() {
           <Plus className="size-6" />
         </IconButton>
       </div>
-      <Link to="/gustos" className="mx-2 mt-1 inline-flex items-center gap-1 text-sm font-semibold text-acento-texto hover:underline">
-        Cambiar tus artistas
-        <ChevronRight className="size-4" aria-hidden="true" />
-      </Link>
+      <div className="mx-2 mt-1 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Link to="/gustos" className="inline-flex items-center gap-1 text-sm font-semibold text-acento-texto hover:underline">
+          Cambiar tus artistas
+          <ChevronRight className="size-4" aria-hidden="true" />
+        </Link>
+        <ImportButton onClick={() => setImporting(true)} />
+      </div>
       <div className="mt-4">
         <LibraryList coverSize="size-16" />
       </div>
       <PlaybackInfo />
       {createPlaylist.dialog}
+      {importing && <ImportPlaylistDialog onClose={() => setImporting(false)} />}
     </div>
   )
 }

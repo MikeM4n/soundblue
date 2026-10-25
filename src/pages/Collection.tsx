@@ -1,6 +1,7 @@
 import { ChevronLeft, Shuffle } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { ImportButton, ImportPlaylistDialog } from '../components/library/ImportPlaylistDialog'
 import { TrackList } from '../components/tracks/TrackList'
 import type { RemoveAction } from '../components/tracks/trackActions'
 import { Cover } from '../components/ui/Cover'
@@ -27,6 +28,7 @@ export function Collection() {
   const navigate = useNavigate()
   const { favorites, playlists } = useLibrary()
   const { open } = useNowPlaying()
+  const [importing, setImporting] = useState(false)
   const data = resolve(tipo, id, favorites, playlists)
 
   if (!data) {
@@ -69,6 +71,8 @@ export function Collection() {
           <IconButton label={`Reproducir ${data.name} en aleatorio`} disabled={!count} onClick={shuffle}>
             <Shuffle className="size-6" />
           </IconButton>
+          {/* En «Tus me gusta»: traer las canciones de una playlist de YouTube. */}
+          {tipo === 'favoritos' && <ImportButton onClick={() => setImporting(true)} />}
         </div>
       </header>
 
@@ -77,6 +81,7 @@ export function Collection() {
       ) : (
         <TrackList tracks={data.tracks} onPlay={play} removeAction={data.removeAction} />
       )}
+      {importing && <ImportPlaylistDialog onClose={() => setImporting(false)} />}
     </div>
   )
 }

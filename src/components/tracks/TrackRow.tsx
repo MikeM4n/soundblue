@@ -50,7 +50,7 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
   const onlyInYtm = useSyncExternalStore(onlyInYouTubeMusic.subscribe, onlyInYouTubeMusic.get).has(track.id)
   const grow = `size-6 transition-transform ${swipe.armed ? 'scale-125' : ''}`
   // Ya se sabe que YouTube no la deja reproducir aquí (falló ella y sus otras versiones): no se muestra en ninguna lista.
-  // Solo queda a la vista si es la que está sonando (con su aviso y «Abrir en YouTube Music» en «Sonando ahora»).
+  // Solo queda a la vista si es la que está sonando (con su aviso en «Sonando ahora»).
   if (onlyInYtm && !isCurrent) return null
 
   return (
