@@ -47,7 +47,7 @@ const follow = (dy: number) => (dy < 0 ? Math.max(-24, dy * 0.2) : dy)
 /**
  * Hoja inferior «Próximas en sonar», dentro de «Sonando ahora». Se cierra arrastrando hacia abajo desde su
  * borde superior, o desde la lista cuando ya está arriba del todo (con la lista desplazada, el mismo gesto la
- * desplaza). Cerrarla solo oculta la cola: la canción sigue igual. Dentro: derecha = quitar, ≡ = reordenar.
+ * desplaza). Cerrarla solo oculta la cola: la canción sigue igual. Dentro: izquierda = a continuación, derecha = menú (quitar…), ≡ = reordenar.
  */
 export function QueuePanel({ open, top, onClose }: QueuePanelProps) {
   const [dragY, setDragY] = useState<number | null>(null)

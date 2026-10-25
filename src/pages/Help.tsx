@@ -127,12 +127,13 @@ export function Help() {
       <Section id="ayuda-gestos" title="Gestos">
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <B>En Buscar y en las listas</B> (playlists, álbumes, modos): desliza una canción <B>a la izquierda</B> para agregarla a la
-            cola de una vez (o a la Jam, si estás en la de un amigo); <B>a la derecha</B> abre el menú ⋮.
+            <B>A la izquierda, acción rápida</B> (nunca abre un menú): en Buscar y en las listas (playlists, álbumes, modos, Tus me
+            gusta) agrega la canción a la cola de una vez (o a la Jam, si estás en la de un amigo); en «Próximas en sonar», la pone
+            a sonar a continuación.
           </li>
           <li>
-            <B>En «Próximas en sonar»</B>: <B>a la derecha</B> la quitas de la cola (con «Deshacer»; la radio repone para que siempre
-            haya 10); <B>a la izquierda</B> abre el menú ⋮.
+            <B>A la derecha</B> (o tocando ⋮): el menú de opciones. Ahí está también <B>Quitar de la cola</B> (con «Deshacer»; la
+            radio repone para que siempre haya 10).
           </li>
           <li>
             En los carruseles de Inicio, deslizar de lado solo mueve el carrusel: usa ▶ o el menú ⋮.
@@ -147,8 +148,7 @@ export function Help() {
           </li>
           <li>
             <B>Hacia abajo</B> desde arriba de la pantalla: minimizar (en el PC también con la tecla Esc). Arriba a la izquierda,
-            <B> Jam</B> te lleva a tu sala; a la derecha, <B>Transmitir</B> abre la canción en la app de YouTube Music, que tiene el
-            botón para mandarla a tu TV con Chromecast.
+            <B> Jam</B> te lleva a tu sala.
           </li>
           <li>
             En la vista <B>«Video»</B> los toques sobre el video los recibe el reproductor de YouTube: ahí la carátula no se desliza. Usa
@@ -177,8 +177,9 @@ export function Help() {
             «Siguiente en la cola») y te avisa quién agregó cada una.
           </li>
           <li>
-            En la lista de la Jam, <B>desliza una canción a la derecha</B> para quitarla (con «Deshacer»): tú puedes quitar cualquiera;
-            cada amigo, solo las que agregó él. <B>A la izquierda</B> abre el menú ⋮.
+            En la lista de la Jam, <B>desliza una canción a la derecha</B> (o toca ⋮) y elige <B>Eliminar de la Jam</B> para quitarla
+            (con «Deshacer»): tú puedes quitar cualquiera; cada amigo, solo las que agregó él. Tú, además, la deslizas <B>a la
+            izquierda</B> para que suene a continuación.
           </li>
           <li>
             La música suena solo en tu teléfono, como en una fiesta: deja SoundBlue abierto (en segundo plano el teléfono deja de

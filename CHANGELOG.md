@@ -1,5 +1,15 @@
 # Historial de cambios
 
+## 2026-10-25
+
+- Hotfix (rama `hotfix/jam-y-deslizar`, pedido por el dueño):
+  - «Sonando ahora»: en la esquina queda solo el botón Jam. Se quitaron «Minimizar» (ya no estaba desde la versión anterior; se minimiza deslizando hacia abajo o con Esc) y «Transmitir» (Chromecast).
+  - Regla única de deslizar en todas las pantallas:
+    - Izquierda = acción directa, nunca un menú: en Buscar, playlists, álbumes, modos y Tus me gusta agrega a la cola (o a la Jam); en «Próximas en sonar» y en la cola de tu Jam la pone a sonar a continuación.
+    - Derecha (o tocar ⋮) = menú de opciones, donde está quitar («Quitar de la cola», «Eliminar de la Jam», con «Deshacer»).
+    - El invitado no puede reordenar la cola del anfitrión: en esa lista, izquierda no hace nada.
+  - Causa encontrada probando con toques reales: en «Próximas», el borde derecho de la fila es el asa ≡ para reordenar y se quedaba con todo deslizamiento que empezaba ahí (en el celular, deslizar a la izquierda suele empezar justo en ese borde). Ahora el asa solo reordena si el dedo va hacia arriba o abajo; si va de lado, es el gesto de la fila.
+
 ## 2026-10-24
 
 - Ajustes finales y paso a producción (rama `feat/ajustes-finales` → `staging` → `main`, con el OK por escrito del dueño):

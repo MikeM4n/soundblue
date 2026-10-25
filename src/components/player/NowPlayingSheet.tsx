@@ -1,4 +1,4 @@
-import { Cast, ChevronUp, Heart, PictureInPicture2, Users } from 'lucide-react'
+import { ChevronUp, Heart, PictureInPicture2, Users } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useGuestJam } from '../../jam/guestJam'
@@ -174,13 +174,12 @@ export function NowPlayingSheet() {
           cambiar de canción, así que el conjunto no salta y nunca hay scroll. */}
       <div className="relative mx-auto flex h-full max-w-5xl flex-col pt-[env(safe-area-inset-top)] pb-2">
         <header className={`flex shrink-0 items-center gap-1 px-2 py-2 ${fade}`}>
-          {/* «Jam» en vez de minimizar (minimizar: deslizar hacia abajo o, en el PC, la tecla Esc). */}
+          {/* En esta esquina, solo «Jam» (minimizar: deslizar hacia abajo o, en el PC, la tecla Esc). */}
           <JamButton />
           <div className="min-w-0 flex-1 text-center">
             <p className="text-[11px] font-semibold tracking-wider text-white/70 uppercase">Sonando desde</p>
             <p className="truncate text-sm font-bold">{contextName ?? 'Tu música'}</p>
           </div>
-          <CastButton track={current} />
           <FloatingButton />
           <TrackMenu track={current} />
         </header>
@@ -268,24 +267,6 @@ function JamButton() {
   return (
     <IconButton label="Jam: escuchar en grupo" onClick={() => navigate(code ? `/jam/${code}` : '/jam', { replace: true })} className="text-white">
       <Users className="size-6" />
-    </IconButton>
-  )
-}
-
-/**
- * «Transmitir» (Chromecast): SoundBlue no puede mandar la música a la TV (el reproductor de YouTube no lo deja desde otra
- * página y el kit de Google Cast es un script de terceros). Abre la canción en la app de YouTube Music, que sí tiene el
- * botón para transmitir; aquí se pausa para que no suenen las dos.
- */
-function CastButton({ track }: { track: Track }) {
-  const cast = () => {
-    player.pause()
-    showToast('Abriendo en YouTube Music: ahí toca el ícono de transmitir para mandarla a tu TV', undefined, 6000)
-    openInYouTubeMusic(track.id)
-  }
-  return (
-    <IconButton label="Transmitir a la TV (abre YouTube Music)" onClick={cast} className="text-white">
-      <Cast className="size-6" />
     </IconButton>
   )
 }
