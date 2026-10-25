@@ -7,9 +7,11 @@
 //
 // A las canciones se les aplican los filtros de las recomendaciones: sin covers ni versiones (karaoke, instrumental,
 // slowed…), sin artistas que sueles saltar, como mucho 2 por artista y ninguna repetida. El orden es al azar, el mismo
-// durante la sesión.
+// durante la sesión. En el Modo Tomar, además, nada de salsa, merengue, bachata ni urbano (data/genreIndex.ts), aunque
+// venga en una playlist de despecho.
 import type { Track } from '../player/types'
 import { hashText, seededRandom, sessionSeed, shuffle } from '../lib/random'
+import { clashes, genreIndexSoon, genreScope, type GenreKey } from './genreIndex'
 import { artistKey, listening } from './history'
 import { capPerArtist, interleave, unique } from './lists'
 import { ytmCategoryPlaylists, ytmPage, ytmSearchPlaylists, type YtmCard } from './ytmusic'
@@ -18,6 +20,7 @@ import { ytmCategoryPlaylists, ytmPage, ytmSearchPlaylists, type YtmCard } from 
 export const NOT_ORIGINAL = /\b(cover|karaoke|instrumental|slowed|sped ?up|nightcore|8d)\b/i
 
 const PLAYLISTS_PER_LIST = 2 // las canciones de un género o filtro salen de sus 2 primeras playlists
+const INDEX_WAIT_MS = 20000 // la primera vez el índice de géneros tarda en armarse: la lista de un Modo lo espera
 const SEASONAL = /halloween|navidad|navideñ|christmas|diciembre|decembrin/i
 // Palabras de género: una playlist que nombra varios («Salsa y Merengue») va después de las de un solo género.
 const GENRE_WORDS = [
@@ -91,6 +94,9 @@ export interface Mode {
   key: 'rumba' | 'tomar' | 'relax'
   label: string
   note: string
+  // Si los tiene, su radio es de estos géneros (no se adivinan de cada canción) y su lista no trae nada que choque con
+  // ellos. Sin esto (Rumba, Relax), la radio sigue el género de la canción que suena.
+  genres?: GenreKey[]
   filters: GenreSource[] // subfiltros; «Todo» los mezcla
 }
 
@@ -116,6 +122,7 @@ export const MODES: Mode[] = [
     key: 'tomar',
     label: 'Modo Tomar',
     note: 'Despecho, rancheras y vallenato',
+    genres: ['popular', 'regional', 'vallenato'],
     filters: [
       { key: 'despecho', label: 'Despecho', category: 'Música regional y popular', queries: ['música para tomar despecho'], match: /despecho|popular/i },
       { key: 'rancheras', label: 'Rancheras', category: 'Música regional y popular', queries: ['rancheras para tomar'], match: /ranch|mariachi|vicente/i },
@@ -156,11 +163,16 @@ export async function sourceTracks(source: GenreSource, limit = 40): Promise<Tra
   return strictFilter(interleave(pages.map((page) => shuffle(page?.tracks ?? [], random))), limit)
 }
 
-/** Canciones de un modo: un subfiltro, o todos mezclados («Todo»). */
+/** Canciones de un modo: un subfiltro, o todos mezclados («Todo»), sin las de un género que choca con el del modo. */
 export async function modeTracks(mode: Mode, filterKey: string | null, limit = 50): Promise<Track[]> {
   const sources = filterKey ? mode.filters.filter((f) => f.key === filterKey) : mode.filters
-  const lists = await Promise.all(sources.map((source) => sourceTracks(source).catch(() => [])))
-  return strictFilter(interleave(lists), limit)
+  const [lists, index] = await Promise.all([
+    Promise.all(sources.map((source) => sourceTracks(source).catch(() => []))),
+    mode.genres ? genreIndexSoon(INDEX_WAIT_MS) : null,
+  ])
+  const scope = genreScope(new Set(mode.genres))
+  const fits = (track: Track) => !index || !clashes(track, index, scope)
+  return strictFilter(interleave(lists.map((list) => list.filter(fits))), limit)
 }
 
 /** Los filtros de las recomendaciones: sin covers, sin artistas que sueles saltar, 2 por artista y sin repetidas. */

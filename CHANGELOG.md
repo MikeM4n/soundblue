@@ -2,6 +2,10 @@
 
 ## 2026-10-25
 
+- Hotfix 4 (rama `hotfix/generos-y-quitar`, pedido por el dueño):
+  - Modo Tomar aislado: su lista y las recomendadas que siguen son solo popular, ranchera y vallenato. Nunca salsa, merengue, bachata ni urbano, aunque el artista también salga en playlists de esos géneros (Maluma, Romeo Santos, Becky G, «Nunca me fui» de Fonseca con Rubén Blades) o el título lo diga («Mi Decisión (Merengue)»). Artistas que el índice de géneros no conoce no entran, salvo los de la lista del modo y el de la canción que suena (la radio de Pastor López traía orquestas tropicales y salsa por ahí). El modo se recuerda al cerrar la app.
+  - Matriz de géneros: popular, ranchera y vallenato son una familia cerrada también fuera del modo (la radio de una canción popular desde Buscar no cruza). Vallenato ya no acepta cumbia, ni cumbia vallenato. El índice lee 6 playlists de esos tres géneros (antes 3) para conocer más artistas; se vuelve a armar una vez (versión 4).
+  - «Próximas en sonar» (página y panel de «Sonando ahora»): deslizar a la DERECHA quita la canción de la cola, con «Deshacer», sin abrir el menú. Igual en la cola de la Jam (el anfitrión, cualquiera; el invitado, las suyas; en las de otros no pasa nada). Izquierda sigue igual (a continuación). En Buscar y las listas, derecha sigue abriendo el menú. «⋮» siempre abre el menú.
 - Hotfix 3 (rama `hotfix/jam-a-la-derecha`, pedido por el dueño):
   - «Sonando ahora»: Jam pasa a la esquina de arriba a la derecha, junto a ⋮. A la izquierda no queda nada (Minimizar sigue siendo deslizar hacia abajo, o Esc en el PC) y «Sonando desde» queda centrado. La barra tiene solo esas tres cosas; la pantalla flotante ya no existe desde el hotfix 2.
 - Hotfix 2 (rama `hotfix/sin-pantalla-flotante`, pedido por el dueño con captura del teléfono):

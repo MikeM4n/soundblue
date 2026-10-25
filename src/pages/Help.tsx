@@ -132,8 +132,11 @@ export function Help() {
             a sonar a continuación.
           </li>
           <li>
-            <B>A la derecha</B> (o tocando ⋮): el menú de opciones. Ahí está también <B>Quitar de la cola</B> (con «Deshacer»; la
-            radio repone para que siempre haya 10).
+            <B>A la derecha</B>: en «Próximas en sonar», <B>la quita de la cola</B> (con «Deshacer»; la radio repone para que siempre
+            haya 10). En Buscar y en las listas, abre el menú de opciones.
+          </li>
+          <li>
+            <B>Tocar ⋮</B>: siempre el menú de opciones.
           </li>
           <li>
             En los carruseles de Inicio, deslizar de lado solo mueve el carrusel: usa ▶ o el menú ⋮.
@@ -177,9 +180,9 @@ export function Help() {
             «Siguiente en la cola») y te avisa quién agregó cada una.
           </li>
           <li>
-            En la lista de la Jam, <B>desliza una canción a la derecha</B> (o toca ⋮) y elige <B>Eliminar de la Jam</B> para quitarla
-            (con «Deshacer»): tú puedes quitar cualquiera; cada amigo, solo las que agregó él. Tú, además, la deslizas <B>a la
-            izquierda</B> para que suene a continuación.
+            En la lista de la Jam, <B>desliza una canción a la derecha</B> para quitarla (con «Deshacer»; también con ⋮ →{' '}
+            <B>Eliminar de la Jam</B>): tú puedes quitar cualquiera; cada amigo, solo las que agregó él. Tú, además, la deslizas{' '}
+            <B>a la izquierda</B> para que suene a continuación.
           </li>
           <li>
             La música suena solo en tu teléfono, como en una fiesta: deja SoundBlue abierto (en segundo plano el teléfono deja de

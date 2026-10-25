@@ -140,7 +140,7 @@ export function JamHost() {
 
       <section className="mt-8 text-left" aria-label="Próximas en sonar">
         <h2 className="text-lg font-bold">Próximas en sonar</h2>
-        <p className="mb-1 text-xs text-texto-sec">Desliza una canción a la izquierda para que suene a continuación; a la derecha (o ⋮), opciones como quitarla.</p>
+        <p className="mb-1 text-xs text-texto-sec">Desliza una canción a la izquierda para que suene a continuación; a la derecha, para quitarla (con «Deshacer»).</p>
         <HostJamUpcoming />
       </section>
 

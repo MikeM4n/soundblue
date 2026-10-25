@@ -22,10 +22,10 @@ const SIMILAR: Record<GenreKey, GenreKey[]> = {
   salsa: ['merengue', 'bachata'],
   merengue: ['salsa', 'bachata'],
   bachata: ['salsa', 'merengue'],
-  vallenato: ['cumbia', 'popular'],
-  cumbia: ['vallenato', 'merengue'],
+  vallenato: ['popular', 'regional'],
+  cumbia: ['merengue'],
   popular: ['regional', 'vallenato'],
-  regional: ['popular'],
+  regional: ['popular', 'vallenato'],
   pop: ['baladas'],
   baladas: ['pop', 'boleros'],
   boleros: ['baladas'],
@@ -45,10 +45,20 @@ const SCRIPTS: [RegExp, GenreKey][] = [
 ]
 const DOMINANT = 0.3 // sin género conocido, la canción que suena toma el de la mayoría de su radio (≥ 30 %)
 
+// Popular, ranchera (regional mexicano) y vallenato son una familia CERRADA (la del Modo Tomar): si la canción que suena
+// es de ella, su radio nunca trae salsa, merengue, bachata ni urbano, aunque el artista también salga en playlists de
+// esos géneros (Maluma, Romeo Santos, Rubén Blades con Fonseca…) o el título lo diga («Mi Decisión (Merengue)»). Salvo
+// que la canción que suena también sea de ese género.
+const CLOSED: readonly GenreKey[] = ['popular', 'regional', 'vallenato']
+const CLASH: readonly GenreKey[] = ['salsa', 'merengue', 'bachata', 'reggaeton', 'dancehall', 'trap', 'electronica', 'kpop', 'jpop', 'cpop']
+const CLASH_WORDS = /\b(salsa|merengue|bachata|regg?a?et[oó]n|perreo|dembow|dancehall)\b/i
+
 const KEY = 'soundblue:indice-generos'
-const VERSION = 3 // cambia si cambian los géneros, sus fuentes o la forma de contar
+const VERSION = 4 // cambia si cambian los géneros, sus fuentes o la forma de contar
 const MAX_AGE = 7 * 24 * 3600 * 1000
 const PLAYLISTS_PER_GENRE = 3
+// La familia cerrada no deja entrar artistas que el índice no conoce: de esos géneros se leen más playlists.
+const PLAYLISTS_CLOSED = 6
 const AT_ONCE = 3 // consultas de géneros a la vez (para no saturar al intermediario)
 const MAIN_WEIGHT = 2 // el artista principal de la canción cuenta doble que los invitados
 const STRONG = 0.5 // un género cuenta si suma al menos la mitad que el más fuerte del artista
@@ -80,7 +90,7 @@ async function build(): Promise<GenreIndex> {
   for (let i = 0; i < genres.length; i += AT_ONCE) {
     await Promise.all(
       genres.slice(i, i + AT_ONCE).map(async (genre) => {
-        const playlists = (await sourcePlaylists(INDEX_GENRES[genre]).catch(() => [])).slice(0, PLAYLISTS_PER_GENRE)
+        const playlists = (await sourcePlaylists(INDEX_GENRES[genre]).catch(() => [])).slice(0, CLOSED.includes(genre) ? PLAYLISTS_CLOSED : PLAYLISTS_PER_GENRE)
         const pages = await Promise.all(playlists.map((playlist) => ytmPage(playlist.id).catch(() => null)))
         for (const track of pages.flatMap((page) => page?.tracks ?? [])) {
           const main = artistKey(track.artist)
@@ -151,4 +161,29 @@ export function similarTo(genres: ReadonlySet<GenreKey>): Set<GenreKey> {
     for (const similar of SIMILAR[genre]) cluster.add(similar)
   }
   return cluster
+}
+
+export const isGenreKey = (key: unknown): key is GenreKey => typeof key === 'string' && Object.hasOwn(INDEX_GENRES, key)
+
+/** Reglas de género de una radio (o de un Modo) a partir de los géneros de su canción. */
+export interface GenreScope {
+  accepts: Set<GenreKey> // sus géneros y los parecidos
+  banned: Set<GenreKey> // nunca, aunque el artista también sea de un género aceptado
+  strict: boolean // todo es de la familia cerrada: tampoco entran artistas que el índice no conoce
+}
+
+export function genreScope(genres: ReadonlySet<GenreKey>): GenreScope {
+  const closed = [...genres].some((genre) => CLOSED.includes(genre))
+  const banned = new Set(closed ? CLASH.filter((genre) => !genres.has(genre)) : [])
+  return {
+    accepts: new Set([...similarTo(genres)].filter((genre) => !banned.has(genre))),
+    banned,
+    strict: genres.size > 0 && [...genres].every((genre) => CLOSED.includes(genre)),
+  }
+}
+
+/** La canción es de un género prohibido por `scope` (por sus artistas o, en la familia cerrada, por su título). */
+export function clashes(track: Track, index: GenreIndex, scope: GenreScope): boolean {
+  if (scope.strict && CLASH_WORDS.test(track.title)) return true
+  return [...genresOf(track, index)].some((genre) => scope.banned.has(genre))
 }

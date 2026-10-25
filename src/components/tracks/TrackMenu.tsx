@@ -19,7 +19,7 @@ interface TrackMenuProps {
 }
 
 interface TrackMenuControl {
-  open?: boolean // abierto desde fuera (deslizar la fila a la izquierda)
+  open?: boolean // abierto desde fuera (deslizar a la derecha una fila de Buscar o de una lista)
   onOpenChange?: (open: boolean) => void
 }
 
