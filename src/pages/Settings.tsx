@@ -1,11 +1,12 @@
 import { ChevronRight } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
+import { Switch } from '../components/ui/Switch'
 import { settings, useSettings } from '../lib/settings'
 
 /** Ajustes: lo que se puede personalizar de la app (se guarda en este navegador). */
 export function Settings() {
-  const { hideViewToggle } = useSettings()
+  const { hideViewToggle, dynamicQueue } = useSettings()
   return (
     <div className="mx-auto max-w-2xl space-y-4 px-4 pt-6 pb-10">
       <h1 className="text-2xl font-bold md:text-3xl">Ajustes</h1>
@@ -15,10 +16,18 @@ export function Settings() {
           Sonando ahora
         </h2>
         <Switch
+          className="mt-3"
           label="Mostrar «Canción | Video»"
           note="Si lo ocultas, siempre se ve la carátula. La música suena igual."
           checked={!hideViewToggle}
           onChange={(on) => settings.set({ hideViewToggle: !on })}
+        />
+        <Switch
+          className="mt-4"
+          label="Fila Dinámica"
+          note="La cola nunca baja de 10: si quitas una o se acaba la lista, entran canciones de «Recomendadas». También se cambia en «Próximas en sonar»."
+          checked={dynamicQueue}
+          onChange={(on) => settings.set({ dynamicQueue: on })}
         />
       </section>
 
@@ -36,20 +45,6 @@ export function Settings() {
         </p>
       </section>
     </div>
-  )
-}
-
-function Switch({ label, note, checked, onChange }: { label: string; note: string; checked: boolean; onChange: (on: boolean) => void }) {
-  return (
-    <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className="mt-3 flex w-full items-center gap-4 text-left">
-      <span className="min-w-0 flex-1">
-        <span className="block font-semibold">{label}</span>
-        <span className="block text-sm text-texto-sec">{note}</span>
-      </span>
-      <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? 'bg-acento' : 'bg-white/20'}`} aria-hidden="true">
-        <span className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${checked ? 'left-5.5' : 'left-0.5'}`} />
-      </span>
-    </button>
   )
 }
 

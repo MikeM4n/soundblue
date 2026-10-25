@@ -1,4 +1,4 @@
-import { AudioLines, EllipsisVertical, ListEnd, ListStart, Trash, Users } from 'lucide-react'
+import { AudioLines, EllipsisVertical, ListEnd, ListStart, Trash, Users, X } from 'lucide-react'
 import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { useInGuestJam } from '../../jam/guestJam'
 import { formatDuration } from '../../lib/format'
@@ -22,25 +22,28 @@ export interface TrackRowProps {
   trailing?: ReactNode // p. ej. el asa para reordenar en la cola
   style?: CSSProperties
   // 'lista' (Buscar, playlists, álbumes, modos…): izquierda la agrega al final de la cola (o a la Jam), derecha abre el
-  // menú «⋮». 'cola' («Próximas en sonar»): izquierda la pone a sonar a continuación, derecha la quita (`removeAction`).
-  swipe?: 'lista' | 'cola'
+  // menú «⋮». 'cola' («En Cola»): izquierda la pone a sonar a continuación, derecha la quita (`removeAction`).
+  // 'sugerencia' («Recomendadas», «Por Descubrir»): izquierda la agrega a la cola, derecha la descarta (`removeAction`).
+  swipe?: 'lista' | 'cola' | 'sugerencia'
   // Sin gestos de deslizar (carruseles de Inicio): deslizar de lado mueve el carrusel. Queda el ▶ y el menú «⋮».
   plain?: boolean
 }
 
 /**
  * Fila de canción como en Spotify: portada pequeña, título, artista y menú «⋮» (Reproducir, Agregar a la cola, Me
- * gusta…). En el celular, deslizar a la IZQUIERDA es la acción rápida y nunca abre un menú (en las listas, agregar a la
- * cola o a la Jam; en «Próximas en sonar», que suene a continuación). A la DERECHA: en «Próximas en sonar» la quita de la
- * cola (con «Deshacer»); en las listas abre el menú. Tocar «⋮» siempre abre el menú.
+ * gusta…). En el celular, deslizar a la IZQUIERDA es la acción rápida y nunca abre un menú (en las listas y las
+ * recomendaciones, agregar a la cola o a la Jam; en «En Cola», que suene a continuación). A la DERECHA: en «Próximas en
+ * sonar» la quita de la cola o descarta la recomendación (con «Deshacer»); en las listas abre el menú. Tocar «⋮» siempre
+ * abre el menú.
  */
 export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, duration, removeAction, trailing, style, swipe: mode = 'lista', plain = false }: TrackRowProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const inJam = useInGuestJam() // en la Jam de otro, «agregar» va a la cola compartida
   const openMenu = () => window.setTimeout(() => setMenuOpen(true), SNAP_BACK_MS)
   const inQueue = mode === 'cola'
-  // En la cola, a la derecha solo si se puede quitar (la que suena no): nunca abre el menú.
-  const onRight = inQueue ? removeAction && (() => removeWithUndo(removeAction)) : openMenu
+  const removes = mode !== 'lista' // a la derecha quita (cola) o descarta (recomendación): nunca abre el menú
+  // A la derecha solo si se puede quitar (la que suena no).
+  const onRight = removes ? removeAction && (() => removeWithUndo(removeAction)) : openMenu
   const swipe = useSwipe(plain ? {} : { onLeft: () => (inQueue ? playNext(track) : addToSiguientes(track)), onRight })
   const shownDuration = duration ?? track.duration
   // YouTube no deja reproducirla fuera de sus apps: se avisa antes de tocarla (al tocarla se ofrece abrirla allá).
@@ -66,10 +69,10 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
         </div>
       )}
       {swipe.dx > 0 &&
-        (inQueue ? (
+        (removes ? (
           <div className="absolute inset-0 flex items-center justify-start gap-2 bg-red-600 pl-5 text-sm font-semibold text-white">
-            <Trash className={grow} aria-hidden="true" />
-            <span>Quitar</span>
+            {inQueue ? <Trash className={grow} aria-hidden="true" /> : <X className={grow} aria-hidden="true" />}
+            <span>{inQueue ? 'Quitar' : 'Descartar'}</span>
           </div>
         ) : (
           <div className="absolute inset-0 flex items-center justify-start gap-2 bg-tarjeta-claro pl-5 text-sm font-semibold text-white">

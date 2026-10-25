@@ -2,6 +2,13 @@
 
 ## 2026-10-25
 
+- Rediseño de «Próximas en sonar» (rama `feat/proximas-pestanas`, pedido por el dueño):
+  - Tres pestañas: **En Cola** (lo que va a sonar: tu cola, lo que sigue de la lista y lo que agregó la Fila Dinámica), **Recomendadas** y **Por Descubrir** (solo canciones que nunca sonaron aquí). Las dos últimas salen de la radio de la canción que suena y ya no suenan solas: pasan a la cola cuando tú quieras (o la Fila Dinámica). Siempre abre en «En Cola».
+  - Gestos en todas: izquierda = a la cola (en «En Cola», a continuación); derecha = quitar o descartar, con «Deshacer». Lo descartado no vuelve en esa radio y la pestaña se repone.
+  - **Fila Dinámica** (interruptor en «En Cola» y en Ajustes, encendida por defecto): con ella siempre hay al menos 10 por sonar; si quitas una, entra otra de «Recomendadas». Apagada, la cola queda como la dejas y la música se detiene al acabarse. La primera vez, un consejo recomienda dejarla encendida.
+  - **Reproducir a continuación** (botón grande en «Recomendadas» y «Por Descubrir»): todas las de la pestaña, en su orden, justo después de la que suena. La pestaña se llena con otras.
+  - Cero duplicados (por videoId): una canción nunca está en dos pestañas; al pasar a la cola por cualquier camino (gesto, Buscar, la Jam) sale de su pestaña.
+  - Tocar una recomendada la pone a sonar ya, y las recomendaciones pasan a salir de ella.
 - Hotfix 4 (rama `hotfix/generos-y-quitar`, pedido por el dueño):
   - Modo Tomar aislado: su lista y las recomendadas que siguen son solo popular, ranchera y vallenato. Nunca salsa, merengue, bachata ni urbano, aunque el artista también salga en playlists de esos géneros (Maluma, Romeo Santos, Becky G, «Nunca me fui» de Fonseca con Rubén Blades) o el título lo diga («Mi Decisión (Merengue)»). Artistas que el índice de géneros no conoce no entran, salvo los de la lista del modo y el de la canción que suena (la radio de Pastor López traía orquestas tropicales y salsa por ahí). El modo se recuerda al cerrar la app.
   - Matriz de géneros: popular, ranchera y vallenato son una familia cerrada también fuera del modo (la radio de una canción popular desde Buscar no cruza). Vallenato ya no acepta cumbia, ni cumbia vallenato. El índice lee 6 playlists de esos tres géneros (antes 3) para conocer más artistas; se vuelve a armar una vez (versión 4).

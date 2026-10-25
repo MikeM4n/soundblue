@@ -6,9 +6,10 @@ const KEY = 'soundblue:ajustes'
 
 export interface Settings {
   hideViewToggle: boolean // ocultar «Canción | Video» en «Sonando ahora» (queda siempre la carátula)
+  dynamicQueue: boolean // Fila Dinámica: la cola nunca baja de 10 (pasan canciones de «Recomendadas»)
 }
 
-const DEFAULTS: Settings = { hideViewToggle: false }
+const DEFAULTS: Settings = { hideViewToggle: false, dynamicQueue: true }
 
 function read(): Settings {
   try {
