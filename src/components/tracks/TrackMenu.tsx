@@ -1,8 +1,7 @@
-import { EllipsisVertical, ExternalLink, Heart, ListEnd, ListPlus, ListStart, ListX, Play, Radio, Trash, Users } from 'lucide-react'
+import { EllipsisVertical, Heart, ListEnd, ListPlus, ListStart, ListX, Play, Radio, Trash, Users } from 'lucide-react'
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useInGuestJam } from '../../jam/guestJam'
-import { openInYouTubeMusic } from '../../lib/youtubeMusicLink'
 import { useLibrary } from '../../library/store'
 import { player } from '../../player/engine'
 import { stageBox } from '../../player/stage'
@@ -162,9 +161,6 @@ function MenuPopover({ anchor, track, removeAction, onPlay, onClose, onChoosePla
       )}
       <MenuItem icon={<Radio className="size-4" />} onSelect={run(() => startRadio(track, open))}>
         Iniciar radio
-      </MenuItem>
-      <MenuItem icon={<ExternalLink className="size-4" />} onSelect={run(() => openInYouTubeMusic(track.id))}>
-        Abrir en YouTube Music
       </MenuItem>
       <MenuItem icon={<ListPlus className="size-4" />} onSelect={onChoosePlaylist}>
         Agregar a playlist

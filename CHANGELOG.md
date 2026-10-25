@@ -2,6 +2,13 @@
 
 ## 2026-10-25
 
+- Karaoke, importar playlists y todo dentro de SoundBlue (rama `feat/karaoke-e-importar`, pedido por el dueño):
+  - El video de YouTube no se muestra en ninguna parte (ni en «Sonando ahora», ni en el panel del PC): su reproductor suena oculto. «Canción» = la carátula grande.
+  - «Letra» tipo karaoke: la línea que se canta se resalta y la lista avanza sola; tocar una línea lleva la canción a ese momento; deslizar con el dedo pausa el avance 4 s. Letra con tiempos de YouTube Music (como su app de Android, sincronizada con esa grabación) y, si no, de LRCLib (la versión que dura lo mismo). Sin tiempos, el texto (YouTube Music o lyrics.ovh). Con su fuente.
+  - «Importar playlist» (en Tu biblioteca y en Tus me gusta): pegas el enlace de una playlist de YouTube o YouTube Music, se ven todas sus canciones (sigue las páginas, hasta 1000) y «Agregar todas a Me gusta» (sin repetir, con Deshacer). Los «Mix» automáticos y las privadas no se pueden.
+  - Sin «Abrir en YouTube Music» (menú ⋮, «Sonando ahora» y avisos): nada saca de la app.
+  - Tocar la carátula (o el fondo) ya no oculta los controles: no pasa nada.
+  - Controles de reloj/carro y ⏮ ⏭ en la notificación: los manejadores de la Media Session ya estaban; el navegador le da esos botones al reproductor de YouTube (el que suena), así que solo hay ▶/⏸. Un `<audio>` propio exigiría extraer el audio de YouTube (descartado). Sin cambios.
 - Ajustes de UI, filtros y letras (rama `feat/letra-y-filtros`, pedido por el dueño):
   - Canciones no disponibles: si una no se deja reproducir aquí (ni ella ni sus otras versiones), sale de tu cola, de lo que sigue y de las pestañas (la Fila Dinámica pone otra), no se deja agregar («no está disponible aquí») y deja de aparecer en todas las listas (Buscar, playlists, Inicio, búsqueda de la Jam). YouTube Music no dice de antemano cuáles son: probado, el oEmbed de YouTube solo avisó de 5 de 56 videos bloqueados, así que no se usa como filtro.
   - «Próximas en sonar»: sin el botón «Jam · código» (Jam sigue arriba a la derecha de «Sonando ahora»). Las pestañas quedan igual.

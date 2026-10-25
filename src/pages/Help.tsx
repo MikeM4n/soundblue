@@ -163,8 +163,9 @@ export function Help() {
             junto a ⋮, <B>Jam</B> te lleva a tu sala.
           </li>
           <li>
-            En la vista <B>«Letra»</B> se ve el video de YouTube y, debajo, la letra (deslízala con el dedo para leerla). Los toques sobre
-            el video los recibe el reproductor de YouTube: ahí la carátula no se desliza. Usa los botones ⏮ ⏭ o vuelve a «Canción».
+            En la vista <B>«Letra»</B> la letra sigue la canción como un karaoke: la línea que se canta se ilumina y la lista avanza
+            sola. <B>Toca una línea</B> para ir a ese momento; si la deslizas con el dedo, deja de avanzar sola unos segundos. Si una
+            letra no tiene tiempos, se ve completa.
           </li>
           <li>
             En el PC: <B>flecha derecha</B> = siguiente, <B>flecha izquierda</B> = anterior.
@@ -207,9 +208,9 @@ export function Help() {
 
       <Section id="ayuda-catalogo" title="Catálogo de YouTube Music">
         <p>
-          SoundBlue busca en el catálogo de YouTube Music. Algunas pistas solo están disponibles en la app oficial de YouTube Music;
-          para esas, usa el botón <B>«Abrir en YouTube Music»</B>. La búsqueda completa depende de un proxy no oficial que puede
-          dejar de funcionar si YouTube cambia su API.
+          SoundBlue busca en el catálogo de YouTube Music. Algunas pistas YouTube no las deja reproducir fuera de sus apps: si una
+          falla (ella y sus otras versiones), SoundBlue pasa a la siguiente y deja de mostrarla en tus listas. La búsqueda completa
+          depende de un proxy no oficial que puede dejar de funcionar si YouTube cambia su API.
         </p>
         <p>
           Si un día no carga, la app sigue funcionando con la lista de prueba. Las canciones suenan en el reproductor oficial de

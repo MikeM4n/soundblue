@@ -6,9 +6,8 @@ import { useGuestJam } from '../../jam/guestJam'
 import { useLibrary } from '../../library/store'
 import { useSettings } from '../../lib/settings'
 import { usePreventTouchMove } from '../../lib/usePreventTouchMove'
-import { openInYouTubeMusic } from '../../lib/youtubeMusicLink'
 import { player } from '../../player/engine'
-import { sheetState, stageBox, stagePulse, useStageSlot, youtubeView, type YouTubeView } from '../../player/stage'
+import { sheetState, stagePulse, youtubeView, type YouTubeView } from '../../player/stage'
 import { coverSources, type Track } from '../../player/types'
 import { onlyInYouTubeMusic } from '../../player/unavailable'
 import { usePlayer } from '../../player/usePlayer'
@@ -29,29 +28,24 @@ const INTERACTIVE = 'button, a, input, [role="menu"], [data-queue-panel], [data-
 
 /**
  * «Sonando ahora» en pantalla completa, como Spotify. Sube deslizándose al tocar una canción.
- * Fondo: la imagen de la canción en alta resolución, muy difuminada y oscurecida. Al centro: la carátula
- * nítida o, con «Letra», el reproductor oficial a todo el ancho (16:9, sin nada encima ni recortado: así lo exige
- * YouTube) y la letra debajo, que se desplaza con el dedo.
- * Debajo: título, artista, favorito, progreso y controles. Un toque en el fondo los oculta o muestra.
+ * Fondo: la imagen de la canción en alta resolución, muy difuminada y oscurecida. Al centro: la carátula nítida o, con
+ * «Letra», la letra tipo karaoke (la línea que se canta resaltada). El video de YouTube no se muestra en ninguna parte
+ * (decisión del dueño, 25-10-2026): su reproductor suena oculto (VideoStage).
+ * Debajo: título, artista, favorito, progreso y controles, siempre a la vista: tocar la carátula o el fondo no hace nada.
  * Gestos: hacia abajo = minimizar (si el panel de la cola está cerrado) · hacia arriba = «Próximas en sonar».
- * Ojo: los toques sobre el video los recibe YouTube, así que los gestos se hacen fuera del video.
  */
 export function NowPlayingSheet() {
   const { current, contextName, error } = usePlayer()
   const { favorites } = useLibrary()
   const navigate = useNavigate()
   const location = useLocation()
-  const videoSlot = useStageSlot('pantalla')
-  const video = useSyncExternalStore(stageBox.subscribe, stageBox.get)
   const view = useSyncExternalStore(youtubeView.subscribe, youtubeView.get)
   const { hideViewToggle } = useSettings() // Ajustes: ocultar «Canción | Letra»
   const [shown, setShown] = useState(false) // para la animación de entrada
   const [closing, setClosing] = useState(false)
   const [dragY, setDragY] = useState<number | null>(null)
   const [queueOpen, setQueueOpen] = useState(false)
-  const [controlsHidden, setControlsHidden] = useState(false)
   const drag = useRef<{ pointerId: number; startY: number; startX: number; axis: 'x' | 'y' | null; dy: number } | null>(null)
-  const showTimer = useRef<number | undefined>(undefined)
   const closeTimer = useRef<number | undefined>(undefined)
   const rootRef = useRef<HTMLDivElement>(null)
   usePreventTouchMove(rootRef, () => drag.current?.axis === 'y')
@@ -63,7 +57,6 @@ export function NowPlayingSheet() {
     stagePulse.emit()
     return () => {
       cancelAnimationFrame(frame)
-      window.clearTimeout(showTimer.current)
       // Si mientras bajaba ya fuiste a otra pantalla, no se vuelve atrás (te sacaría de donde estás).
       window.clearTimeout(closeTimer.current)
       sheetState.set('closed')
@@ -140,17 +133,7 @@ export function NowPlayingSheet() {
 
   const showLyrics = view === 'letra'
   const liked = favorites.some((t) => t.id === current.id)
-  // Un toque en el fondo oculta los controles para ver el video o la carátula; vuelven solos a los 5 s.
-  const toggleControls = () => {
-    window.clearTimeout(showTimer.current)
-    setControlsHidden((hidden) => {
-      if (!hidden) showTimer.current = window.setTimeout(() => setControlsHidden(false), 5000)
-      return !hidden
-    })
-  }
-  const fade = `transition-opacity duration-300 ${controlsHidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`
-  // Con el video a la vista, el panel de la cola sube solo hasta debajo del video: no puede taparlo.
-  const panelTop = video?.kind === 'pantalla' ? video.top + video.height + 8 : Math.round(window.innerHeight * 0.12)
+  const panelTop = Math.round(window.innerHeight * 0.12) // hasta dónde sube el panel de la cola
   const offset = !shown || closing ? '100%' : `${dragY ?? 0}px`
 
   return (
@@ -166,7 +149,6 @@ export function NowPlayingSheet() {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-      onClick={(e) => !queueOpen && !(e.target as Element).closest(INTERACTIVE) && toggleControls()}
     >
       <Backdrop track={current} />
 
@@ -174,7 +156,7 @@ export function NowPlayingSheet() {
           el espacio que sobra para la carátula o el video, centrados. Nada entra ni sale del flujo al deslizar o al
           cambiar de canción, así que el conjunto no salta y nunca hay scroll. */}
       <div className="relative mx-auto flex h-full max-w-5xl flex-col pt-[env(safe-area-inset-top)] pb-2">
-        <header className={`flex shrink-0 items-center gap-1 px-2 py-2 ${fade}`}>
+        <header className="flex shrink-0 items-center gap-1 px-2 py-2">
           {/* Izquierda vacía (del ancho de los dos botones de la derecha, para que el título quede centrado); centro: de
               dónde suena; derecha: Jam y ⋮. Minimizar: deslizar hacia abajo o, en el PC, la tecla Esc. */}
           <span className="w-20 shrink-0" aria-hidden="true" />
@@ -186,16 +168,11 @@ export function NowPlayingSheet() {
           <TrackMenu track={current} />
         </header>
 
-        {/* Centro: la carátula nítida (como Spotify y YouTube Music) o, si eliges «Letra», el reproductor oficial a
-            todo el ancho, sin nada encima, y la letra debajo. */}
+        {/* Centro: la carátula nítida (como Spotify y YouTube Music) o, si eliges «Letra», el karaoke. */}
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-          {!hideViewToggle && <ViewToggle view={view} fade={fade} />}
+          {!hideViewToggle && <ViewToggle view={view} />}
           {showLyrics ? (
-            <div className="flex min-h-0 w-full flex-1 flex-col">
-              {/* Espacio del video: VideoStage coloca aquí el reproductor oficial. */}
-              <div ref={closing ? undefined : videoSlot} className="aspect-video w-full shrink-0" />
-              <LyricsPanel track={current} />
-            </div>
+            <LyricsPanel track={current} />
           ) : (
             // La carátula mide lo que quepa: 82 % del ancho, máx. 26 rem, y nunca más que el alto libre (100cqh).
             <div className="grid min-h-0 w-full flex-1 place-items-center [container-type:size]">
@@ -208,9 +185,9 @@ export function NowPlayingSheet() {
         </div>
         {/* Abajo, alto fijo: aviso de segundo plano, título, artista, progreso, controles y la pista de la cola. */}
         <div className="shrink-0">
-          <BackgroundNotice fade={fade} />
-          <TrackInfo track={current} liked={liked} fade={fade} error={error} />
-          <QueueHint onOpen={() => setQueueOpen(true)} fade={fade} />
+          <BackgroundNotice />
+          <TrackInfo track={current} liked={liked} error={error} />
+          <QueueHint onOpen={() => setQueueOpen(true)} />
         </div>
       </div>
 
@@ -224,7 +201,7 @@ export function NowPlayingSheet() {
  * de pestañas (ℹ️ muestra el texto completo). Instalada: la app intenta reanudar sola lo que YouTube pausó (experimental)
  * y, si no lo logra, queda el ▶ de la notificación.
  */
-function BackgroundNotice({ fade }: { fade: string }) {
+function BackgroundNotice() {
   const [tab] = useState(inBrowserTab)
   const navigate = useNavigate()
   const { status, pausedOnExit } = usePlayer()
@@ -236,7 +213,7 @@ function BackgroundNotice({ fade }: { fade: string }) {
   // YouTube la pausó al salir de la app: el respaldo por si la notificación no aparece (lo pulsa el usuario).
   if (pausedOnExit && status === 'paused') {
     return (
-      <p className={`mx-6 mt-3 flex h-7 items-center justify-center gap-2 text-center text-[11px] leading-[14px] text-white/70 ${fade}`}>
+      <p className="mx-6 mt-3 flex h-7 items-center justify-center gap-2 text-center text-[11px] leading-[14px] text-white/70">
         <span>YouTube pausó la música al salir.</span>
         <button type="button" onClick={() => player.play()} className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-bold text-black">
           ▶ Reanudar
@@ -248,7 +225,7 @@ function BackgroundNotice({ fade }: { fade: string }) {
     const showTip = () =>
       showToast(TAB_SWITCHER_TIP, { label: 'Ayuda', run: () => navigate('/ayuda', { state: { seccion: 'ayuda-truco-pestanas' } }) }, 15000)
     return (
-      <p className={`mx-6 mt-3 flex h-7 items-center justify-center gap-1.5 text-center text-[11px] leading-[14px] text-white/55 ${fade}`}>
+      <p className="mx-6 mt-3 flex h-7 items-center justify-center gap-1.5 text-center text-[11px] leading-[14px] text-white/55">
         <span className="line-clamp-2">💡 Para que no se pause, sal por las pestañas de Chrome (el número arriba) y de ahí a Inicio.</span>
         <button type="button" aria-label="Cómo salir sin que se pause la música" onClick={showTip} className="shrink-0 text-base leading-none">
           ℹ️
@@ -257,7 +234,7 @@ function BackgroundNotice({ fade }: { fade: string }) {
     )
   }
   return (
-    <p className={`mx-6 mt-3 line-clamp-2 h-7 text-center text-[11px] leading-[14px] text-white/55 ${fade}`}>
+    <p className="mx-6 mt-3 line-clamp-2 h-7 text-center text-[11px] leading-[14px] text-white/55">
       Al salir se pausa un instante y la app intenta reanudarla sola; si no lo logra, pulsa ▶ en la notificación ({help}).
     </p>
   )
@@ -274,53 +251,98 @@ function JamButton() {
   )
 }
 
+const LYRICS_LEAD_S = 0.3 // la línea se resalta un poco antes de cantarse (como en Spotify)
+const USER_SCROLL_MS = 4000 // si desplazas la letra con el dedo, deja de seguir la canción por 4 s
+
 /**
- * Letra de la canción (data/lyrics.ts), debajo del video: nunca encima. Se desplaza con el dedo (no minimiza «Sonando
- * ahora») y muestra su fuente, como pide quien la licencia.
+ * Letra tipo karaoke (data/lyrics.ts): con tiempos, la línea que se canta va resaltada y la lista se desplaza sola para
+ * dejarla a la vista; tocar una línea lleva la canción a ese momento. Sin tiempos, el texto completo. Se desplaza con el
+ * dedo (no minimiza «Sonando ahora») y muestra su fuente, como pide quien la licencia.
  */
 function LyricsPanel({ track }: { track: Track }) {
+  const { time, duration } = usePlayer() // el tiempo se actualiza 4 veces por segundo mientras suena
   const [found, setFound] = useState<{ id: string; lyrics: Lyrics | null | 'error' } | null>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const userScrollUntil = useRef(0)
   useEffect(() => {
     let alive = true
-    lyricsOf(track)
+    lyricsOf(track, duration)
       .then((lyrics) => alive && setFound({ id: track.id, lyrics }))
       .catch(() => alive && setFound({ id: track.id, lyrics: 'error' }))
     return () => {
       alive = false
     }
-  }, [track])
+  }, [track]) // sin `duration`: solo ayuda a elegir la versión; cambiarla no vuelve a buscar
   const lyrics = found?.id === track.id ? found.lyrics : undefined
+  const lines = lyrics && lyrics !== 'error' ? lyrics.lines : null
+  // Las líneas vienen en orden: la que se canta es la última que ya empezó.
+  const active = lines ? lines.filter((line) => line.time <= time + LYRICS_LEAD_S).length - 1 : -1
+
+  // La línea que se canta queda a un tercio de la altura (salvo que estés desplazando la letra con el dedo).
+  useEffect(() => {
+    const list = listRef.current
+    const line = list?.querySelector<HTMLElement>(`[data-line="${active}"]`)
+    if (!list || !line || Date.now() < userScrollUntil.current) return
+    list.scrollTo({ top: line.offsetTop - list.clientHeight * 0.33, behavior: 'smooth' })
+  }, [active])
+  const userScrolls = () => {
+    userScrollUntil.current = Date.now() + USER_SCROLL_MS
+  }
+
   return (
     <div
+      ref={listRef}
       data-lyrics
       aria-label="Letra"
+      onTouchStart={userScrolls}
+      onWheel={userScrolls}
       // Se desvanece arriba y abajo: las líneas no se cortan de golpe.
-      className="scroll-fino mt-2 min-h-0 w-full flex-1 touch-pan-y overflow-y-auto overscroll-contain px-6 pt-3 pb-6 text-center [mask-image:linear-gradient(to_bottom,transparent,black_16px,black_calc(100%-32px),transparent)]"
+      className="scroll-fino relative min-h-0 w-full flex-1 touch-pan-y overflow-y-auto overscroll-contain px-6 pt-6 pb-10 [mask-image:linear-gradient(to_bottom,transparent,black_24px,black_calc(100%-48px),transparent)]"
     >
       {lyrics === undefined ? (
-        <p className="text-sm text-white/60">Buscando la letra…</p>
+        <p className="text-center text-sm text-white/60">Buscando la letra…</p>
       ) : lyrics === 'error' ? (
-        <p className="text-sm text-white/60">No se pudo cargar la letra. Revisa tu conexión.</p>
+        <p className="text-center text-sm text-white/60">No se pudo cargar la letra. Revisa tu conexión.</p>
       ) : lyrics === null ? (
-        <p className="text-sm text-white/60">No encontramos la letra de esta canción.</p>
+        <p className="text-center text-sm text-white/60">No encontramos la letra de esta canción.</p>
+      ) : lines ? (
+        <>
+          {lines.map((line, i) => (
+            <button
+              key={`${i}-${line.time}`}
+              type="button"
+              data-line={i}
+              data-time={line.time}
+              aria-current={i === active ? 'true' : undefined}
+              onClick={() => player.seek(line.time)}
+              className={`block w-full origin-left py-1.5 text-left text-2xl leading-snug font-extrabold transition-all duration-300 ${
+                i === active ? 'scale-[1.03] text-white' : i < active ? 'text-white/40' : 'text-white/65'
+              }`}
+            >
+              {line.text || '♪'}
+            </button>
+          ))}
+          {lyrics.source && <p className="mt-6 text-xs text-white/50">{lyrics.source}</p>}
+        </>
       ) : (
         <>
-          <p className="text-lg leading-relaxed font-semibold whitespace-pre-line text-white/90">{lyrics.text}</p>
-          {lyrics.source && <p className="mt-4 text-xs text-white/50">{lyrics.source}</p>}
+          <p className="mb-3 text-xs text-white/50">Esta letra no tiene tiempos: no se puede seguir al ritmo.</p>
+          <p className="text-xl leading-relaxed font-bold whitespace-pre-line text-white/90">{lyrics.text}</p>
+          {lyrics.source && <p className="mt-6 text-xs text-white/50">{lyrics.source}</p>}
         </>
       )}
     </div>
   )
 }
 
-/** «Canción | Letra»: carátula, o el reproductor oficial con la letra debajo. La música sigue igual al cambiar. */
-function ViewToggle({ view, fade }: { view: YouTubeView; fade: string }) {
+/** «Canción | Letra»: la carátula o la letra tipo karaoke. La música sigue igual al cambiar. */
+function ViewToggle({ view }: { view: YouTubeView }) {
   const options: [YouTubeView, string][] = [
     ['cancion', 'Canción'],
     ['letra', 'Letra'],
   ]
   return (
-    <div role="group" aria-label="Qué ver" className={`flex h-9 shrink-0 rounded-full bg-black/40 p-1 text-sm font-semibold ${fade}`}>
+    <div role="group" aria-label="Qué ver" className="flex h-9 shrink-0 rounded-full bg-black/40 p-1 text-sm font-semibold">
       {options.map(([value, label]) => (
         <button
           key={value}
@@ -340,10 +362,10 @@ function ViewToggle({ view, fade }: { view: YouTubeView; fade: string }) {
  * Título (máx. 2 líneas, alto reservado para 2), artista, álbum o aviso de error (siempre una línea), favorito,
  * barra de progreso y controles. Su alto no cambia entre canciones.
  */
-function TrackInfo({ track, liked, fade, error }: { track: Track; liked: boolean; fade: string; error: string | null }) {
+function TrackInfo({ track, liked, error }: { track: Track; liked: boolean; error: string | null }) {
   const onlyInYtm = useSyncExternalStore(onlyInYouTubeMusic.subscribe, onlyInYouTubeMusic.get).has(track.id)
   return (
-    <div className={`px-6 pt-2 lg:px-10 ${fade}`}>
+    <div className="px-6 pt-2 lg:px-10">
       <div className="flex items-end gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex h-[3.5rem] items-end">
@@ -351,12 +373,9 @@ function TrackInfo({ track, liked, fade, error }: { track: Track; liked: boolean
           </div>
           <p className="truncate text-texto-sec">{track.artist}</p>
           {error && onlyInYtm ? (
-            // YouTube no la deja sonar fuera de sus apps: se ofrece abrirla en YouTube Music (en una línea, como el resto).
-            <p role="alert" aria-label={error} className="flex items-center gap-2 text-xs">
-              <span className="truncate text-red-300">No disponible aquí</span>
-              <button type="button" onClick={() => openInYouTubeMusic(track.id)} className="shrink-0 font-semibold text-white underline underline-offset-2">
-                Abrir en YouTube Music
-              </button>
+            // YouTube no la deja sonar fuera de sus apps (todo queda dentro de SoundBlue: sin enlace a YouTube Music).
+            <p role="alert" aria-label={error} className="truncate text-xs text-red-300">
+              No disponible aquí: YouTube no deja reproducirla fuera de sus apps
             </p>
           ) : error ? (
             <p role="alert" className="truncate text-xs text-red-300">
@@ -381,12 +400,12 @@ function TrackInfo({ track, liked, fade, error }: { track: Track; liked: boolean
 }
 
 /** Pista del gesto para abrir la cola (también se puede tocar, para quien no usa gestos). */
-function QueueHint({ onOpen, fade }: { onOpen: () => void; fade: string }) {
+function QueueHint({ onOpen }: { onOpen: () => void }) {
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`mx-auto mt-3 flex items-center gap-1 text-xs font-semibold tracking-wide text-white/60 uppercase ${fade}`}
+      className="mx-auto mt-3 flex items-center gap-1 text-xs font-semibold tracking-wide text-white/60 uppercase"
     >
       <ChevronUp className="size-4" aria-hidden="true" />
       Desliza hacia arriba: próximas en sonar

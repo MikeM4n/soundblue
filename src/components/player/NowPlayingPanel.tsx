@@ -3,8 +3,8 @@ import { useSyncExternalStore } from 'react'
 import { Link } from 'react-router'
 import { useLibrary } from '../../library/store'
 import { player } from '../../player/engine'
-import { sheetState, useStageSlot, youtubeView } from '../../player/stage'
-import { coverSources, coverUrl } from '../../player/types'
+import { sheetState } from '../../player/stage'
+import { coverSources } from '../../player/types'
 import { useNowPlaying } from '../../player/useNowPlaying'
 import { usePlayer } from '../../player/usePlayer'
 import { toggleFavorite } from '../tracks/trackActions'
@@ -18,12 +18,9 @@ export function NowPlayingPanel() {
   const sheet = useSyncExternalStore(sheetState.subscribe, sheetState.get)
   const { favorites } = useLibrary()
   const { open } = useNowPlaying()
-  const videoSlot = useStageSlot('barra')
-  const view = useSyncExternalStore(youtubeView.subscribe, youtubeView.get)
   if (!current || sheet === 'open') return null
 
-  // Con «Letra» elegida en «Sonando ahora», aquí también se ve el reproductor; si no, la carátula.
-  const showVideo = view === 'letra'
+  // Siempre la carátula: el video de YouTube no se muestra en ninguna parte (suena oculto).
   const liked = favorites.some((t) => t.id === current.id)
   const next = [...queue, ...upcoming].slice(0, 4)
 
@@ -37,16 +34,7 @@ export function NowPlayingPanel() {
             <Maximize2 className="size-4" />
           </IconButton>
         </header>
-        {showVideo ? (
-          // 356 px de ancho → 200 px de alto: el mínimo que exige YouTube.
-          <div
-            ref={videoSlot}
-            className="aspect-video w-full shrink-0 rounded-lg bg-black bg-cover bg-center"
-            style={{ backgroundImage: `url(${coverUrl(current, 'large')})` }}
-          />
-        ) : (
-          <Cover seed={current.id} src={coverSources(current, 'large')} eager className="aspect-square w-full shrink-0 rounded-lg shadow-xl" />
-        )}
+        <Cover seed={current.id} src={coverSources(current, 'large')} eager className="aspect-square w-full shrink-0 rounded-lg shadow-xl" />
         <div className="mt-4 flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <p className="truncate text-xl font-bold">{current.title}</p>

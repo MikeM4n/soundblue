@@ -52,12 +52,15 @@ export interface YtmSearchResults {
   artists: YtmCard[]
 }
 
-async function call(endpoint: string, body: object, visitorData?: string): Promise<Json> {
+// La app de Android de YouTube Music: es la que recibe la letra con tiempos (para el karaoke).
+const ANDROID_CLIENT = { clientName: 'ANDROID_MUSIC', clientVersion: '7.27.52', androidSdkVersion: 30, hl: 'es', gl: 'CO' }
+
+async function call(endpoint: string, body: object, visitorData?: string, client: object = CLIENT): Promise<Json> {
   countYtmRequest() // para el diagnóstico de Ayuda (YouTube Music no tiene cuota)
   const response = await fetch(`${ENDPOINT}/${endpoint}?prettyPrint=false`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ context: { client: { ...CLIENT, visitorData } }, ...body }),
+    body: JSON.stringify({ context: { client: { ...client, visitorData } }, ...body }),
   })
   if (!response.ok) throw new Error(`YouTube Music respondió ${response.status}`)
   return response.json()
@@ -453,4 +456,68 @@ export function ytmLyrics(videoId: string): Promise<YtmLyrics | null> {
     const text = plain(shelf?.description).trim()
     return text ? { text, source: plain(shelf?.footer).trim() } : null
   })
+}
+
+/** Una línea de la letra con el segundo en que empieza. */
+export interface TimedLine {
+  time: number
+  text: string
+}
+
+/**
+ * Letra CON TIEMPOS de YouTube Music (la que muestra su app de Android, sincronizada con esa misma grabación): la pide
+ * como esa app. Null si no la tiene.
+ */
+export function ytmTimedLyrics(videoId: string): Promise<{ lines: TimedLine[]; source: string } | null> {
+  return remember(`letra-tiempos:${videoId}`, async () => {
+    const next = await call('next', { videoId }, undefined, ANDROID_CLIENT)
+    const browseId = JSON.stringify(next).match(/"(MPLY[^"]+)"/)?.[1]
+    if (!browseId) return null
+    const json = await call('browse', { browseId }, undefined, ANDROID_CLIENT)
+    const data = json?.contents?.elementRenderer?.newElement?.type?.componentType?.model?.timedLyricsModel?.lyricsData
+    const lines: TimedLine[] = (data?.timedLyricsData ?? [])
+      .map((line: Json) => ({ time: Number(line?.cueRange?.startTimeMilliseconds) / 1000, text: String(line?.lyricLine ?? '') }))
+      .filter((line: TimedLine) => Number.isFinite(line.time))
+    return lines.length ? { lines, source: String(data?.sourceMessage ?? '') } : null
+  })
+}
+
+/**
+ * El id de una playlist en un enlace de YouTube o YouTube Music («…?list=PL…», «music.youtube.com/browse/VLPL…») o
+ * pegado tal cual. Null si no hay. Las mezclas automáticas («Mix», RD…) no son playlists guardadas: también null.
+ */
+export function playlistIdFrom(text: string): string | null {
+  const value = text.trim()
+  const id = value.match(/[?&]list=([\w-]+)/)?.[1] ?? value.match(/\/browse\/VL([\w-]+)/)?.[1] ?? (/^(VL)?(PL|OLAK5uy_|RDCLAK)[\w-]{10,}$/.test(value) ? value : null)
+  const clean = id?.replace(/^VL/, '') ?? null
+  return clean && (!clean.startsWith('RD') || clean.startsWith('RDCLAK')) ? clean : null
+}
+
+const IMPORT_MAX = 1000 // canciones como mucho al importar una playlist
+
+/** Una playlist COMPLETA (de a 100, siguiendo las páginas), para importarla. */
+export async function ytmPlaylist(playlistId: string): Promise<{ title: string; image?: string; tracks: Track[] }> {
+  const json = await call('browse', { browseId: `VL${playlistId}` })
+  const two = json?.contents?.twoColumnBrowseResultsRenderer
+  const first = two?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]
+  const header = first?.musicResponsiveHeaderRenderer ?? first?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicResponsiveHeaderRenderer
+  const shelf = two?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer
+  if (!shelf) throw new Error('No se encontró la playlist')
+  const tracks: Track[] = []
+  // Las canciones de una página y, si hay más, la marca para pedir la siguiente (su último elemento).
+  const take = (items: Json[]): string | undefined => {
+    tracks.push(...items.map((item) => fromListItem(item?.musicResponsiveListItemRenderer)).filter(notEmpty))
+    return items.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token
+  }
+  let token = take(shelf.contents ?? [])
+  while (token && tracks.length < IMPORT_MAX) {
+    const more = await call('browse', { continuation: token })
+    token = take(more?.onResponseReceivedActions?.[0]?.appendContinuationItemsAction?.continuationItems ?? [])
+  }
+  const seen = new Set<string>()
+  return {
+    title: plain(header?.title) || 'Playlist',
+    image: lastThumb(header?.thumbnail?.musicThumbnailRenderer?.thumbnail),
+    tracks: tracks.filter((track) => !seen.has(track.id) && !!seen.add(track.id)).slice(0, IMPORT_MAX),
+  }
 }

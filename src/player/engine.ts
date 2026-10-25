@@ -9,7 +9,6 @@ import { logDuplicate } from '../lib/duplicateLog'
 import { settings } from '../lib/settings'
 import { ytmAlternatives } from '../data/ytmusic'
 import { isLocalNetworkAddress } from '../lib/platform'
-import { openInYouTubeMusic } from '../lib/youtubeMusicLink'
 import { showToast } from '../ui/toast'
 import { setupMediaSession, updateMetadata, updatePlaybackState, updatePosition } from './mediaSession'
 import { isTrack, type BackendState, type Repeat, type Status, type Track } from './types'
@@ -93,7 +92,7 @@ const POOL_LOW = 6 // …y se reponen (en tanda, para variar artistas) cuando le
 const SKIP_SECONDS = 30 // pasar a la siguiente antes de esto cuenta como saltada (data/history.ts)
 
 const UNAVAILABLE = new Set([100, 101, 150]) // borrado/privado o el dueño no permite incrustarlo
-const ONLY_IN_YTM = 'Esta canción no está disponible aquí: ábrela en la app oficial.'
+const ONLY_IN_YTM = 'Esta canción no está disponible aquí: YouTube no deja reproducirla fuera de sus apps.'
 const OFFLINE = 'Sin conexión: la música sigue en cuanto vuelva internet.'
 
 // Auto‑reanudación (experimental): YouTube o Chrome pausan el reproductor en el mismo segundo en que la página se oculta.
@@ -1116,16 +1115,13 @@ export class PlayerEngine {
     this.failures++
     // Si no se puede reproducir, salta a la siguiente con un aviso corto (máximo 10 seguidos).
     if (this.failures <= 10 && this.hasNext()) {
-      const skipped = this.current
-      // Si YouTube no deja reproducirla aquí, se puede escuchar en la app de YouTube Music.
-      const openInYtm = skipped && UNAVAILABLE.has(code) ? { label: 'Abrir en YouTube Music', run: () => openInYouTubeMusic(skipped.id) } : undefined
+      // Todo queda dentro de SoundBlue: sin enlace a la app de YouTube Music.
       showToast(
         !UNAVAILABLE.has(code)
           ? 'No se pudo reproducir esta canción, pasando a la siguiente'
           : isLocalNetworkAddress()
             ? 'YouTube bloquea esta canción desde la red local (http://192.168…): ábrela con https. Pasando a la siguiente'
             : 'Esta canción no está disponible aquí, pasando a la siguiente',
-        openInYtm,
       )
       this.next()
       return
