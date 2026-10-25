@@ -48,7 +48,7 @@ export function QueueSections({ beforePlay }: { beforePlay?: () => void }) {
             aria-selected={tab === key}
             aria-controls={`panel-${key}`}
             onClick={() => setTab(key)}
-            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${tab === key ? 'bg-white text-black' : 'bg-white/10 text-texto hover:bg-white/15'}`}
+            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${tab === key ? 'bg-contraste text-inverso' : 'bg-contraste/10 text-texto hover:bg-contraste/15'}`}
           >
             {label}
           </button>

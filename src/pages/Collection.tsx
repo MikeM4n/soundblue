@@ -6,9 +6,10 @@ import { TrackList } from '../components/tracks/TrackList'
 import type { RemoveAction } from '../components/tracks/trackActions'
 import { Cover } from '../components/ui/Cover'
 import { IconButton } from '../components/ui/IconButton'
-import { FavoritesCover } from '../components/ui/LibraryItem'
+import { FavoritesCover, TopCover } from '../components/ui/LibraryItem'
 import { PlayButton } from '../components/ui/PlayButton'
 import { TEST_LIST_NAME, testList } from '../data/catalog'
+import { listening } from '../data/history'
 import { library, useLibrary } from '../library/store'
 import { player } from '../player/engine'
 import { coverSources, coverUrl, type Track } from '../player/types'
@@ -17,9 +18,11 @@ import { useNowPlaying } from '../player/useNowPlaying'
 interface CollectionData {
   kind: string
   name: string
+  note?: string // debajo del nombre, en vez de «N canciones»
   cover: ReactNode
   tracks: readonly Track[]
   removeAction?: (index: number) => RemoveAction
+  empty?: string // qué decir si no tiene canciones
 }
 
 /** Vista de una lista: «Lista de prueba» (álbum), «Tus me gusta» o una playlist tuya. */
@@ -63,7 +66,7 @@ export function Collection() {
           <div className="min-w-0">
             <p className="text-xs font-semibold tracking-wider text-texto-sec uppercase">{data.kind}</p>
             <h1 className="mt-1 text-3xl font-bold break-words md:text-5xl">{data.name}</h1>
-            <p className="mt-2 text-sm text-texto-sec">{count === 1 ? '1 canción' : `${count} canciones`}</p>
+            <p className="mt-2 text-sm text-texto-sec">{data.note ?? (count === 1 ? '1 canción' : `${count} canciones`)}</p>
           </div>
         </div>
         <div className="mt-5 flex items-center gap-3">
@@ -77,7 +80,7 @@ export function Collection() {
       </header>
 
       {count === 0 ? (
-        <p className="px-6 text-texto-sec">Todavía no hay canciones. Usa el menú ⋮ de cualquier canción para agregarlas.</p>
+        <p className="px-6 text-texto-sec">{data.empty ?? 'Todavía no hay canciones. Usa el menú ⋮ de cualquier canción para agregarlas.'}</p>
       ) : (
         <TrackList tracks={data.tracks} onPlay={play} removeAction={data.removeAction} />
       )}
@@ -103,6 +106,17 @@ function resolve(tipo: string, id: string, favorites: Track[], playlists: Return
       cover: <FavoritesCover className={bigCover} />,
       tracks: favorites,
       removeAction: (i) => ({ listName: 'Tus me gusta', remove: () => library.removeFavoriteAt(i) }),
+    }
+  }
+  if (tipo === 'top') {
+    const top = listening.top(50)
+    return {
+      kind: 'Playlist',
+      name: 'Tu Top 50',
+      note: top.length ? `Las ${top.length} que más escuchaste aquí, de más a menos` : undefined,
+      cover: <TopCover className={bigCover} />,
+      tracks: top.map((entry) => entry.track),
+      empty: 'Todavía no hay canciones en tu Top: cuentan las que escuchas 30 segundos o más.',
     }
   }
   if (tipo === 'playlist') {

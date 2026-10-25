@@ -1,6 +1,7 @@
 import { LoaderCircle, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward } from 'lucide-react'
 import { player } from '../../player/engine'
 import { usePlayer } from '../../player/usePlayer'
+import { vibrate } from '../tracks/trackActions'
 import { IconButton } from '../ui/IconButton'
 
 const REPEAT_LABEL = {
@@ -28,7 +29,10 @@ export function TransportControls({ large = false }: { large?: boolean }) {
       <button
         type="button"
         aria-label={playing ? 'Pausar' : 'Reproducir'}
-        onClick={() => player.toggle()}
+        onClick={() => {
+          vibrate() // vibración corta al dar ▶ o ⏸ (si el teléfono la tiene)
+          player.toggle()
+        }}
         disabled={disabled}
         className={`grid place-items-center rounded-full bg-texto text-fondo transition enabled:hover:scale-105 disabled:opacity-40 ${
           large ? 'size-16' : 'size-9'

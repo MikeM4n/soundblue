@@ -173,6 +173,24 @@ export function Help() {
         </ul>
       </Section>
 
+      <Section id="ayuda-extras" title="Tema, temporizador, compartir y Tu Top 50">
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            <B>Tema</B> (Ajustes): <B>Predeterminado del sistema</B> (claro u oscuro como tu teléfono), <B>Claro</B> u <B>Oscuro</B>{' '}
+            (negro puro: ahorra batería en pantallas OLED). «Sonando ahora» se ve siempre oscura, sobre la carátula.
+          </li>
+          <li>
+            <B>Temporizador</B> (⋮ de «Sonando ahora»): a los 15, 30 o 45 minutos la música baja de volumen poco a poco y se pausa.
+          </li>
+          <li>
+            <B>Compartir</B> (⋮ de cualquier canción): manda una imagen con la carátula y un enlace que abre la canción en SoundBlue.
+          </li>
+          <li>
+            <B>Tu Top 50</B> (Inicio): las canciones que más escuchaste aquí, de más a menos (cuentan las que suenan 30 segundos o más).
+          </li>
+        </ul>
+      </Section>
+
       <Section id="ayuda-jam" title="Jam: escuchar en grupo">
         <ul className="list-disc space-y-2 pl-5">
           <li>
@@ -392,7 +410,7 @@ function RecommendationsSection() {
       {entries.length === 0 ? (
         <p>Todavía ninguno.</p>
       ) : (
-        <ul className="space-y-1 rounded-md bg-black/30 p-3 text-sm">
+        <ul className="space-y-1 rounded-md bg-fondo/60 p-3 text-sm">
           {entries.map(([id, entry]) => (
             <li key={id}>
               <B>{entry.name}</B> · {entry.tracks.length} canciones · {hoursAgo(entry.at)} · {entry.source === 'youtube-music' ? 'YouTube Music' : 'YouTube Data API'}
@@ -404,7 +422,7 @@ function RecommendationsSection() {
       {!radio ? (
         <p>Todavía ninguna.</p>
       ) : (
-        <div className="space-y-2 rounded-md bg-black/30 p-3 text-sm">
+        <div className="space-y-2 rounded-md bg-fondo/60 p-3 text-sm">
           <p>
             Semilla: <B>{radio.seed}</B> · {hoursAgo(radio.at)}
           </p>
@@ -438,7 +456,7 @@ function RecommendationsSection() {
       {duplicates.length === 0 ? (
         <p>Ninguna todavía.</p>
       ) : (
-        <ol className="space-y-0.5 rounded-md bg-black/30 p-3 text-sm">
+        <ol className="space-y-0.5 rounded-md bg-fondo/60 p-3 text-sm">
           {duplicates
             .slice()
             .reverse()
@@ -451,7 +469,7 @@ function RecommendationsSection() {
         </ol>
       )}
       <div className="flex flex-wrap gap-2 pt-1">
-        <button type="button" onClick={refresh} className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-white/15">
+        <button type="button" onClick={refresh} className="rounded-full bg-contraste/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-contraste/15">
           Actualizar
         </button>
         <button
@@ -524,8 +542,8 @@ function BraveBackgroundSection() {
           <B>Ajustes → Brave Shields y privacidad → Filtrado de contenido → Filtros personalizados</B>: pega estas dos líneas, guarda y
           cierra Brave por completo antes de volver a abrirlo. Son un truco de la comunidad de Brave, no oficial; si el reproductor
           deja de cargar, bórralas.
-          <pre className="mt-2 overflow-x-auto rounded-md bg-black/30 p-2 font-mono text-xs text-texto">{BRAVE_FILTERS}</pre>
-          <button type="button" onClick={() => void copy()} className="mt-2 rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-white/15">
+          <pre className="mt-2 overflow-x-auto rounded-md bg-fondo/60 p-2 font-mono text-xs text-texto">{BRAVE_FILTERS}</pre>
+          <button type="button" onClick={() => void copy()} className="mt-2 rounded-full bg-contraste/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-contraste/15">
             Copiar las dos líneas
           </button>
         </li>
@@ -622,7 +640,7 @@ function DiagnosticsSection() {
             markTest('manual')
             setEvents([...readDiagnostics()])
           }}
-          className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-white/15"
+          className="rounded-full bg-contraste/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-contraste/15"
         >
           Prueba manual iniciada
         </button>
@@ -632,20 +650,20 @@ function DiagnosticsSection() {
             markTest('automática')
             setEvents([...readDiagnostics()])
           }}
-          className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-white/15"
+          className="rounded-full bg-contraste/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-contraste/15"
         >
           Prueba automática iniciada
         </button>
       </div>
       <div className="flex flex-wrap gap-2 pt-1">
-        <button type="button" onClick={() => setEvents([...readDiagnostics()])} className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-white/15">
+        <button type="button" onClick={() => setEvents([...readDiagnostics()])} className="rounded-full bg-contraste/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-contraste/15">
           Actualizar
         </button>
         <button type="button" onClick={() => void copyReport()} className="rounded-full bg-acento px-4 py-1.5 text-sm font-semibold text-white hover:bg-acento-hover">
           Copiar registro
         </button>
         {import.meta.env.DEV && (
-          <button type="button" onClick={() => void sendToPc()} className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-white/15">
+          <button type="button" onClick={() => void sendToPc()} className="rounded-full bg-contraste/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-contraste/15">
             Enviar registro al PC
           </button>
         )}
@@ -663,7 +681,7 @@ function DiagnosticsSection() {
       {latest.length === 0 ? (
         <p>Todavía no hay nada registrado.</p>
       ) : (
-        <ol aria-label="Registro de segundo plano" className="max-h-72 space-y-1 overflow-y-auto rounded-md bg-black/30 p-3 font-mono text-xs">
+        <ol aria-label="Registro de segundo plano" className="max-h-72 space-y-1 overflow-y-auto rounded-md bg-fondo/60 p-3 font-mono text-xs">
           {latest.map((event, i) => (
             <li key={`${event.t}-${i}`} className="text-texto">
               {formatEvent(event)}

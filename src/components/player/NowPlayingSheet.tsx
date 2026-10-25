@@ -143,7 +143,8 @@ export function NowPlayingSheet() {
       aria-modal="true"
       aria-label="Sonando ahora"
       // Toda la pantalla menos la barra inferior del celular (--nav-h, la publica MobileNav): esa barra sigue a la vista.
-      className="fixed inset-x-0 top-0 bottom-[var(--nav-h,0px)] z-30 touch-none overflow-hidden overscroll-contain bg-fondo text-white select-none"
+      // siempre-oscuro: va sobre la carátula difuminada, también con el tema claro.
+      className="siempre-oscuro fixed inset-x-0 top-0 bottom-[var(--nav-h,0px)] z-30 touch-none overflow-hidden overscroll-contain bg-fondo text-white select-none"
       style={{ transform: `translateY(${offset})`, transition: dragY === null ? `transform ${SLIDE_MS}ms cubic-bezier(.2,.8,.2,1)` : 'none' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -165,7 +166,7 @@ export function NowPlayingSheet() {
             <p className="truncate text-sm font-bold">{contextName ?? 'Tu música'}</p>
           </div>
           <JamButton />
-          <TrackMenu track={current} />
+          <TrackMenu track={current} sleepTimer />
         </header>
 
         {/* Centro: la carátula nítida (como Spotify y YouTube Music) o, si eliges «Letra», el karaoke. */}

@@ -568,6 +568,30 @@ export class PlayerEngine {
   }
 
   /**
+   * Temporizador de apagado (lib/sleepTimer.ts): baja el volumen poco a poco durante `ms` y pausa. Tu volumen no cambia:
+   * al volver a dar ▶ suena como antes. Si ya estaba en pausa, no hace nada.
+   */
+  fadeOutAndPause(ms: number): Promise<void> {
+    if (this.status !== 'playing' && this.status !== 'buffering') return Promise.resolve()
+    const STEP_MS = 100
+    const steps = Math.max(1, Math.round(ms / STEP_MS))
+    return new Promise((resolve) => {
+      let step = 0
+      const timer = window.setInterval(() => {
+        step++
+        this.youtube.setVolume(this.volume * Math.max(0, 1 - step / steps), this.muted)
+        if (step < steps) return
+        window.clearInterval(timer)
+        this.pause()
+        window.setTimeout(() => {
+          this.applyVolume() // ya en pausa: el volumen vuelve a ser el tuyo
+          resolve()
+        }, 300)
+      }, STEP_MS)
+    })
+  }
+
+  /**
    * Pasa a la siguiente: primero tu cola, después la lista (con aleatorio y repetir). False si no hay más.
    * Se salta las que ya se sabe que solo suenan en la app de YouTube Music (sin esperar el error del reproductor).
    */

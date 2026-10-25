@@ -28,7 +28,7 @@ export function MobileNav() {
     <nav
       ref={ref}
       aria-label="Principal"
-      className="relative z-40 grid shrink-0 grid-cols-3 border-t border-white/5 bg-fondo pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="relative z-40 grid shrink-0 grid-cols-3 border-t border-contraste/5 bg-fondo pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       {[...mainNav, libraryNav].map(({ to, label, icon: Icon, end }) => (
         <NavLink

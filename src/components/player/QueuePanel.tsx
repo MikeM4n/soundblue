@@ -171,7 +171,7 @@ export function QueuePanel({ open, top, onClose }: QueuePanelProps) {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-          <div className="mx-auto h-1 w-10 rounded-full bg-white/30" aria-hidden="true" />
+          <div className="mx-auto h-1 w-10 rounded-full bg-contraste/30" aria-hidden="true" />
           <div className="mt-2 flex items-center justify-between gap-3">
             <h2 className="text-lg font-bold">Próximas en sonar</h2>
             {/* Sin Jam aquí: se abre con el botón de arriba a la derecha de «Sonando ahora». */}

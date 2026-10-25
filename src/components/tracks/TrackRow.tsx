@@ -78,7 +78,7 @@ export function TrackRow({ track, onPlay, position, isCurrent, isPlaying, durati
             <span>{inQueue ? 'Quitar' : 'Descartar'}</span>
           </div>
         ) : (
-          <div className="absolute inset-0 flex items-center justify-start gap-2 bg-tarjeta-claro pl-5 text-sm font-semibold text-white">
+          <div className="absolute inset-0 flex items-center justify-start gap-2 bg-tarjeta-claro pl-5 text-sm font-semibold text-texto">
             <EllipsisVertical className={grow} aria-hidden="true" />
             <span>Opciones</span>
           </div>

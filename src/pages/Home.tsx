@@ -5,7 +5,7 @@ import { Logo } from '../components/brand/Logo'
 import { ArtistTopSongsRow } from '../components/tracks/ArtistTopSongs'
 import { Chips } from '../components/ui/Chips'
 import { Cover } from '../components/ui/Cover'
-import { FavoritesCover } from '../components/ui/LibraryItem'
+import { FavoritesCover, TopCover } from '../components/ui/LibraryItem'
 import { ModeTiles } from '../components/ui/ModeTiles'
 import { CardPages, TrackPages } from '../components/ui/RowPages'
 import { Section } from '../components/ui/Section'
@@ -26,7 +26,7 @@ import { useNowPlaying } from '../player/useNowPlaying'
 // escuchas; la nuestra va por género) y «Versiones y remixes» son covers.
 const HIDDEN_SHELVES = /selecciones r[aá]pidas|versiones|covers/i
 const MIN_TRACKS = 4 // un estante de canciones con menos, tras los filtros, no se muestra
-const YOUR_TILES = 4 // accesos con tus canciones bajo «Tus me gusta» y «Jam»
+const YOUR_TILES = 3 // accesos con tus canciones bajo «Tus me gusta», «Jam» y «Tu Top 50»
 
 /**
  * Inicio: saludo, accesos rápidos (Tus me gusta, Jam y tus canciones: las que te gustan o las últimas que sonaron), los
@@ -115,6 +115,8 @@ export function Home() {
               </div>
             }
           />
+          {/* Las 50 que más escuchaste aquí (data/history.ts). */}
+          <QuickTile to="/coleccion/top/50" title="Tu Top 50" cover={<TopCover className="size-14 rounded-none md:size-16" />} />
           {yours.map((track) => (
             <QuickTile
               key={track.id}
@@ -138,7 +140,7 @@ export function Home() {
           {mine && mine.artists.length > 0 && <ArtistTopSongsRow artists={mine.artists} onPlay={playArtist} />}
           <Link
             to="/gustos"
-            className="mx-4 mt-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/15 md:mx-6"
+            className="mx-4 mt-2 inline-flex items-center gap-2 rounded-full bg-contraste/10 px-4 py-2 text-sm font-semibold hover:bg-contraste/15 md:mx-6"
           >
             <Plus className="size-4" aria-hidden="true" />
             {tastes.artists.length ? 'Agregar más artistas' : 'Elegir tus artistas'}
@@ -233,7 +235,7 @@ function GenreQuickPicks({ hide, onPlay }: { hide: ReadonlySet<string>; onPlay: 
           aria-label="Elegir los géneros de las selecciones rápidas"
           aria-expanded={picking}
           onClick={() => setPicking((open) => !open)}
-          className={`grid size-8 place-items-center rounded-full transition-colors ${picking ? 'bg-white text-black' : 'bg-white/10 text-texto hover:bg-white/15'}`}
+          className={`grid size-8 place-items-center rounded-full transition-colors ${picking ? 'bg-contraste text-inverso' : 'bg-contraste/10 text-texto hover:bg-contraste/15'}`}
         >
           <Plus className={`size-5 transition-transform ${picking ? 'rotate-45' : ''}`} aria-hidden="true" />
         </button>
@@ -252,7 +254,7 @@ function GenreQuickPicks({ hide, onPlay }: { hide: ReadonlySet<string>; onPlay: 
                   aria-pressed={on}
                   disabled={on && chosen.length === 1} // al menos uno
                   onClick={() => toggle(g.key)}
-                  className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors disabled:opacity-60 ${on ? 'bg-acento text-white' : 'bg-white/10 text-texto hover:bg-white/15'}`}
+                  className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors disabled:opacity-60 ${on ? 'bg-acento text-white' : 'bg-contraste/10 text-texto hover:bg-contraste/15'}`}
                 >
                   {on ? '✓ ' : '+ '}
                   {g.label}

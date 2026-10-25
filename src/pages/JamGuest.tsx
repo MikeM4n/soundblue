@@ -117,7 +117,7 @@ export function JamGuest() {
             Código <span className="font-mono font-semibold tracking-widest text-texto">{jam.code}</span> · la música suena en el teléfono de {jam.host}
           </p>
         </div>
-        <button type="button" onClick={leave} className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold text-texto-sec ring-1 ring-white/15 hover:text-texto">
+        <button type="button" onClick={leave} className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold text-texto-sec ring-1 ring-contraste/15 hover:text-texto">
           Salir
         </button>
       </header>

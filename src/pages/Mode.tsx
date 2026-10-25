@@ -97,7 +97,7 @@ export function ModePage() {
             player.shuffleContext(name, tracks, options)
           }}
           aria-label={`Reproducir ${name} en aleatorio`}
-          className="flex h-14 shrink-0 items-center gap-2 rounded-full bg-white/10 px-5 font-semibold text-texto transition hover:bg-white/15 disabled:opacity-50"
+          className="flex h-14 shrink-0 items-center gap-2 rounded-full bg-contraste/10 px-5 font-semibold text-texto transition hover:bg-contraste/15 disabled:opacity-50"
         >
           <Shuffle className="size-5" aria-hidden="true" />
           Aleatorio

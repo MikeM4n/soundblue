@@ -30,3 +30,14 @@ export function FavoritesCover({ className = 'size-12' }: { className?: string }
     </span>
   )
 }
+
+/** Portada de «Tu Top 50»: degradado naranja con el 50 (el texto escala con la portada). */
+export function TopCover({ className = 'size-12' }: { className?: string }) {
+  return (
+    <span className={`grid shrink-0 place-items-center rounded-md bg-linear-135 from-amber-400 to-rose-600 [container-type:inline-size] ${className}`}>
+      <span className="text-[38cqw] leading-none font-black text-white" aria-hidden="true">
+        50
+      </span>
+    </span>
+  )
+}

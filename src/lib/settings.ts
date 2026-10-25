@@ -4,12 +4,16 @@ import { youtubeView } from '../player/stage'
 
 const KEY = 'soundblue:ajustes'
 
+/** Tema: el del teléfono (por defecto), claro u oscuro (AMOLED). Ver src/lib/theme.ts. */
+export type ThemeChoice = 'sistema' | 'claro' | 'oscuro'
+
 export interface Settings {
   hideViewToggle: boolean // ocultar «Canción | Letra» en «Sonando ahora» (queda siempre la carátula)
   dynamicQueue: boolean // Fila Dinámica: la cola nunca baja de 10 (pasan canciones de «Recomendadas»)
+  theme: ThemeChoice
 }
 
-const DEFAULTS: Settings = { hideViewToggle: false, dynamicQueue: true }
+const DEFAULTS: Settings = { hideViewToggle: false, dynamicQueue: true, theme: 'sistema' }
 
 function read(): Settings {
   try {

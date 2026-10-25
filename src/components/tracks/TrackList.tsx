@@ -21,7 +21,7 @@ export function TrackList({ tracks, onPlay, removeAction, numbered = true, plain
   return (
     <div className="px-2 md:px-4">
       {numbered && (
-        <div className="hidden items-center gap-3 border-b border-white/10 pr-1 pb-2 pl-4 text-sm text-texto-sec md:flex">
+        <div className="hidden items-center gap-3 border-b border-contraste/10 pr-1 pb-2 pl-4 text-sm text-texto-sec md:flex">
           <span className="w-6 text-center">#</span>
           <span className="flex-1">Título</span>
           <Clock3 className="mr-[2.75rem] size-4" aria-label="Duración" />

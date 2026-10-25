@@ -95,7 +95,7 @@ export function BraveBanner() {
         type="button"
         onClick={close}
         aria-label="Cerrar aviso"
-        className="shrink-0 rounded-full p-1 transition-colors hover:bg-white/10 hover:text-texto"
+        className="shrink-0 rounded-full p-1 transition-colors hover:bg-contraste/10 hover:text-texto"
       >
         <X className="size-4" />
       </button>

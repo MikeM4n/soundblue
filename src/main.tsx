@@ -6,6 +6,9 @@ import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router'
 import App from './App'
 import { hideSplash } from './lib/splash'
+import { startTheme } from './lib/theme'
+
+startTheme() // claro, oscuro o el del teléfono (index.html ya lo puso antes de pintar)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -19,6 +19,7 @@ import { Queue } from './pages/Queue'
 import { JamGuest } from './pages/JamGuest'
 import { JamHost } from './pages/JamHost'
 import { Search } from './pages/Search'
+import { SongPage } from './pages/Song'
 import { Tastes } from './pages/Tastes'
 import { YtmPage } from './pages/YtmPage'
 
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="gustos" element={<Tastes />} />
           <Route path="jam" element={<JamHost />} />
           <Route path="jam/:code" element={<JamGuest />} />
+          <Route path="cancion/:id" element={<SongPage />} />
           <Route path="*" element={<Home />} />
         </Route>
       </Routes>

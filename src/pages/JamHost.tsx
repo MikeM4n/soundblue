@@ -75,7 +75,7 @@ export function JamHost() {
           )}
         </form>
 
-        <div className="my-8 h-px bg-white/10" />
+        <div className="my-8 h-px bg-contraste/10" />
         <h2 className="text-lg font-bold">¿Te invitaron a una Jam?</h2>
         <p className="mt-1 text-sm text-texto-sec">Escanea su código QR con la cámara o escribe aquí su código de 6 letras.</p>
         <form onSubmit={join} className="mt-3 flex gap-2">
