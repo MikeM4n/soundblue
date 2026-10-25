@@ -89,6 +89,6 @@ export async function artistTopSongs(artist: YtmCard): Promise<ArtistTop> {
     }
   }
 
-  if (saved) return { tracks: saved.tracks, source: 'guardadas', notice: notice ?? 'YouTube Music no respondió: se muestran las canciones guardadas.' }
+  if (saved) return { tracks: saved.tracks, source: 'guardadas', notice: notice ?? 'El catálogo no respondió: se muestran las canciones guardadas.' }
   return { tracks: [], source: 'guardadas', notice: notice ?? 'No se pudieron cargar sus canciones ahora. Tócalo para ver su página.' }
 }

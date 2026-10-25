@@ -14,8 +14,9 @@
 // Género: YouTube no lo publica. Lo sabe el índice de géneros (data/genreIndex.ts: qué artistas aparecen en las
 // playlists de cada género) y la matriz de géneros parecidos: si suena reggaetón, entran reggaetón, dancehall y trap
 // latino; si suena salsa, salsa, merengue y bachata; si suena una ranchera, regional mexicano y popular. Una canción de
-// un artista que el índice no conoce entra (la radio de YouTube ya la trajo por parecida); si la semilla no se conoce,
-// no se filtra por género.
+// un artista que el índice no conoce entra (la radio de YouTube ya la trajo por parecida), salvo si está en escritura
+// asiática (cuenta como K-Pop, J-Pop o Mandopop). Si el índice no conoce la canción que suena, su género es el de la
+// mayoría de su radio; si tampoco así se sabe, no se filtra por género.
 //
 // Filtros: solo audio o video oficial (fuera los subidos por usuarios: covers); fuera los «Canción – Otro Artista» de
 // un intérprete distinto (covers); nada que comparta más del 40 % de las palabras del título de la semilla (covers,
@@ -27,7 +28,7 @@ import { logDuplicate } from '../lib/duplicateLog'
 import { hashText, seededRandom, sessionSeed, shuffle } from '../lib/random'
 import type { Track } from '../player/types'
 import { artistTopSongs } from './artistTop'
-import { genreIndexSoon, genreLabel, genresOf, similarTo, type GenreIndex, type GenreKey } from './genreIndex'
+import { dominantGenres, genreIndexSoon, genreLabel, genresOf, similarTo, type GenreIndex, type GenreKey } from './genreIndex'
 import { artistKey, listening } from './history'
 import { ytmRadioItems, ytmSearchArtists, type RadioItem } from './ytmusic'
 
@@ -78,6 +79,7 @@ export interface RadioDiagnostics {
   seed: string // «Gasolina · Daddy Yankee»
   seedYear?: number
   genres: string[] // géneros detectados de la semilla («Reggaetón»); vacío: no se conoce
+  guessed?: boolean // la semilla no estaba en el índice: su género salió de la mayoría de su radio
   accepts: string[] // los que acepta la radio («Reggaetón», «Dancehall», «Trap latino»)
   filtered: Record<string, number> // descartadas, por motivo
   picks: { title: string; artist: string; year?: number; reason: Reason }[] // las últimas 10 que generó
@@ -204,11 +206,15 @@ export function createRadio(seed: Track, { artistTop = true, diagnostics: logDia
   const init = async () => {
     const [radio, found] = await Promise.all([ytmRadioItems(seed.id).catch(() => []), genreIndexSoon(INDEX_WAIT_MS)])
     index = found
-    const seedGenres = index ? genresOf(seed, index) : new Set<GenreKey>()
+    let seedGenres = index ? genresOf(seed, index) : new Set<GenreKey>()
+    // Si el índice no conoce la canción que suena, su género es el de la mayoría de su radio de YouTube Music.
+    const guessed = !!index && !seedGenres.size
+    if (index && guessed) seedGenres = dominantGenres(radio.map((item) => item.track), index)
     accepts = similarTo(seedGenres)
     Object.assign(diagnostics, {
       seedYear: radio.find((item) => item.track.id === seed.id)?.year,
       genres: [...seedGenres].map(genreLabel),
+      guessed: guessed && seedGenres.size > 0,
       accepts: [...accepts].map(genreLabel),
     })
     add(radio, 'mismo género')

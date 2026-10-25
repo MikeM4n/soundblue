@@ -2,6 +2,15 @@
 
 ## 2026-10-24
 
+- Ajustes finales y paso a producción (rama `feat/ajustes-finales` → `staging` → `main`, con el OK por escrito del dueño):
+  - «Sonando ahora»: el botón Jam (a tu sala o a la del amigo) reemplaza a «Minimizar». Minimizar es deslizar hacia abajo (o Esc en el PC). «Transmitir» pasa a la derecha.
+  - Deslizar a la izquierda agrega directo a la cola en Buscar, playlists, álbumes, modos y Tus me gusta (y a la Jam desde su búsqueda). El menú ⋮ sigue como botón aparte.
+  - Modos de ambiente: botón ancho y grande «Reproducir Modo …» y «Aleatorio» al lado.
+  - Al tocar a mano otra canción, se quitan las recomendaciones de la anterior y sale un bloque nuevo de 10 a partir de la tocada. También cuando empieza a sonar una que la radio no trajo (de tu lista, tu cola o la Jam). Toda radio nueva arranca con 10.
+  - Géneros: K-Pop, J-Pop y Mandopop en el índice, y la escritura asiática se reconoce aunque el artista no esté. Si no se conoce el género de la canción que suena, se toma el de la mayoría de su radio. Una radio de salsa ya no trae K-Pop.
+  - Avisos sin «YouTube Music» («Esta canción no está disponible aquí…»). Se deja el botón «Abrir en YouTube Music».
+  - Esc al minimizar ya no puede sacarte de la pantalla a la que fuiste mientras bajaba «Sonando ahora».
+  - Offline: descartado definitivamente (descargar audio de YouTube no es posible ni permitido). Quedan la app sin conexión y el aviso de reconexión.
 - Rama `staging` (versión de prueba unificada, pendiente del OK del dueño). Une `feat/ui-recomendaciones-offline`, `feat/inicio-generos-ambiente` y `feat/jam-interactividad`, más `feat/gestos-genero-cast`:
   - Gestos según la pantalla. En Buscar y en las listas (playlists, álbumes, modos): izquierda = agregar a la cola de una vez (o a la Jam, en la de un amigo), derecha = menú «⋮». En «Próximas en sonar»: derecha = quitar, izquierda = menú. En la búsqueda de la sala de la Jam, izquierda = agregar a la Jam.
   - Recomendaciones: género > época. Se quitó el filtro de «misma época».

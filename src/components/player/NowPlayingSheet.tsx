@@ -1,6 +1,7 @@
-import { Cast, ChevronDown, ChevronUp, Heart, PictureInPicture2 } from 'lucide-react'
+import { Cast, ChevronUp, Heart, PictureInPicture2, Users } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
+import { useGuestJam } from '../../jam/guestJam'
 import { useLibrary } from '../../library/store'
 import { useSettings } from '../../lib/settings'
 import { usePreventTouchMove } from '../../lib/usePreventTouchMove'
@@ -50,6 +51,7 @@ export function NowPlayingSheet() {
   const [controlsHidden, setControlsHidden] = useState(false)
   const drag = useRef<{ pointerId: number; startY: number; startX: number; axis: 'x' | 'y' | null; dy: number } | null>(null)
   const showTimer = useRef<number | undefined>(undefined)
+  const closeTimer = useRef<number | undefined>(undefined)
   const rootRef = useRef<HTMLDivElement>(null)
   usePreventTouchMove(rootRef, () => drag.current?.axis === 'y')
 
@@ -61,6 +63,8 @@ export function NowPlayingSheet() {
     return () => {
       cancelAnimationFrame(frame)
       window.clearTimeout(showTimer.current)
+      // Si mientras bajaba ya fuiste a otra pantalla, no se vuelve atrás (te sacaría de donde estás).
+      window.clearTimeout(closeTimer.current)
       sheetState.set('closed')
     }
   }, [])
@@ -70,12 +74,23 @@ export function NowPlayingSheet() {
     setClosing(true)
     sheetState.set('closing')
     stagePulse.emit()
-    window.setTimeout(() => {
+    closeTimer.current = window.setTimeout(() => {
       const background = (location.state as { background?: unknown } | null)?.background
       if (background) navigate(-1)
       else navigate('/', { replace: true })
     }, SLIDE_MS)
   }
+
+  // En el PC, Esc minimiza (o cierra «Próximas en sonar» si está abierta). Si Esc ya cerró un menú, no hace nada más.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (queueOpen) setQueueOpen(false)
+      else close()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   // Deslizar: hacia abajo minimiza; hacia arriba abre «Próximas en sonar». La dirección dominante decide.
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -158,20 +173,14 @@ export function NowPlayingSheet() {
           el espacio que sobra para la carátula o el video, centrados. Nada entra ni sale del flujo al deslizar o al
           cambiar de canción, así que el conjunto no salta y nunca hay scroll. */}
       <div className="relative mx-auto flex h-full max-w-5xl flex-col pt-[env(safe-area-inset-top)] pb-2">
-        <header className={`flex shrink-0 items-center gap-2 px-2 py-2 ${fade}`}>
-          {/* En el celular, «Transmitir» en vez de minimizar (minimizar es deslizar hacia abajo); en el PC queda ⌄. */}
-          <span className="lg:hidden">
-            <CastButton track={current} />
-          </span>
-          <span className="hidden lg:block">
-            <IconButton label="Minimizar" onClick={close} className="text-white">
-              <ChevronDown className="size-7" />
-            </IconButton>
-          </span>
+        <header className={`flex shrink-0 items-center gap-1 px-2 py-2 ${fade}`}>
+          {/* «Jam» en vez de minimizar (minimizar: deslizar hacia abajo o, en el PC, la tecla Esc). */}
+          <JamButton />
           <div className="min-w-0 flex-1 text-center">
             <p className="text-[11px] font-semibold tracking-wider text-white/70 uppercase">Sonando desde</p>
             <p className="truncate text-sm font-bold">{contextName ?? 'Tu música'}</p>
           </div>
+          <CastButton track={current} />
           <FloatingButton />
           <TrackMenu track={current} />
         </header>
@@ -249,6 +258,17 @@ function BackgroundNotice({ fade }: { fade: string }) {
     <p className={`mx-6 mt-3 line-clamp-2 h-7 text-center text-[11px] leading-[14px] text-white/55 ${fade}`}>
       Al salir se pausa un instante y la app intenta reanudarla sola; si no lo logra, pulsa ▶ en la notificación ({help}).
     </p>
+  )
+}
+
+/** «Jam»: lleva a tu sala (o a la del amigo en cuya Jam estás) sin buscarla en el menú. */
+function JamButton() {
+  const navigate = useNavigate()
+  const { code } = useGuestJam()
+  return (
+    <IconButton label="Jam: escuchar en grupo" onClick={() => navigate(code ? `/jam/${code}` : '/jam', { replace: true })} className="text-white">
+      <Users className="size-6" />
+    </IconButton>
   )
 }
 

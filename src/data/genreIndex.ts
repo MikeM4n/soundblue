@@ -31,10 +31,22 @@ const SIMILAR: Record<GenreKey, GenreKey[]> = {
   boleros: ['baladas'],
   electronica: [],
   rock: [],
+  kpop: ['jpop', 'cpop'],
+  jpop: ['kpop', 'cpop'],
+  cpop: ['kpop', 'jpop'],
 }
 
+// Escritura asiática en el título o el artista: si el índice no conoce al artista, cuenta como K-Pop, J-Pop o Mandopop
+// (y queda fuera de las radios latinas).
+const SCRIPTS: [RegExp, GenreKey][] = [
+  [/[가-힯ᄀ-ᇿ]/, 'kpop'], // coreano
+  [/[぀-ヿ]/, 'jpop'], // japonés (kana)
+  [/[一-鿿]/, 'cpop'], // chino
+]
+const DOMINANT = 0.3 // sin género conocido, la canción que suena toma el de la mayoría de su radio (≥ 30 %)
+
 const KEY = 'soundblue:indice-generos'
-const VERSION = 2 // cambia si cambian los géneros, sus fuentes o la forma de contar
+const VERSION = 3 // cambia si cambian los géneros, sus fuentes o la forma de contar
 const MAX_AGE = 7 * 24 * 3600 * 1000
 const PLAYLISTS_PER_GENRE = 3
 const AT_ONCE = 3 // consultas de géneros a la vez (para no saturar al intermediario)
@@ -107,11 +119,28 @@ export function genreIndex(): Promise<GenreIndex> {
 export const genreIndexSoon = (ms: number): Promise<GenreIndex | null> =>
   Promise.race([genreIndex().catch(() => null), new Promise<null>((resolve) => window.setTimeout(() => resolve(null), ms))])
 
-/** Géneros de una canción: los de sus artistas (vacío si no se conoce ninguno). */
+/** Géneros de una canción: los de sus artistas o, si no se conoce ninguno, el de su escritura asiática (o vacío). */
 export function genresOf(track: Track, index: GenreIndex): Set<GenreKey> {
   const genres = new Set<GenreKey>()
   for (const artist of artistKeys(track.artist)) for (const genre of index.get(artist) ?? []) genres.add(genre)
+  if (!genres.size) {
+    const text = `${track.title} ${track.artist}`
+    const script = SCRIPTS.find(([pattern]) => pattern.test(text))
+    if (script) genres.add(script[1])
+  }
   return genres
+}
+
+/** El género de la mayoría de unas canciones (los que llegan al 30 % de las conocidas, con 3 como mínimo). */
+export function dominantGenres(tracks: readonly Track[], index: GenreIndex): Set<GenreKey> {
+  const counts = new Map<GenreKey, number>()
+  let known = 0
+  for (const track of tracks) {
+    const genres = genresOf(track, index)
+    if (genres.size) known++
+    for (const genre of genres) counts.set(genre, (counts.get(genre) ?? 0) + 1)
+  }
+  return new Set([...counts].filter(([, n]) => n >= Math.max(3, known * DOMINANT)).map(([genre]) => genre))
 }
 
 /** Lo que acepta la radio de una canción: sus géneros y los parecidos. */

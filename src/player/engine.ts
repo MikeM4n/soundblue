@@ -76,7 +76,7 @@ const RADIO_BATCH = 5 // …pidiendo como mínimo de a 5
 const SKIP_SECONDS = 30 // pasar a la siguiente antes de esto cuenta como saltada (data/history.ts)
 
 const UNAVAILABLE = new Set([100, 101, 150]) // borrado/privado o el dueño no permite incrustarlo
-const ONLY_IN_YTM = 'Esta canción solo se puede escuchar en la app de YouTube Music.'
+const ONLY_IN_YTM = 'Esta canción no está disponible aquí: ábrela en la app oficial.'
 const OFFLINE = 'Sin conexión: la música sigue en cuanto vuelva internet.'
 
 // Auto‑reanudación (experimental): YouTube o Chrome pausan el reproductor en el mismo segundo en que la página se oculta.
@@ -311,25 +311,28 @@ export class PlayerEngine {
   /**
    * Cuando quedan menos de 10 por sonar (tu cola + la lista; también al quitar una), la radio agrega las que falten para
    * 10 (mínimo 5), así la música no se detiene. La semilla es SIEMPRE la canción que suena: si la radio actual la trajo,
-   * sigue esa radio; si no (es de la lista que elegiste, de tu cola o la agregó alguien en la Jam), se arma la radio de
-   * esa canción (1 de cada 5 del mismo artista, el resto de su género o uno parecido, de cualquier año). Con «repetir»
-   * activado no se arma ninguna (la lista vuelve a empezar).
+   * sigue esa radio; si no (es de la lista que elegiste, de tu cola o la agregó alguien en la Jam), las recomendaciones
+   * que venían se quitan y se arma la radio de esa canción (1 de cada 5 del mismo artista, el resto de su género o uno
+   * parecido, de cualquier año). Con «repetir» activado no se arma ninguna (la lista vuelve a empezar).
    */
   private extendRadio(): Promise<void> {
     const context = this.context
-    const remaining = this.queue.length + (this.order.length - this.pos - 1)
-    if (!context || remaining >= MIN_UPCOMING) return Promise.resolve()
     const seed = this.current
-    if (seed && this.repeat === 'off' && !this.radioOwn.has(seed.id)) {
-      this.radioMore = createRadio(seed)
-      this.radioOwn = new Set([seed.id])
+    // Suena una que la radio no trajo: las recomendaciones que venían (de otra canción) se cambian por las de esta.
+    if (context && seed && this.repeat === 'off' && !this.radioOwn.has(seed.id)) {
+      this.restartRadio(seed)
+      this.changed()
     }
-    if (!this.radioMore) return Promise.resolve()
+    const remaining = this.queue.length + (this.order.length - this.pos - 1)
+    if (!context || remaining >= MIN_UPCOMING || !this.radioMore) return Promise.resolve()
     const loading = this.radioLoading
     // Ya se está pidiendo para esta lista: se espera ese pedido (uno de otra lista se descarta solo al llegar).
     if (loading && loading.context === context && loading.more === this.radioMore) return loading.done
     const request = { context, more: this.radioMore, done: Promise.resolve() }
-    request.done = this.fetchRadio(context, this.radioMore, Math.max(RADIO_BATCH, MIN_UPCOMING - remaining)).then((added) => {
+    // Una radio nueva (todavía solo su semilla) empieza con el bloque completo de 10 recomendadas, aunque tu cola tenga
+    // canciones; después, las que falten para 10 (mínimo 5).
+    const count = this.radioOwn.size <= 1 ? MIN_UPCOMING : Math.max(RADIO_BATCH, MIN_UPCOMING - remaining)
+    request.done = this.fetchRadio(context, this.radioMore, count).then((added) => {
       if (this.radioLoading === request) this.radioLoading = null
       if (added) void this.extendRadio() // si todavía faltan para 10 (p. ej. la radio dio menos), otra tanda
     })
@@ -562,6 +565,7 @@ export class PlayerEngine {
     if (!track) return
     this.queue.splice(0, index + 1)
     this.pushHistory()
+    this.restartRadio(track)
     this.playTrack(track, true)
   }
 
@@ -571,7 +575,22 @@ export class PlayerEngine {
     if (!this.context || at >= this.order.length) return
     this.pushHistory()
     this.pos = at
+    this.restartRadio(this.contextTrack(this.pos))
     this.playTrack(this.contextTrack(this.pos), false)
+  }
+
+  /**
+   * Tocaste a mano otra canción: las recomendaciones que venían (las que agregó la radio, de la canción anterior) se
+   * quitan y la radio vuelve a empezar desde esta (al sonar, playTrack pide el bloque nuevo). Lo de la lista que
+   * elegiste y tu cola se quedan. Con «repetir» activado no se toca nada.
+   */
+  private restartRadio(seed: Track) {
+    const context = this.context
+    if (!context || this.repeat !== 'off') return
+    const groups = context.groups ?? {}
+    this.order = [...this.order.slice(0, this.pos + 1), ...this.order.slice(this.pos + 1).filter((i) => !groups[context.tracks[i].id])]
+    this.radioMore = createRadio(seed)
+    this.radioOwn = new Set([seed.id])
   }
 
   // ---- Modos y volumen ----
@@ -937,7 +956,7 @@ export class PlayerEngine {
           ? 'No se pudo reproducir esta canción, pasando a la siguiente'
           : isLocalNetworkAddress()
             ? 'YouTube bloquea esta canción desde la red local (http://192.168…): ábrela con https. Pasando a la siguiente'
-            : 'Esta canción solo está en la app de YouTube Music, pasando a la siguiente',
+            : 'Esta canción no está disponible aquí, pasando a la siguiente',
         openInYtm,
       )
       this.next()

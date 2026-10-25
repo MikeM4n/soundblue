@@ -76,6 +76,10 @@ export const INDEX_GENRES = {
   boleros: { key: 'boleros', label: 'Boleros', queries: ['boleros'], match: /bolero/i },
   electronica: { key: 'electronica', label: 'Electrónica', category: 'Dance y electrónica', queries: ['electrónica'], match: /dance|electr|edm|house/i },
   rock: { key: 'rock', label: 'Rock en español', category: 'Rock en español', queries: ['rock en español'], match: /rock/i },
+  // Para reconocerlos y dejarlos fuera de las radios latinas (una de salsa llegó a traer K-Pop).
+  kpop: { key: 'kpop', label: 'K-Pop', category: 'K-Pop', queries: ['k-pop'], match: /k-?pop|korea|corea/i },
+  jpop: { key: 'jpop', label: 'J-Pop', category: 'Pop japonés', queries: ['j-pop'], match: /j-?pop|jap[oó]n|japan|anime/i },
+  cpop: { key: 'cpop', label: 'Mandopop', category: 'Mandopop y cantopop', queries: ['mandopop'], match: /mandopop|cantopop|c-?pop|chin/i },
 } satisfies Record<string, GenreSource>
 
 /** «Selecciones rápidas»: canciones por género. */

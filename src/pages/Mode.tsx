@@ -1,11 +1,10 @@
-import { ChevronLeft, Shuffle } from 'lucide-react'
+import { ChevronLeft, Play, Shuffle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
 import { TrackList } from '../components/tracks/TrackList'
 import { Chips } from '../components/ui/Chips'
 import { IconButton } from '../components/ui/IconButton'
 import { MODE_LOOK } from '../components/ui/ModeTiles'
-import { PlayButton } from '../components/ui/PlayButton'
 import { MODES, modeTracks } from '../data/genres'
 import { player } from '../player/engine'
 import type { Track } from '../player/types'
@@ -76,20 +75,33 @@ export function ModePage() {
           onChange={setFilter}
         />
       </div>
-      <div className="flex items-center gap-3 px-4 pt-2 md:px-6">
-        <PlayButton label={`Reproducir ${name}`} onClick={() => tracks.length && play(0)} />
-        <IconButton
-          label={`Reproducir ${name} en aleatorio`}
+      {/* La acción principal de la pantalla: botón ancho y grande, con «Aleatorio» al lado. */}
+      <div className="flex items-center gap-3 px-4 pt-3 md:px-6">
+        <button
+          type="button"
+          disabled={!tracks.length}
+          onClick={() => play(0)}
+          aria-label={`Reproducir ${name}`}
+          className="flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-acento px-6 text-lg font-bold text-white shadow-lg shadow-acento/30 transition hover:bg-acento-hover active:scale-[.98] disabled:opacity-50 md:max-w-sm"
+        >
+          <Play className="size-6 shrink-0 fill-current" aria-hidden="true" />
+          <span className="truncate">Reproducir {mode.label}</span>
+        </button>
+        <button
+          type="button"
+          disabled={!tracks.length}
           onClick={() => {
-            if (!tracks.length) return
             open()
             player.shuffleContext(name, tracks, { replaceQueue: true })
           }}
+          aria-label={`Reproducir ${name} en aleatorio`}
+          className="flex h-14 shrink-0 items-center gap-2 rounded-full bg-white/10 px-5 font-semibold text-texto transition hover:bg-white/15 disabled:opacity-50"
         >
-          <Shuffle className="size-6" />
-        </IconButton>
-        <p className="min-w-0 text-xs text-texto-sec">Sin covers, sin artistas que sueles saltar y como mucho 2 canciones por artista.</p>
+          <Shuffle className="size-5" aria-hidden="true" />
+          Aleatorio
+        </button>
       </div>
+      <p className="px-4 pt-2 text-xs text-texto-sec md:px-6">Sin covers, sin artistas que sueles saltar y como mucho 2 canciones por artista.</p>
 
       {list === undefined && <p className="mt-6 px-4 text-sm text-texto-sec md:px-6">Armando la lista…</p>}
       {list === 'error' && <p className="mt-6 px-4 text-sm text-texto-sec md:px-6">No se pudo armar la lista. Revisa tu conexión y vuelve a intentarlo.</p>}

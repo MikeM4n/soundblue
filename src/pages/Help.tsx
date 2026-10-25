@@ -146,8 +146,9 @@ export function Help() {
             sigue igual.
           </li>
           <li>
-            <B>Hacia abajo</B> desde arriba de la pantalla: minimizar (en el celular, el botón de arriba a la izquierda es
-            «Transmitir»: abre la canción en la app de YouTube Music, que tiene el botón para mandarla a tu TV con Chromecast).
+            <B>Hacia abajo</B> desde arriba de la pantalla: minimizar (en el PC también con la tecla Esc). Arriba a la izquierda,
+            <B> Jam</B> te lleva a tu sala; a la derecha, <B>Transmitir</B> abre la canción en la app de YouTube Music, que tiene el
+            botón para mandarla a tu TV con Chromecast.
           </li>
           <li>
             En la vista <B>«Video»</B> los toques sobre el video los recibe el reproductor de YouTube: ahí la carátula no se desliza. Usa
@@ -402,6 +403,7 @@ function RecommendationsSection() {
           {/* Diagnósticos guardados por versiones anteriores no traen género. */}
           <p>
             Género detectado: <B>{radio.genres?.length ? radio.genres.join(', ') : 'no se conoce'}</B>
+            {radio.guessed && ' (deducido de su radio)'}
             {radio.accepts?.length ? ` · acepta ${radio.accepts.join(', ')} (de cualquier año)` : ' (no se filtra por género: queda la radio de YouTube tal cual)'}
           </p>
           <p>
