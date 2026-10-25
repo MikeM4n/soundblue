@@ -32,6 +32,10 @@ npm run iconos     # regenera los íconos y el favicon desde el logo
 
 Para probar en el teléfono, usa la versión publicada: <https://mikem4n.github.io/soundblue/>.
 
+## Playlists guardadas
+
+Buscar trae «Playlists» de YouTube Music (destacadas y de la comunidad; `ytmSearch`, filtros `featuredPlaylists` y `communityPlaylists`) con «+» (`SavePlaylistButton`, también en su página). Guardarla (`src/library/savedPlaylists.ts`) anota sus datos en la biblioteca (`soundblue:biblioteca` → `saved`) y en segundo plano lee la playlist completa (`ytmPlaylist`, hasta 1000) y guarda sus canciones en IndexedDB (base `soundblue`, almacén `playlists-guardadas`). Tu biblioteca → «Playlists guardadas» la abre en `#/ytm/:id`, que muestra al instante las guardadas (también sin conexión) y las actualiza al abrirla.
+
 ## Tema, temporizador, compartir y Tu Top 50
 
 - **Tema** (Ajustes, `src/lib/theme.ts`): «Predeterminado del sistema» (por defecto: `prefers-color-scheme`, también si cambia con la app abierta), «Claro» u «Oscuro» (AMOLED: fondos y paneles en negro puro). Se guarda en `soundblue:ajustes` y va en `<html data-tema>`; `index.html` lo aplica antes de pintar (sin destello) y cambia el color de la barra (`theme-color`). En `src/index.css`, el tema claro cambia las variables de la paleta; `contraste`/`inverso` son los velos, bordes y fichas (blanco en el oscuro, negro en el claro); `text-white` queda blanco en los dos (sobre azul, rojo o la carátula). «Sonando ahora», la mini barra y el panel del PC llevan `siempre-oscuro`.

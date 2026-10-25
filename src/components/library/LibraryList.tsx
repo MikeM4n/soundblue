@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router'
 import { useState } from 'react'
-import { useLibrary } from '../../library/store'
+import { useLibrary, type SavedPlaylist } from '../../library/store'
 import { coverSources } from '../../player/types'
 import { PlaylistDialog } from '../tracks/PlaylistDialog'
 import { Cover } from '../ui/Cover'
@@ -8,9 +8,12 @@ import { FavoritesCover, LibraryItem } from '../ui/LibraryItem'
 
 const count = (n: number) => (n === 1 ? '1 canción' : `${n} canciones`)
 
-/** «Tus me gusta», la lista de prueba y tus playlists. La usan la barra lateral y la página Biblioteca. */
-export function LibraryList({ coverSize = 'size-12' }: { coverSize?: string }) {
-  const { favorites, playlists } = useLibrary()
+/**
+ * «Tus me gusta», la lista de prueba, tus playlists y (si `saved`) las playlists de YouTube que guardaste. La usan la
+ * barra lateral y la página Biblioteca (que muestra las guardadas aparte, en «Playlists guardadas»).
+ */
+export function LibraryList({ coverSize = 'size-12', saved: withSaved = true }: { coverSize?: string; saved?: boolean }) {
+  const { favorites, playlists, saved } = useLibrary()
   return (
     <ul>
       <li>
@@ -26,11 +29,26 @@ export function LibraryList({ coverSize = 'size-12' }: { coverSize?: string }) {
           />
         </li>
       ))}
+      {withSaved && <SavedItems saved={saved} coverSize={coverSize} />}
       <li>
         <LibraryItem to="/coleccion/prueba/lista" title="Lista de prueba" subtitle="Álbum · SoundBlue" cover={<Cover seed="lista-de-prueba" className={`${coverSize} shrink-0 rounded-md`} />} />
       </li>
     </ul>
   )
+}
+
+/** Las playlists de YouTube guardadas: abren su página (con todas sus canciones). */
+export function SavedItems({ saved, coverSize = 'size-12' }: { saved: readonly SavedPlaylist[]; coverSize?: string }) {
+  return saved.map((p) => (
+    <li key={p.id}>
+      <LibraryItem
+        to={`/ytm/${encodeURIComponent(p.id)}`}
+        title={p.title}
+        subtitle={['Playlist guardada', p.count !== undefined ? count(p.count) : p.subtitle].filter(Boolean).join(' · ')}
+        cover={<Cover seed={p.id} src={p.image} className={`${coverSize} shrink-0 rounded-md`} />}
+      />
+    </li>
+  ))
 }
 
 /** Hook para el botón «+»: abre el diálogo y, al crear, lleva a la playlist nueva. */

@@ -1,4 +1,5 @@
-// Tu biblioteca: favoritos («Tus me gusta») y playlists, guardados en este navegador (localStorage).
+// Tu biblioteca: favoritos («Tus me gusta»), tus playlists y las playlists de YouTube que guardaste, en este navegador
+// (localStorage). De las guardadas aquí van sus datos; sus canciones, en IndexedDB (library/savedPlaylists.ts).
 import { useSyncExternalStore } from 'react'
 import { isTrack, newId, type Track } from '../player/types'
 
@@ -8,10 +9,22 @@ export interface Playlist {
   tracks: Track[]
 }
 
+/** Playlist de YouTube guardada desde Buscar o desde su página («Playlists guardadas»). */
+export interface SavedPlaylist {
+  id: string // browseId de YouTube Music («VLPL…»): abre su página (/ytm/:id)
+  title: string
+  subtitle: string
+  image?: string
+  count?: number // canciones (cuando ya se leyó la lista completa)
+}
+
 interface LibraryState {
   favorites: Track[]
   playlists: Playlist[]
+  saved: SavedPlaylist[] // la más reciente primero
 }
+
+const isSaved = (p: SavedPlaylist) => !!p && typeof p.id === 'string' && typeof p.title === 'string'
 
 const KEY = 'soundblue:biblioteca'
 const listeners = new Set<() => void>()
@@ -27,9 +40,10 @@ function load(): LibraryState {
             .filter((p: Playlist) => p && typeof p.id === 'string' && Array.isArray(p.tracks))
             .map((p: Playlist) => ({ id: p.id, name: String(p.name || 'Mi playlist'), tracks: p.tracks.filter(isTrack) }))
         : [],
+      saved: Array.isArray(saved?.saved) ? saved.saved.filter(isSaved) : [],
     }
   } catch {
-    return { favorites: [], playlists: [] }
+    return { favorites: [], playlists: [], saved: [] }
   }
 }
 
@@ -94,6 +108,18 @@ export const library = {
 
   playlist: (id: string) => state.playlists.find((p) => p.id === id) ?? null,
 
+  // ---- Playlists de YouTube guardadas (sus canciones las maneja library/savedPlaylists.ts) ----
+  savedPlaylist: (id: string) => state.saved.find((p) => p.id === id) ?? null,
+  addSaved(playlist: SavedPlaylist) {
+    commit({ ...state, saved: [playlist, ...state.saved.filter((p) => p.id !== playlist.id)] })
+  },
+  updateSaved(id: string, patch: Partial<SavedPlaylist>) {
+    commit({ ...state, saved: state.saved.map((p) => (p.id === id ? { ...p, ...patch } : p)) })
+  },
+  removeSaved(id: string) {
+    commit({ ...state, saved: state.saved.filter((p) => p.id !== id) })
+  },
+
   createPlaylist(name: string): Playlist {
     const playlist = { id: newId(), name: name.trim() || 'Mi playlist', tracks: [] }
     commit({ ...state, playlists: [...state.playlists, playlist] })
@@ -120,6 +146,9 @@ export const library = {
 function updatePlaylist(id: string, change: (tracks: Track[]) => Track[]) {
   commit({ ...state, playlists: state.playlists.map((p) => (p.id === id ? { ...p, tracks: change(p.tracks) } : p)) })
 }
+
+/** ¿Está guardada esta playlist de YouTube? (para los botones «+» / «✓»). */
+export const useSavedPlaylist = (id: string) => useLibrary().saved.some((p) => p.id === id)
 
 export function useLibrary() {
   return useSyncExternalStore(library.subscribe, library.get)
