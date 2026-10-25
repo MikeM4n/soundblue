@@ -187,6 +187,8 @@ export function Help() {
           </li>
           <li>
             <B>Tu Top 50</B> (Inicio): las canciones que más escuchaste aquí, de más a menos (cuentan las que suenan 30 segundos o más).
+            Desliza una <B>a la izquierda</B> para que suene a continuación y <B>a la derecha</B> para quitarla de tu Top (con
+            «Deshacer»; si la vuelves a escuchar mucho, regresa).
           </li>
         </ul>
       </Section>

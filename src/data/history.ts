@@ -84,6 +84,17 @@ export const listening = {
       .sort((a, b) => b.count - a.count || b.last - a.last)
       .slice(0, limit)
   },
+  /**
+   * Quitarla de «Tu Top 50» (deslizar a la derecha): se olvidan sus reproducciones (si la vuelves a escuchar mucho,
+   * vuelve). Devuelve cómo deshacerlo.
+   */
+  forgetPlays(id: string): () => void {
+    const found = entries.find((e) => e.track.id === id)
+    if (!found || !found.count) return () => {}
+    const count = found.count
+    commit(entries.map((e) => (e === found ? { ...e, count: 0 } : e)), true)
+    return () => commit(entries.map((e) => (e.track.id === id ? { ...e, count: e.count + count } : e)), true)
+  },
   /** Ids de lo que empezó a sonar en las últimas `ms` (por defecto, 24 h). */
   playedWithin(ms = 24 * 3600 * 1000): Set<string> {
     const since = Date.now() - ms
