@@ -147,8 +147,8 @@ export function Help() {
             sigue igual.
           </li>
           <li>
-            <B>Hacia abajo</B> desde arriba de la pantalla: minimizar (en el PC también con la tecla Esc). Arriba a la izquierda,
-            <B> Jam</B> te lleva a tu sala.
+            <B>Hacia abajo</B> desde arriba de la pantalla: minimizar (en el PC también con la tecla Esc). Arriba a la derecha,
+            junto a ⋮, <B>Jam</B> te lleva a tu sala.
           </li>
           <li>
             En la vista <B>«Video»</B> los toques sobre el video los recibe el reproductor de YouTube: ahí la carátula no se desliza. Usa
