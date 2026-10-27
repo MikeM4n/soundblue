@@ -3,7 +3,9 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Switch } from '../components/ui/Switch'
 import { settings, useSettings, type ThemeChoice } from '../lib/settings'
-import { ALL_GENRES, favoriteGenres, useFavoriteGenres } from '../data/favoriteGenres'
+import { favoriteGenres, useFavoriteGenres } from '../data/favoriteGenres'
+import { INDEX_GENRES } from '../data/genres'
+import type { GenreKey } from '../data/genreIndex'
 
 /** Ajustes: lo que se puede personalizar de la app (se guarda en este navegador). */
 const THEMES: { key: ThemeChoice; label: string; note: string }[] = [
@@ -15,6 +17,7 @@ const THEMES: { key: ThemeChoice; label: string; note: string }[] = [
 export function Settings() {
   const { hideViewToggle, dynamicQueue, theme } = useSettings()
   const selectedGenres = useFavoriteGenres()
+  const allGenres = Object.entries(INDEX_GENRES)
   return (
     <div className="mx-auto max-w-2xl space-y-4 px-4 pt-6 pb-10">
       <h1 className="text-2xl font-bold md:text-3xl">Ajustes</h1>
@@ -72,9 +75,10 @@ export function Settings() {
         <h2 id="ajustes-generos" className="text-lg font-bold">Mis Géneros Favoritos</h2>
         <p className="mt-1 text-sm text-texto-sec">Se usan para filtrar selecciones, recomendaciones, búsqueda y la cola. Si no eliges ninguno, se usan tus artistas o la selección habitual.</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          {ALL_GENRES.map(({ key, label }) => {
-            const active = selectedGenres.includes(key)
-            return <button key={key} type="button" aria-pressed={active} onClick={() => favoriteGenres.set(active ? selectedGenres.filter((item) => item !== key) : [...selectedGenres, key])} className={`rounded-full px-3 py-2 text-sm font-semibold ${active ? 'bg-acento text-white' : 'bg-contraste/10 text-texto'}`}>{label}</button>
+          {allGenres.map(([key, source]) => {
+            const genre = key as GenreKey
+            const active = selectedGenres.includes(genre)
+            return <button key={key} type="button" aria-pressed={active} onClick={() => favoriteGenres.set(active ? selectedGenres.filter((item) => item !== genre) : [...selectedGenres, genre])} className={`rounded-full px-3 py-2 text-sm font-semibold ${active ? 'bg-acento text-white' : 'bg-contraste/10 text-texto'}`}>{source.label}</button>
           })}
         </div>
       </section>
