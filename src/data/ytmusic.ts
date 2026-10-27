@@ -260,13 +260,17 @@ const searchShelf = (json: Json): Json[] =>
 // ---- Consultas (se guardan en memoria durante la sesión) ----
 
 const memo = new Map<string, Promise<unknown>>()
-function remember<T>(key: string, load: () => Promise<T>): Promise<T> {
+function remember<T>(key: string, load: () => Promise<T>, shouldCache: (value: T) => boolean = () => true): Promise<T> {
   if (!memo.has(key)) {
     const storageKey = `soundblue:cache:ytm:${key}`
     let cached: { at: number; value: T } | null = null
     try { cached = JSON.parse(sessionStorage.getItem(storageKey) ?? 'null') } catch { /* caché opcional */ }
     const promise = cached && Date.now() - cached.at < 30 * 60 * 1000 ? Promise.resolve(cached.value) : load().then((value) => {
       try { sessionStorage.setItem(storageKey, JSON.stringify({ at: Date.now(), value })) } catch { /* caché opcional */ }
+      if (!shouldCache(value)) {
+        try { sessionStorage.removeItem(storageKey) } catch { /* optional cache */ }
+        memo.delete(key)
+      }
       return value
     })
     promise.catch(() => memo.delete(key)) // si falló, se reintenta la próxima vez
@@ -295,8 +299,8 @@ export function ytmHome(): Promise<YtmSection[]> {
 /** Búsqueda como en YouTube Music: canciones, álbumes, artistas y playlists. */
 export function ytmSearch(query: string): Promise<YtmSearchResults> {
   const q = query.trim().toLowerCase().replace(/\s+/g, ' ')
-  // Cambiar la versión evita reutilizar búsquedas vacías guardadas antes de arreglar el parser.
-  return remember(`buscar:v2:${q}`, async () => {
+  // v3 invalida resultados anteriores; las consultas vacías tampoco se conservan en caché.
+  return remember(`buscar:v3:${q}`, async () => {
     const [songs, albums, artists, featured, community] = await Promise.all([
       call('search', { query: q, params: FILTER.songs }),
       call('search', { query: q, params: FILTER.albums }).catch(() => null),
@@ -314,7 +318,7 @@ export function ytmSearch(query: string): Promise<YtmSearchResults> {
         .filter((card) => card.kind === 'playlist' && !seen.has(card.id) && !!seen.add(card.id))
         .slice(0, SEARCH_PLAYLISTS),
     }
-  })
+  }, (result) => !!(result.songs.length || result.albums.length || result.artists.length || result.playlists.length))
 }
 
 /** Solo artistas (una consulta): para elegir tus gustos. */

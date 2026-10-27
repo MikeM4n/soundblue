@@ -9,9 +9,6 @@ import { TrackList } from '../components/tracks/TrackList'
 import { Cover } from '../components/ui/Cover'
 import { YtmCardRow } from '../components/ui/YtmShelf'
 import { categories } from '../data/categories'
-import { INDEX_GENRES } from '../data/genres'
-import { favoriteGenres } from '../data/favoriteGenres'
-import { genreIndex, genresOf } from '../data/genreIndex'
 import { createRadio } from '../data/radio'
 import { KeyError, QuotaError, youtubeSearch, youtubeSearchEnabled } from '../data/youtube'
 import { ytmSearch, type YtmCard } from '../data/ytmusic'
@@ -68,12 +65,8 @@ async function searchMusic(query: string): Promise<MusicResults> {
       return { ...empty, source: 'api', notice: youtubeErrorMessage(error) }
     }
   }
-  const selected = favoriteGenres.get()
-  if (!selected.length) return result
-  const index = await genreIndex().catch(() => null)
-  if (!index) return { ...empty, source: result.source, notice: 'No se pudieron aplicar tus géneros favoritos. Vuelve a intentarlo.' }
-  const fits = (artist: string, title = '') => [...genresOf({ id: '', artist, title }, index)].some((genre) => selected.includes(genre))
-  return { ...result, songs: result.songs.filter((track) => fits(track.artist, track.title)), videos: result.videos.filter((track) => fits(track.artist, track.title)), artists: result.artists.filter((card) => fits(card.title)), albums: result.albums.filter((card) => fits(card.subtitle.split('•').at(-1) ?? '')), playlists: result.playlists.filter((card) => selected.some((genre) => INDEX_GENRES[genre].match.test(card.title))) }
+  // La búsqueda explícita del usuario no debe heredar filtros de géneros de la radio.
+  return result
 }
 
 /** Buscar: canciones, álbumes, artistas y playlists (que se pueden guardar con «+») de YouTube Music, como en Spotify. */

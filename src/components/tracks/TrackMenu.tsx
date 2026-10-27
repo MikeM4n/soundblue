@@ -148,7 +148,7 @@ function MenuPopover({ anchor, track, removeAction, onPlay, onClose, onChoosePla
       role="menu"
       aria-label={`Opciones para ${track.title}`}
       onKeyDown={onKeyDown}
-      className="fixed z-40 w-64 rounded-lg bg-tarjeta-claro p-1 shadow-2xl shadow-black/60 ring-1 ring-contraste/10"
+      className="fixed z-40 lg:z-[60] w-64 rounded-lg bg-tarjeta-claro p-1 shadow-2xl shadow-black/60 ring-1 ring-contraste/10"
       style={position ?? { top: -9999, left: -9999 }}
     >
       {onPlay && !inJam && (
