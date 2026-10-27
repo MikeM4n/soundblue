@@ -35,6 +35,7 @@ import { artistTopSongs } from './artistTop'
 import { clashes, dominantGenres, genreIndexSoon, genreLabel, genreScope, genresOf, type GenreIndex, type GenreKey, type GenreScope } from './genreIndex'
 import { artistKey, listening } from './history'
 import { ytmRadioItems, ytmSearchArtists, type RadioItem } from './ytmusic'
+import { favoriteGenres } from './favoriteGenres'
 
 const SAME_ARTIST_SHARE = 0.2 // del mismo artista: 1 de cada 5 (el resto, otros artistas del mismo género)
 const PER_ARTIST = 2 // de cualquier otro artista, como mucho 2 por tanda
@@ -164,8 +165,13 @@ export function createRadio(seed: Track, { artistTop = true, diagnostics: logDia
   let scope: GenreScope = genreScope(new Set())
   // El artista principal (no los invitados: «Versión Mariachi — Camila Fernández y Morat» no vuelve ranchero a Morat).
   const vouched = new Set([seedArtist, ...trusted.map((track) => artistKey(track.artist))])
+  const preferred = new Set(favoriteGenres.get())
   /** Por qué no cabe en el género de la radio (null: cabe). */
   const genreMiss = (track: Track) => {
+    if (preferred.size) {
+      if (!index) return 'de otro género'
+      return [...genresOf(track, index)].some((genre) => preferred.has(genre)) ? null : 'de otro género'
+    }
     if (!index || !scope.accepts.size) return null
     if (clashes(track, index, scope)) return 'de otro género'
     if (vouched.has(artistKey(track.artist))) return null // el mismo artista, o uno de la lista del Modo
@@ -222,7 +228,7 @@ export function createRadio(seed: Track, { artistTop = true, diagnostics: logDia
   }
 
   const init = async () => {
-    const [radio, found] = await Promise.all([ytmRadioItems(seed.id).catch(() => []), genreIndexSoon(INDEX_WAIT_MS)])
+    const [radio, found] = await Promise.all([ytmRadioItems(seed.id).catch(() => []), preferred.size ? import('./genreIndex').then((m) => m.genreIndex().catch(() => null)) : genreIndexSoon(INDEX_WAIT_MS)])
     index = found
     let seedGenres = fixedGenres ? new Set(fixedGenres) : index ? genresOf(seed, index) : new Set<GenreKey>()
     // Si el índice no conoce la canción que suena, su género es el de la mayoría de su radio de YouTube Music.

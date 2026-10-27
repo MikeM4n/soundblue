@@ -262,7 +262,13 @@ const searchShelf = (json: Json): Json[] =>
 const memo = new Map<string, Promise<unknown>>()
 function remember<T>(key: string, load: () => Promise<T>): Promise<T> {
   if (!memo.has(key)) {
-    const promise = load()
+    const storageKey = `soundblue:cache:ytm:${key}`
+    let cached: { at: number; value: T } | null = null
+    try { cached = JSON.parse(sessionStorage.getItem(storageKey) ?? 'null') } catch { /* caché opcional */ }
+    const promise = cached && Date.now() - cached.at < 30 * 60 * 1000 ? Promise.resolve(cached.value) : load().then((value) => {
+      try { sessionStorage.setItem(storageKey, JSON.stringify({ at: Date.now(), value })) } catch { /* caché opcional */ }
+      return value
+    })
     promise.catch(() => memo.delete(key)) // si falló, se reintenta la próxima vez
     memo.set(key, promise)
   }

@@ -8,6 +8,8 @@ import { BraveBanner } from './BraveBanner'
 import { MobileNav } from './MobileNav'
 import { PlayerBar } from './PlayerBar'
 import { Sidebar } from './Sidebar'
+import { useScreenWakeLock } from '../../lib/useScreenWakeLock'
+import { InstallBanner } from './InstallBanner'
 
 /**
  * Armazón de la app. Celular: contenido + barra banner (al minimizar) + menú inferior.
@@ -15,6 +17,7 @@ import { Sidebar } from './Sidebar'
  * «Sonando ahora» en pantalla completa lo dibuja App encima de esto (ruta /reproduciendo).
  */
 export function AppLayout() {
+  useScreenWakeLock()
   const mainRef = useRef<HTMLElement>(null)
   const { pathname } = useLocation() // la página de fondo (no cambia al abrir «Sonando ahora»)
 
@@ -39,6 +42,7 @@ export function AppLayout() {
       <MobileNav />
       <VideoStage />
       <Toaster />
+      <InstallBanner />
     </div>
   )
 }

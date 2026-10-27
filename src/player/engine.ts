@@ -1158,7 +1158,7 @@ export class PlayerEngine {
 
   private startTicker() {
     if (this.ticker) return
-    // La API de YouTube no avisa del avance del tiempo; se consulta 4 veces por segundo.
+    // YouTube no avisa del tiempo. Una lectura cada 5 s mantiene la barra útil sin actualizarla varias veces por segundo.
     this.ticker = window.setInterval(() => {
       this.syncTime()
       this.rememberDuration(false)
@@ -1169,7 +1169,7 @@ export class PlayerEngine {
         this.save()
       }
       this.emit()
-    }, 250)
+    }, 5000)
   }
 
   private stopTicker() {
@@ -1230,6 +1230,10 @@ export class PlayerEngine {
       this.durations = JSON.parse(localStorage.getItem(DURATIONS_KEY) || '{}')
       const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null')
       if (!saved) return
+      if (saved.context?.name === 'Lista de prueba') {
+        localStorage.removeItem(SESSION_KEY)
+        return
+      }
       const saveds: unknown[] = Array.isArray(saved.context?.tracks) ? saved.context.tracks : []
       const tracks: Track[] = saveds.filter(isTrack)
       if (tracks.length) {

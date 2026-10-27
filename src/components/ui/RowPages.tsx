@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { YtmCard } from '../../data/ytmusic'
 import type { Track } from '../../player/types'
+import { useRef } from 'react'
 import { TrackList } from '../tracks/TrackList'
 import { Cover } from './Cover'
 
@@ -14,10 +15,21 @@ const pagesOf = <T,>(items: readonly T[]): T[][] =>
 /** Fila que se desliza de lado, de página en página (como «Selecciones rápidas» de YouTube Music). */
 function Pages<T>({ items, render }: { items: readonly T[]; render: (page: T[], start: number) => ReactNode }) {
   const pages = pagesOf(items)
+  const ref = useRef<HTMLDivElement>(null)
+  const start = useRef<{ x: number; y: number } | null>(null)
   // Una sola página: a todo el ancho; varias: se asoma la siguiente para que se note que hay más.
   const width = pages.length > 1 ? 'w-[88%] max-w-md' : 'w-full max-w-2xl'
   return (
-    <div className="sin-scroll flex snap-x snap-mandatory overflow-x-auto pb-2 md:px-2">
+    <div ref={ref} data-swipe-carousel className="sin-scroll flex snap-x snap-mandatory overflow-x-auto pb-2 md:px-2" onTouchStart={(event) => { const touch = event.touches[0]; start.current = { x: touch.clientX, y: touch.clientY } }} onTouchEnd={(event) => {
+      const origin = start.current; start.current = null; if (!origin) return
+      const touch = event.changedTouches[0]; const dx = touch.clientX - origin.x; const dy = touch.clientY - origin.y
+      if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.3) return
+      const row = ref.current; if (!row) return
+      const rows = [...document.querySelectorAll<HTMLElement>('[data-swipe-carousel]')]; const at = rows.indexOf(row)
+      const atEnd = row.scrollLeft + row.clientWidth >= row.scrollWidth - 24
+      if (dx < 0 && atEnd) rows[at + 1]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      if (dx > 0 && row.scrollLeft <= 4) rows[at - 1]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }}>
       {pages.map((page, p) => (
         <div key={p} className={`${width} shrink-0 snap-start`}>
           {render(page, p * ROWS)}

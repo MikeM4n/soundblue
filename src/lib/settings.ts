@@ -13,7 +13,7 @@ export interface Settings {
   theme: ThemeChoice
 }
 
-const DEFAULTS: Settings = { hideViewToggle: false, dynamicQueue: true, theme: 'sistema' }
+const DEFAULTS: Settings = { hideViewToggle: false, dynamicQueue: true, theme: 'oscuro' }
 
 function read(): Settings {
   try {

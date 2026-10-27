@@ -8,6 +8,7 @@ export interface Track {
   duration?: number // segundos, si se conoce
   ytMusic?: boolean // pista de YouTube Music (canal «Artista - Topic»): su imagen es la portada del álbum
   artwork?: string // portada cuadrada de YouTube Music (si no, la imagen del video)
+  viewCount?: number // reproducciones públicas de YouTube, si se conoce
 }
 
 export type Repeat = 'off' | 'all' | 'one'

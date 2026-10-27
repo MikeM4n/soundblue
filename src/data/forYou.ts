@@ -18,6 +18,8 @@ import { artistKeys, capPerArtist, interleave, unique } from './lists'
 import { createRadio } from './radio'
 import { readTastes } from './tastes'
 import { youtubeSearch, youtubeSearchEnabled } from './youtube'
+import { favoriteGenres } from './favoriteGenres'
+import { genreIndex, genresOf } from './genreIndex'
 import { ytmPage, ytmRadioItems, ytmSearchArtists, type YtmCard } from './ytmusic'
 
 const DAY = 24 * 3600 * 1000
@@ -189,15 +191,19 @@ export async function computeForYou({ rotate = false } = {}): Promise<ForYou> {
   // estantes, cada canción en uno solo y 2 por artista como mucho.
   const [genre, tops] = await Promise.all([neighborhood, Promise.all(chosen.slice(0, TOP_ARTISTS_SHOWN).map((artist) => artistTopSongs(artist).catch(() => null)))])
   const taken = new Set(tops.flatMap((top) => top?.tracks.map((track) => track.id) ?? []))
-  const strict = shelves.map((shelf) => ({ ...shelf, tracks: capPerArtist(shelf.tracks, PER_ARTIST, taken) })).filter((shelf) => shelf.tracks.length)
+  const preferred = favoriteGenres.get()
+  const index = preferred.length ? await genreIndex().catch(() => null) : null
+  const matches = (track: Track) => !preferred.length || (!!index && [...genresOf(track, index)].some((genre) => preferred.includes(genre)))
+  const strict = shelves.map((shelf) => ({ ...shelf, tracks: capPerArtist(shelf.tracks.filter(matches), PER_ARTIST, taken) })).filter((shelf) => shelf.tracks.length)
   // Tus géneros: los artistas de esas radios, más los tuyos (elegidos, favoritas y escuchados), menos los que saltas.
   const yours = [...chosen.map((artist) => artist.title), ...scoreArtists().map((artist) => artist.name)].flatMap(artistKeys)
-  const genreArtists = [...new Set([...genre, ...yours])].filter((key) => !skipped.has(key))
+  const preferredArtists = index && preferred.length ? [...index].filter(([, genres]) => [...genres].some((item) => preferred.includes(item))).map(([artist]) => artist) : []
+  const genreArtists = [...new Set(preferred.length ? preferredArtists : [...genre, ...yours])].filter((key) => !skipped.has(key))
   return {
     shelves: strict,
     shownIds: [...taken],
     artists: chosen,
-    similar: similar.filter((card) => !chosenIds.has(card.id) && !skipped.has(artistKey(card.title))).slice(0, 15),
+    similar: similar.filter((card) => !chosenIds.has(card.id) && !skipped.has(artistKey(card.title)) && (!preferred.length || (!!index && [...(index.get(artistKey(card.title)) ?? [])].some((genre) => preferred.includes(genre))))).slice(0, 15),
     genreArtists,
     skippedArtists: [...skipped],
   }

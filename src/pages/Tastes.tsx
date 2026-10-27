@@ -40,7 +40,7 @@ export function Tastes() {
       ytmSearchArtists(q)
         .then((found) => alive && setResults({ query: q, artists: found.slice(0, 12) }))
         .catch(() => alive && setResults({ query: q, artists: [] }))
-    }, 450)
+    }, 400)
     return () => {
       alive = false
       window.clearTimeout(timer)

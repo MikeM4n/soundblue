@@ -6,7 +6,9 @@ import { TrackList } from '../components/tracks/TrackList'
 import { Cover } from '../components/ui/Cover'
 import { YtmCardRow } from '../components/ui/YtmShelf'
 import { categories } from '../data/categories'
-import { searchCatalog, testList } from '../data/catalog'
+import { INDEX_GENRES } from '../data/genres'
+import { favoriteGenres } from '../data/favoriteGenres'
+import { genreIndex, genresOf } from '../data/genreIndex'
 import { createRadio } from '../data/radio'
 import { KeyError, QuotaError, youtubeSearch, youtubeSearchEnabled } from '../data/youtube'
 import { ytmSearch, type YtmCard } from '../data/ytmusic'
@@ -17,20 +19,20 @@ import { useNowPlaying } from '../player/useNowPlaying'
 // Música, en este orden de respaldo:
 // 1) YouTube Music (su API interna, ver data/ytmusic.ts): canciones, álbumes, artistas y playlists, como en su app.
 // 2) Si falla y hay clave: la YouTube Data API oficial (data/youtube.ts).
-// 3) Si tampoco: la lista de prueba (lo que coincida o, si nada coincide, la lista entera), con un aviso discreto.
+// Si ambas fuentes fallan, se muestra un aviso sin inventar resultados.
 
 interface MusicResults {
   query: string
   songs: Track[]
-  videos: Track[] // solo con la API oficial: videos musicales; con la lista de prueba: sus canciones
+  videos: Track[] // videos musicales de la API oficial
   albums: YtmCard[]
   artists: YtmCard[]
   playlists: YtmCard[] // con «+» para guardarlas en Tu biblioteca
-  source: 'ytm' | 'api' | 'catalogo'
+  source: 'ytm' | 'api'
   notice: string | null // por qué se usó un respaldo
 }
 
-const QUOTA_MESSAGE = 'Se acabaron por hoy las búsquedas en YouTube (la clave tiene un límite diario). Vuelve a intentarlo mañana; mientras tanto, la lista de prueba.'
+const QUOTA_MESSAGE = 'Se acabaron por hoy las búsquedas en YouTube. Vuelve a intentarlo mañana.'
 
 function youtubeErrorMessage(error: unknown): string {
   if (error instanceof QuotaError) return QUOTA_MESSAGE
@@ -40,19 +42,24 @@ function youtubeErrorMessage(error: unknown): string {
 
 async function searchMusic(query: string): Promise<MusicResults> {
   const empty = { query, songs: [], videos: [], albums: [], artists: [], playlists: [] }
+  let result: MusicResults
   try {
-    return { ...empty, ...(await ytmSearch(query)), source: 'ytm', notice: null }
+    result = { ...empty, ...(await ytmSearch(query)), source: 'ytm', notice: null }
   } catch {
-    const found = searchCatalog(query)
-    const catalog = { ...empty, videos: found.length ? found : testList, source: 'catalogo' as const }
-    if (!youtubeSearchEnabled) return { ...catalog, notice: 'No se pudo conectar con el catálogo. Mientras tanto, la lista de prueba.' }
+    if (!youtubeSearchEnabled) return { ...empty, source: 'ytm', notice: 'No se pudo conectar con el catálogo. Revisa tu conexión.' }
     try {
       const api = await youtubeSearch(query)
-      return { ...empty, songs: api.songs, videos: api.videos, source: 'api', notice: null }
+      result = { ...empty, songs: api.songs, videos: api.videos, source: 'api', notice: null }
     } catch (error) {
-      return { ...catalog, notice: youtubeErrorMessage(error) }
+      return { ...empty, source: 'api', notice: youtubeErrorMessage(error) }
     }
   }
+  const selected = favoriteGenres.get()
+  if (!selected.length) return result
+  const index = await genreIndex().catch(() => null)
+  if (!index) return { ...empty, source: result.source, notice: 'No se pudieron aplicar tus géneros favoritos. Vuelve a intentarlo.' }
+  const fits = (artist: string, title = '') => [...genresOf({ id: '', artist, title }, index)].some((genre) => selected.includes(genre))
+  return { ...result, songs: result.songs.filter((track) => fits(track.artist, track.title)), videos: result.videos.filter((track) => fits(track.artist, track.title)), artists: result.artists.filter((card) => fits(card.title)), albums: result.albums.filter((card) => fits(card.subtitle.split('•').at(-1) ?? '')), playlists: result.playlists.filter((card) => selected.some((genre) => INDEX_GENRES[genre].match.test(card.title))) }
 }
 
 /** Buscar: canciones, álbumes, artistas y playlists (que se pueden guardar con «+») de YouTube Music, como en Spotify. */
@@ -64,7 +71,7 @@ export function Search() {
 
   // Espera a que dejes de escribir antes de buscar.
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(query.trim()), 450)
+    const timer = window.setTimeout(() => setDebounced(query.trim()), 400)
     return () => window.clearTimeout(timer)
   }, [query])
 
@@ -96,7 +103,7 @@ export function Search() {
 
   const lists = [
     { title: 'Canciones', tracks: songs, offset: 0 },
-    { title: fromMusic?.source === 'catalogo' ? 'Lista de prueba' : 'Videos', tracks: videos, offset: songs.length },
+    { title: 'Videos', tracks: videos, offset: songs.length },
   ]
   const nothing = !searching && results.length === 0 && !fromMusic?.albums.length && !fromMusic?.artists.length && !fromMusic?.playlists.length
 

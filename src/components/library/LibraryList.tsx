@@ -9,7 +9,7 @@ import { FavoritesCover, LibraryItem } from '../ui/LibraryItem'
 const count = (n: number) => (n === 1 ? '1 canción' : `${n} canciones`)
 
 /**
- * «Tus me gusta», la lista de prueba, tus playlists y (si `saved`) las playlists de YouTube que guardaste. La usan la
+ * «Tus me gusta», tus playlists y (si `saved`) las playlists de YouTube que guardaste. La usan la
  * barra lateral y la página Biblioteca (que muestra las guardadas aparte, en «Playlists guardadas»).
  */
 export function LibraryList({ coverSize = 'size-12', saved: withSaved = true }: { coverSize?: string; saved?: boolean }) {
@@ -30,9 +30,6 @@ export function LibraryList({ coverSize = 'size-12', saved: withSaved = true }: 
         </li>
       ))}
       {withSaved && <SavedItems saved={saved} coverSize={coverSize} />}
-      <li>
-        <LibraryItem to="/coleccion/prueba/lista" title="Lista de prueba" subtitle="Álbum · SoundBlue" cover={<Cover seed="lista-de-prueba" className={`${coverSize} shrink-0 rounded-md`} />} />
-      </li>
     </ul>
   )
 }

@@ -405,7 +405,7 @@ function RecommendationsSection() {
           Consultas a YouTube Music hoy: <B>{usage.ytm}</B> (no tiene cuota).
         </li>
         <li>
-          YouTube Data API hoy: <B>{usage.dataApi}</B> de 10 000 unidades (solo se usa si YouTube Music falla).
+          YouTube Data API hoy: <B>{usage.dataApi}</B> de 10 000 unidades (respaldo de búsqueda y popularidad de Rumba).
         </li>
       </ul>
       <p>Artistas con sus canciones top guardadas ({entries.length}; se renuevan cada 24 h):</p>

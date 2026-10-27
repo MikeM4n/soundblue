@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Route, Routes, useLocation, type Location } from 'react-router'
 import { genreIndex } from './data/genreIndex'
 import { guestJam } from './jam/guestJam'
@@ -9,19 +9,20 @@ import { AppLayout } from './components/layout/AppLayout'
 import { NowPlayingSheet } from './components/player/NowPlayingSheet'
 import { usePlayerShortcuts } from './player/usePlayerShortcuts'
 import { useResumePrompt } from './player/useResumePrompt'
-import { Collection } from './pages/Collection'
-import { Help } from './pages/Help'
-import { ModePage } from './pages/Mode'
-import { Settings } from './pages/Settings'
 import { Home } from './pages/Home'
-import { Library } from './pages/Library'
-import { Queue } from './pages/Queue'
-import { JamGuest } from './pages/JamGuest'
-import { JamHost } from './pages/JamHost'
-import { Search } from './pages/Search'
-import { SongPage } from './pages/Song'
-import { Tastes } from './pages/Tastes'
-import { YtmPage } from './pages/YtmPage'
+
+const Collection = lazy(() => import('./pages/Collection').then((m) => ({ default: m.Collection })))
+const Help = lazy(() => import('./pages/Help').then((m) => ({ default: m.Help })))
+const ModePage = lazy(() => import('./pages/Mode').then((m) => ({ default: m.ModePage })))
+const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })))
+const Library = lazy(() => import('./pages/Library').then((m) => ({ default: m.Library })))
+const Queue = lazy(() => import('./pages/Queue').then((m) => ({ default: m.Queue })))
+const JamGuest = lazy(() => import('./pages/JamGuest').then((m) => ({ default: m.JamGuest })))
+const JamHost = lazy(() => import('./pages/JamHost').then((m) => ({ default: m.JamHost })))
+const Search = lazy(() => import('./pages/Search').then((m) => ({ default: m.Search })))
+const SongPage = lazy(() => import('./pages/Song').then((m) => ({ default: m.SongPage })))
+const Tastes = lazy(() => import('./pages/Tastes').then((m) => ({ default: m.Tastes })))
+const YtmPage = lazy(() => import('./pages/YtmPage').then((m) => ({ default: m.YtmPage })))
 
 export default function App() {
   const location = useLocation()
@@ -42,7 +43,7 @@ export default function App() {
 
   return (
     <>
-      <Routes location={pageLocation}>
+      <Suspense fallback={<div className="p-6 text-sm text-texto-sec">Cargando…</div>}><Routes location={pageLocation}>
         <Route element={<AppLayout />}>
           <Route index element={<Home />} />
           <Route path="buscar" element={<Search />} />
@@ -59,7 +60,7 @@ export default function App() {
           <Route path="cancion/:id" element={<SongPage />} />
           <Route path="*" element={<Home />} />
         </Route>
-      </Routes>
+      </Routes></Suspense>
       {location.pathname === '/reproduciendo' && <NowPlayingSheet />}
     </>
   )

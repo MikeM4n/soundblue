@@ -10,6 +10,8 @@ import { ModeTiles } from '../components/ui/ModeTiles'
 import { CardPages, TrackPages } from '../components/ui/RowPages'
 import { Section } from '../components/ui/Section'
 import { computeForYou, type ForYou } from '../data/forYou'
+import { favoriteGenres, useFavoriteGenres } from '../data/favoriteGenres'
+import { genreIndex, type GenreKey } from '../data/genreIndex'
 import { NOT_ORIGINAL, POPULAR_GENRES, QUICK_PICK_DEFAULT, QUICK_PICK_OPTIONS, sourcePlaylists, sourceTracks } from '../data/genres'
 import { listening } from '../data/history'
 import { artistKeys, capPerArtist, unique } from '../data/lists'
@@ -128,24 +130,17 @@ export function Home() {
         </ul>
       </header>
 
+      <div aria-label="Para ti">
+        <Kicker>Para ti · sugerencias</Kicker>
+        <GenreQuickPicks hide={shown} onPlay={playSong} artistGenres={tastes.artists.flatMap((artist) => artistKeys(artist.title))} />
+      </div>
+
       <Section title="Modos">
         <ModeTiles />
       </Section>
 
       {/* «Para ti»: sugerencias propias (no son recomendaciones oficiales de YouTube Music). */}
       <div aria-label="Para ti">
-        <Kicker>Para ti · sugerencias</Kicker>
-        <GenreQuickPicks hide={shown} onPlay={playSong} />
-        <Section title="Tus artistas">
-          {mine && mine.artists.length > 0 && <ArtistTopSongsRow artists={mine.artists} onPlay={playArtist} />}
-          <Link
-            to="/gustos"
-            className="mx-4 mt-2 inline-flex items-center gap-2 rounded-full bg-contraste/10 px-4 py-2 text-sm font-semibold hover:bg-contraste/15 md:mx-6"
-          >
-            <Plus className="size-4" aria-hidden="true" />
-            {tastes.artists.length ? 'Agregar más artistas' : 'Elegir tus artistas'}
-          </Link>
-        </Section>
         {mine === null && <p className="mt-6 px-4 text-sm text-texto-sec md:px-6">Preparando tus sugerencias…</p>}
         {mine?.shelves.map((shelf) => (
           <Section key={shelf.key} title={shelf.title}>
@@ -159,6 +154,12 @@ export function Home() {
             <CardPages cards={mine.similar} />
           </Section>
         )}
+        <Section title="Tus artistas">
+          {mine && mine.artists.length > 0 && <ArtistTopSongsRow artists={mine.artists} onPlay={playArtist} />}
+          <Link to="/gustos" className="mx-4 mt-2 inline-flex items-center gap-2 rounded-full bg-contraste/10 px-4 py-2 text-sm font-semibold hover:bg-contraste/15 md:mx-6">
+            <Plus className="size-4" aria-hidden="true" />{tastes.artists.length ? 'Agregar más artistas' : 'Elegir tus artistas'}
+          </Link>
+        </Section>
       </div>
 
       {ytm === null && <p className="mt-8 px-4 text-sm text-texto-sec md:px-6">Cargando tendencias…</p>}
@@ -178,29 +179,22 @@ export function Home() {
   )
 }
 
-const QUICK_PICKS_KEY = 'soundblue:generos-rapidos' // los géneros elegidos con «+»
-
-function readQuickPicks(): string[] {
-  try {
-    const saved: unknown = JSON.parse(localStorage.getItem(QUICK_PICKS_KEY) ?? 'null')
-    const keys = Array.isArray(saved) ? QUICK_PICK_OPTIONS.map((g) => g.key).filter((key) => saved.includes(key)) : []
-    return keys.length ? keys : QUICK_PICK_DEFAULT
-  } catch {
-    return QUICK_PICK_DEFAULT
-  }
-}
-
 /**
  * «Selecciones rápidas» por género (por defecto Salsa, Reggaetón, Merengue y Popular; con «+» eliges cuáles, y se
  * recuerda en este navegador): canciones de las playlists de YouTube Music de ese género, sin las que ya se ven en otro
  * estante de Inicio. Cada género se pide al elegirlo.
  */
-function GenreQuickPicks({ hide, onPlay }: { hide: ReadonlySet<string>; onPlay: (track: Track) => void }) {
-  const [chosen, setChosen] = useState(readQuickPicks)
+function GenreQuickPicks({ hide, onPlay, artistGenres }: { hide: ReadonlySet<string>; onPlay: (track: Track) => void; artistGenres: string[] }) {
+  const preferred = useFavoriteGenres()
+  const [derived, setDerived] = useState<GenreKey[]>([])
+  useEffect(() => { if (preferred.length || !artistGenres.length) { setDerived([]); return }
+    void genreIndex().then((index) => setDerived([...new Set(artistGenres.flatMap((artist) => [...(index.get(artist) ?? [])]))])).catch(() => setDerived([]))
+  }, [preferred.join(','), artistGenres.join(',')])
+  const chosen: GenreKey[] = preferred.length ? preferred : derived.length ? derived : QUICK_PICK_DEFAULT as GenreKey[]
   const [picking, setPicking] = useState(false)
-  const genres = QUICK_PICK_OPTIONS.filter((g) => chosen.includes(g.key))
+  const genres = QUICK_PICK_OPTIONS.filter((g) => chosen.includes(g.key as GenreKey))
   const [selected, setGenre] = useState(genres[0].key)
-  const genre = chosen.includes(selected) ? selected : genres[0].key // si quitaste el que se veía, el primero
+  const genre = chosen.includes(selected as GenreKey) ? selected : genres[0].key // si quitaste el que se veía, el primero
   const [loaded, setLoaded] = useState<Record<string, Track[] | 'error'>>({})
   useEffect(() => {
     if (loaded[genre]) return
@@ -215,14 +209,9 @@ function GenreQuickPicks({ hide, onPlay }: { hide: ReadonlySet<string>; onPlay: 
   }, [genre, loaded])
   // Quitar o poner un género (siempre queda al menos uno).
   const toggle = (key: string) => {
-    const next = chosen.includes(key) ? chosen.filter((k) => k !== key) : QUICK_PICK_OPTIONS.map((g) => g.key).filter((k) => k === key || chosen.includes(k))
-    if (!next.length) return
-    setChosen(next)
-    try {
-      localStorage.setItem(QUICK_PICKS_KEY, JSON.stringify(next))
-    } catch {
-      /* sin almacenamiento: vale mientras la app esté abierta */
-    }
+    const typed = key as GenreKey
+    const next = chosen.includes(typed) ? chosen.filter((k) => k !== typed) : QUICK_PICK_OPTIONS.map((g) => g.key as GenreKey).filter((k) => k === typed || chosen.includes(k))
+    favoriteGenres.set(next)
   }
   const list = loaded[genre]
   const tracks = Array.isArray(list) ? list.filter((track) => !hide.has(track.id)).slice(0, 16) : []
@@ -246,7 +235,7 @@ function GenreQuickPicks({ hide, onPlay }: { hide: ReadonlySet<string>; onPlay: 
           <p className="mb-2 text-sm text-texto-sec">Elige qué géneros quieres ver aquí:</p>
           <div role="group" aria-label="Géneros de las selecciones rápidas" className="flex flex-wrap gap-2">
             {QUICK_PICK_OPTIONS.map((g) => {
-              const on = chosen.includes(g.key)
+              const on = chosen.includes(g.key as GenreKey)
               return (
                 <button
                   key={g.key}
@@ -309,12 +298,13 @@ function GenrePlaylists() {
  */
 function forYourGenres(sections: YtmSection[], mine: ForYou, shown: Set<string>): YtmSection[] {
   const genre = new Set(mine.genreArtists)
+  const hasGlobalGenres = favoriteGenres.get().length > 0
   const skipped = new Set(mine.skippedArtists)
   const taken = new Set(shown)
   const ofYourGenres = (artist: string) => {
     const keys = artistKeys(artist)
     // Sin nada tuyo todavía (ni artistas ni historial), no se filtra por género.
-    return !keys.some((key) => skipped.has(key)) && (genre.size === 0 || keys.some((key) => genre.has(key)))
+    return !keys.some((key) => skipped.has(key)) && (hasGlobalGenres ? genre.size > 0 && keys.some((key) => genre.has(key)) : genre.size === 0 || keys.some((key) => genre.has(key)))
   }
   return sections
     .filter((section) => !HIDDEN_SHELVES.test(section.title))

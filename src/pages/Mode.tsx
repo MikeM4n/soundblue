@@ -24,18 +24,23 @@ export function ModePage() {
   const mode = MODES.find((m) => m.key === modo)
   const [filter, setFilter] = useState(ALL)
   const [loaded, setLoaded] = useState<Record<string, Track[] | 'error'>>({})
-  const key = `${modo}:${filter}`
+  const [savedGenres, setSavedGenres] = useState<Record<string, string[]>>(() => {
+    try { return JSON.parse(localStorage.getItem('soundblue:modos-generos') ?? '{}') } catch { return {} }
+  })
+  const chosenModeGenres = mode ? savedGenres[mode.key] ?? [] : []
+  const activeMode = mode && chosenModeGenres.length ? { ...mode, filters: mode.filters.filter((item) => chosenModeGenres.includes(item.key)) } : mode
+  const key = `${modo}:${filter}:${chosenModeGenres.join(',')}`
 
   useEffect(() => {
-    if (!mode || loaded[key]) return
+    if (!activeMode || loaded[key]) return
     let alive = true
-    modeTracks(mode, filter === ALL ? null : filter)
+    modeTracks(activeMode, filter === ALL ? null : filter)
       .then((tracks) => alive && setLoaded((all) => ({ ...all, [key]: tracks.length ? tracks : 'error' })))
       .catch(() => alive && setLoaded((all) => ({ ...all, [key]: 'error' })))
     return () => {
       alive = false
     }
-  }, [mode, filter, key, loaded])
+  }, [activeMode, filter, key, loaded])
 
   if (!mode) return <Navigate to="/" replace />
   const { icon: Icon, gradient } = MODE_LOOK[mode.key]
@@ -70,9 +75,13 @@ export function ModePage() {
       </header>
 
       <div className="mt-4">
+        <div className="mx-4 mb-3 rounded-lg bg-tarjeta p-3 md:mx-6">
+          <p className="mb-2 text-sm font-semibold">Personaliza los géneros de {mode.label}</p>
+          <div className="flex flex-wrap gap-2">{mode.filters.map((item) => { const active = !chosenModeGenres.length || chosenModeGenres.includes(item.key); return <button key={item.key} type="button" aria-pressed={active} disabled={active && chosenModeGenres.length === 1} onClick={() => { const base = chosenModeGenres.length ? chosenModeGenres : mode.filters.map((f) => f.key); const next = active ? base.filter((key) => key !== item.key) : [...base, item.key]; const all = { ...savedGenres, [mode.key]: next }; setSavedGenres(all); setFilter(ALL); try { localStorage.setItem('soundblue:modos-generos', JSON.stringify(all)) } catch { /* almacenamiento opcional */ } }} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${active ? 'bg-acento text-white' : 'bg-contraste/10 text-texto'}`}>{item.label}</button> })}</div>
+        </div>
         <Chips
           label={`Subfiltros de ${mode.label}`}
-          options={[{ key: ALL, label: 'Todo' }, ...mode.filters]}
+          options={[{ key: ALL, label: 'Todo' }, ...(activeMode?.filters ?? [])]}
           value={filter}
           onChange={setFilter}
         />
@@ -103,7 +112,7 @@ export function ModePage() {
           Aleatorio
         </button>
       </div>
-      <p className="px-4 pt-2 text-xs text-texto-sec md:px-6">Sin covers, sin artistas que sueles saltar y como mucho 2 canciones por artista.</p>
+      <p className="px-4 pt-2 text-xs text-texto-sec md:px-6">{mode.key === 'rumba' ? 'Solo videos musicales con más de 1 millón de reproducciones; sin covers ni artistas que sueles saltar.' : 'Sin covers, sin artistas que sueles saltar y como mucho 2 canciones por artista.'}</p>
 
       {list === undefined && <p className="mt-6 px-4 text-sm text-texto-sec md:px-6">Armando la lista…</p>}
       {list === 'error' && <p className="mt-6 px-4 text-sm text-texto-sec md:px-6">No se pudo armar la lista. Revisa tu conexión y vuelve a intentarlo.</p>}

@@ -34,6 +34,7 @@ const SIMILAR: Record<GenreKey, GenreKey[]> = {
   kpop: ['jpop', 'cpop'],
   jpop: ['kpop', 'cpop'],
   cpop: ['kpop', 'jpop'],
+  colombiana: [],
 }
 
 // Escritura asiática en el título o el artista: si el índice no conoce al artista, cuenta como K-Pop, J-Pop o Mandopop
@@ -54,7 +55,7 @@ const CLASH: readonly GenreKey[] = ['salsa', 'merengue', 'bachata', 'reggaeton',
 const CLASH_WORDS = /\b(salsa|merengue|bachata|regg?a?et[oó]n|perreo|dembow|dancehall)\b/i
 
 const KEY = 'soundblue:indice-generos'
-const VERSION = 4 // cambia si cambian los géneros, sus fuentes o la forma de contar
+const VERSION = 5 // cambia si cambian los géneros, sus fuentes o la forma de contar
 const MAX_AGE = 7 * 24 * 3600 * 1000
 const PLAYLISTS_PER_GENRE = 3
 // La familia cerrada no deja entrar artistas que el índice no conoce: de esos géneros se leen más playlists.
@@ -103,12 +104,23 @@ async function build(): Promise<GenreIndex> {
       }),
     )
   }
-  const index = new Map<string, Set<GenreKey>>()
-  for (const [artist, byGenre] of counts) {
-    const top = Math.max(...byGenre.values())
-    index.set(artist, new Set([...byGenre].filter(([, n]) => n >= top * STRONG).map(([genre]) => genre)))
+  const serialized = Object.fromEntries([...counts].map(([artist, values]) => [artist, Object.fromEntries(values)]))
+  try {
+    const classified = await new Promise<Record<string, GenreKey[]>>((resolve, reject) => {
+      const worker = new Worker(new URL('./genreClassifier.worker.ts', import.meta.url), { type: 'module' })
+      worker.onmessage = (event: MessageEvent<Record<string, GenreKey[]>>) => { worker.terminate(); resolve(event.data) }
+      worker.onerror = (event) => { worker.terminate(); reject(event.error) }
+      worker.postMessage(serialized)
+    })
+    return new Map(Object.entries(classified).map(([artist, genres]) => [artist, new Set(genres)]))
+  } catch {
+    const index = new Map<string, Set<GenreKey>>()
+    for (const [artist, byGenre] of counts) {
+      const top = Math.max(...byGenre.values())
+      index.set(artist, new Set([...byGenre].filter(([, n]) => n >= top * STRONG).map(([genre]) => genre)))
+    }
+    return index
   }
-  return index
 }
 
 let building: Promise<GenreIndex> | null = null

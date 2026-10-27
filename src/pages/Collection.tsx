@@ -8,11 +8,10 @@ import { Cover } from '../components/ui/Cover'
 import { IconButton } from '../components/ui/IconButton'
 import { FavoritesCover, TopCover } from '../components/ui/LibraryItem'
 import { PlayButton } from '../components/ui/PlayButton'
-import { TEST_LIST_NAME, testList } from '../data/catalog'
 import { listening } from '../data/history'
 import { library, useLibrary } from '../library/store'
 import { player } from '../player/engine'
-import { coverSources, coverUrl, type Track } from '../player/types'
+import { coverSources, type Track } from '../player/types'
 import { useNowPlaying } from '../player/useNowPlaying'
 
 interface CollectionData {
@@ -26,7 +25,7 @@ interface CollectionData {
   swipe?: 'cola' // «Tu Top 50»: izquierda = a continuación, derecha = quitar (las demás: izquierda = a la cola, derecha = ⋮)
 }
 
-/** Vista de una lista: «Lista de prueba» (álbum), «Tus me gusta» o una playlist tuya. */
+/** Vista de una lista guardada, «Tus me gusta» o una playlist tuya. */
 export function Collection() {
   const { tipo = '', id = '' } = useParams()
   const navigate = useNavigate()
@@ -93,14 +92,6 @@ export function Collection() {
 
 function resolve(tipo: string, id: string, favorites: Track[], playlists: ReturnType<typeof library.get>['playlists']): CollectionData | null {
   const bigCover = 'size-44 shrink-0 rounded-md shadow-2xl shadow-black/50 md:size-52'
-  if (tipo === 'prueba') {
-    return {
-      kind: 'Álbum de prueba',
-      name: TEST_LIST_NAME,
-      cover: <Cover seed="lista-de-prueba" src={coverUrl(testList[0], 'large')} className={bigCover} />,
-      tracks: testList,
-    }
-  }
   if (tipo === 'favoritos') {
     return {
       kind: 'Playlist',

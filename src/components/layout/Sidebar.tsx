@@ -1,4 +1,4 @@
-import { CircleQuestionMark, Plus, Settings as SettingsIcon, Users } from 'lucide-react'
+import { Plus, Settings as SettingsIcon, Users } from 'lucide-react'
 import { Link, NavLink } from 'react-router'
 import { Logo } from '../brand/Logo'
 import { LibraryList, useCreatePlaylist } from '../library/LibraryList'
@@ -33,12 +33,6 @@ export function Sidebar() {
             <NavLink to="/jam" className={linkClass}>
               <Users className="size-6" aria-hidden="true" />
               Jam
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/ayuda" className={linkClass}>
-              <CircleQuestionMark className="size-6" aria-hidden="true" />
-              Ayuda
             </NavLink>
           </li>
           <li>

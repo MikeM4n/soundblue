@@ -14,7 +14,7 @@ const CACHE_MAX = 40
 const CACHE_MS = 24 * 60 * 60 * 1000
 const TOPIC = / - Topic$/
 
-/** ¿Hay clave? Sin ella, Buscar usa el catálogo de prueba. */
+/** ¿Hay clave? Sin ella, Buscar depende de YouTube Music y Rumba no puede consultar vistas oficiales. */
 export const youtubeSearchEnabled = !!KEY
 
 /** Se agotó la cuota diaria de la clave. */
@@ -41,6 +41,7 @@ interface ApiVideo {
   snippet?: { title?: string; channelTitle?: string; description?: string }
   contentDetails?: { duration?: string }
   status?: { embeddable?: boolean }
+  statistics?: { viewCount?: string }
 }
 
 async function get<T>(path: string, params: Record<string, string>): Promise<T> {
@@ -87,11 +88,28 @@ function toTrack(video: ApiVideo): Track | null {
   if (!s?.title || video.status?.embeddable === false) return null
   const channel = s.channelTitle ?? ''
   const duration = seconds(video.contentDetails?.duration)
+  const viewCount = Number(video.statistics?.viewCount) || undefined
   if (TOPIC.test(channel)) {
     const info = musicInfo(s.description)
-    return { id: video.id, title: s.title, artist: info.artists || channel.replace(TOPIC, ''), album: info.album, duration, ytMusic: true }
+    return { id: video.id, title: s.title, artist: info.artists || channel.replace(TOPIC, ''), album: info.album, duration, ytMusic: true, viewCount }
   }
-  return { id: video.id, title: s.title, artist: channel, duration }
+  return { id: video.id, title: s.title, artist: channel, duration, viewCount }
+}
+
+/** Videos musicales populares comprobados por número de vistas (requiere la clave oficial de Data API). */
+export async function youtubePopularTracks(query: string, minimumViews = 1_000_000): Promise<Track[]> {
+  if (!KEY) return []
+  const cacheKey = `rumba:${query.toLowerCase()}`
+  const cached = readCache()[cacheKey]
+  if (cached && Date.now() - cached.at < CACHE_MS) return [...cached.results.songs, ...cached.results.videos].filter((track) => (track.viewCount ?? 0) >= minimumViews)
+  const found = await get<{ items?: { id?: { videoId?: string } }[] }>('search', { part: 'id', q: query, type: 'video', order: 'viewCount', videoCategoryId: '10', videoEmbeddable: 'true', videoSyndicated: 'true', maxResults: '25' })
+  const ids = (found.items ?? []).map((item) => item.id?.videoId).filter((id): id is string => !!id)
+  if (!ids.length) return []
+  const details = await get<{ items?: ApiVideo[] }>('videos', { part: 'snippet,contentDetails,status,statistics', id: ids.join(',') })
+  const byId = new Map((details.items ?? []).map((video) => [video.id, video]))
+  const tracks = ids.map((id) => byId.get(id)).map((video) => video ? toTrack(video) : null).filter((track): track is Track => !!track && (track.viewCount ?? 0) >= minimumViews)
+  writeCache(cacheKey, { songs: [], videos: tracks })
+  return tracks
 }
 
 interface Cached {

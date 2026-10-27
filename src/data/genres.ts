@@ -11,7 +11,9 @@
 // venga en una playlist de despecho.
 import type { Track } from '../player/types'
 import { hashText, seededRandom, sessionSeed, shuffle } from '../lib/random'
-import { clashes, genreIndexSoon, genreScope, type GenreKey } from './genreIndex'
+import { clashes, genreIndex, genreIndexSoon, genreScope, genresOf, type GenreKey } from './genreIndex'
+import { favoriteGenres } from './favoriteGenres'
+import { youtubePopularTracks } from './youtube'
 import { artistKey, listening } from './history'
 import { capPerArtist, interleave, unique } from './lists'
 import { ytmCategoryPlaylists, ytmPage, ytmSearchPlaylists, type YtmCard } from './ytmusic'
@@ -83,6 +85,7 @@ export const INDEX_GENRES = {
   kpop: { key: 'kpop', label: 'K-Pop', category: 'K-Pop', queries: ['k-pop'], match: /k-?pop|korea|corea/i },
   jpop: { key: 'jpop', label: 'J-Pop', category: 'Pop japonés', queries: ['j-pop'], match: /j-?pop|jap[oó]n|japan|anime/i },
   cpop: { key: 'cpop', label: 'Mandopop', category: 'Mandopop y cantopop', queries: ['mandopop'], match: /mandopop|cantopop|c-?pop|chin/i },
+  colombiana: COLOMBIANA,
 } satisfies Record<string, GenreSource>
 
 /** «Selecciones rápidas»: canciones por género. Con «+» se eligen cuáles (por defecto, los 4 primeros). */
@@ -102,6 +105,9 @@ export const QUICK_PICK_OPTIONS: GenreSource[] = [
   INDEX_GENRES.dancehall,
   INDEX_GENRES.electronica,
   INDEX_GENRES.rock,
+  INDEX_GENRES.kpop,
+  INDEX_GENRES.jpop,
+  INDEX_GENRES.cpop,
   COLOMBIANA,
 ]
 export const QUICK_PICK_DEFAULT = [SALSA, REGGAETON, MERENGUE, POPULAR].map((genre) => genre.key)
@@ -127,13 +133,6 @@ export const MODES: Mode[] = [
       { key: 'salsa', label: 'Salsa', queries: ['salsa para fiesta', 'salsa mix'], match: /salsa/i },
       { key: 'reggaeton', label: 'Reggaetón', category: 'Urbano', queries: ['reggaeton para fiesta', 'perreo'], match: /regg?a?et[oó]n|perreo/i, avoid: /triste/i },
       { key: 'merengue', label: 'Merengue', queries: ['merengue para bailar'], match: /merengue/i, avoid: /rom[aá]ntic/i },
-      {
-        key: 'electronica',
-        label: 'Electrónica',
-        category: 'Dance y electrónica',
-        queries: ['electrónica para fiesta', 'dance party'],
-        match: /dance|electr|edm|house|guaracha|party|tomorrowland/i,
-      },
     ],
   },
   {
@@ -178,18 +177,25 @@ export async function sourceTracks(source: GenreSource, limit = 40): Promise<Tra
   const playlists = (await sourcePlaylists(source)).slice(0, PLAYLISTS_PER_LIST)
   const pages = await Promise.all(playlists.map((playlist) => ytmPage(playlist.id).catch(() => null)))
   const random = seededRandom(sessionSeed() ^ hashText(source.key + source.queries.join()))
-  return strictFilter(interleave(pages.map((page) => shuffle(page?.tracks ?? [], random))), limit)
+  const tracks = strictFilter(interleave(pages.map((page) => shuffle(page?.tracks ?? [], random))), limit * 2)
+  const selected = favoriteGenres.get()
+  if (!selected.length) return tracks.slice(0, limit)
+  const index = await genreIndex()
+  const accepted = new Set(selected)
+  return tracks.filter((track) => [...genresOf(track, index)].some((genre) => accepted.has(genre))).slice(0, limit)
 }
 
 /** Canciones de un modo: un subfiltro, o todos mezclados («Todo»), sin las de un género que choca con el del modo. */
 export async function modeTracks(mode: Mode, filterKey: string | null, limit = 50): Promise<Track[]> {
   const sources = filterKey ? mode.filters.filter((f) => f.key === filterKey) : mode.filters
-  const [lists, index] = await Promise.all([
-    Promise.all(sources.map((source) => sourceTracks(source).catch(() => []))),
+  const selected = favoriteGenres.get()
+  const [lists, index, globalIndex] = await Promise.all([
+    Promise.all(sources.map((source) => (mode.key === 'rumba' ? youtubePopularTracks(source.queries[0]).catch(() => []) : sourceTracks(source)).then((tracks) => strictFilter(tracks, limit)).catch(() => []))),
     mode.genres ? genreIndexSoon(INDEX_WAIT_MS) : null,
+    selected.length ? genreIndex().catch(() => null) : null,
   ])
   const scope = genreScope(new Set(mode.genres))
-  const fits = (track: Track) => !index || !clashes(track, index, scope)
+  const fits = (track: Track) => (!index || !clashes(track, index, scope)) && (!selected.length || (!!globalIndex && [...genresOf(track, globalIndex)].some((genre) => selected.includes(genre))))
   return strictFilter(interleave(lists.map((list) => list.filter(fits))), limit)
 }
 
