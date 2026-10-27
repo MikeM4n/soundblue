@@ -128,7 +128,7 @@ export function NowPlayingSheet() {
 
   if (!current) {
     return (
-      <div className="fixed inset-0 z-50 grid h-dvh w-screen place-items-center bg-black p-8 text-center lg:inset-y-0 lg:right-0 lg:left-[236px] lg:h-auto lg:w-auto">
+      <div className="fixed inset-x-0 top-0 z-40 grid h-dvh w-full place-items-center bg-black p-8 pb-[70px] text-center lg:right-0 lg:bottom-0 lg:left-[236px] lg:h-auto lg:w-auto lg:pb-8 lg:z-50">
         <div>
           <p className="text-lg font-semibold">No hay nada sonando</p>
           <button type="button" onClick={close} className="mt-2 text-acento-texto hover:underline">
@@ -152,7 +152,7 @@ export function NowPlayingSheet() {
       aria-label="Sonando ahora"
       // En celular cubre toda la pantalla; en PC deja sitio para la barra lateral.
       // siempre-oscuro: va sobre la carátula difuminada, también con el tema claro.
-      className="siempre-oscuro fixed inset-0 z-50 h-dvh w-screen touch-none overflow-hidden overscroll-contain bg-black text-white select-none lg:inset-y-0 lg:right-0 lg:left-[236px] lg:h-auto lg:w-auto lg:touch-auto"
+      className="siempre-oscuro fixed inset-x-0 top-0 z-40 h-dvh w-full touch-none overflow-hidden overscroll-contain bg-black pb-[70px] text-white select-none lg:right-0 lg:bottom-0 lg:left-[236px] lg:h-auto lg:w-auto lg:pb-0 lg:z-50 lg:touch-auto"
       style={{ transform: `translateY(${offset})`, transition: dragY === null ? `transform ${SLIDE_MS}ms cubic-bezier(.2,.8,.2,1)` : 'none' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -164,7 +164,7 @@ export function NowPlayingSheet() {
           cambiar de canción, así que el conjunto no salta y nunca hay scroll. */}
       <div className="relative mx-auto grid h-full w-full max-w-[1600px] grid-cols-1 lg:grid-cols-[minmax(0,3fr)_minmax(280px,2fr)]">
       <section aria-label="Reproductor" className="relative flex min-h-0 min-w-0 flex-col pt-[env(safe-area-inset-top)] pb-2 lg:pr-4">
-        <header className="flex shrink-0 items-center gap-1 px-2 py-2">
+        <header className="flex w-full shrink-0 items-center justify-between p-4 lg:justify-normal lg:gap-1 lg:px-2 lg:py-2">
           {/* Izquierda vacía (del ancho de los dos botones de la derecha, para que el título quede centrado); centro: de
               dónde suena; derecha: Jam y ⋮. Minimizar: deslizar hacia abajo o, en el PC, la tecla Esc. */}
           <div className="w-20 shrink-0">
@@ -176,8 +176,10 @@ export function NowPlayingSheet() {
             <p className="text-[11px] font-semibold tracking-wider text-white/70 uppercase">Sonando desde</p>
             <p className="truncate text-sm font-bold">{contextName ?? 'Tu música'}</p>
           </div>
-          <JamButton />
-          <TrackMenu track={current} sleepTimer />
+          <div className="flex shrink-0 items-center gap-1">
+            <JamButton />
+            <TrackMenu track={current} sleepTimer />
+          </div>
         </header>
 
         {/* Centro: la carátula nítida (como Spotify y YouTube Music) o, si eliges «Letra», el karaoke. */}
@@ -189,7 +191,7 @@ export function NowPlayingSheet() {
             // La carátula mide lo que quepa: 82 % del ancho, máx. 26 rem, y nunca más que el alto libre (100cqh).
             <div className="grid min-h-0 w-full flex-1 place-items-center [container-type:size]">
               {/* Deslizar la carátula: izquierda = siguiente, derecha = anterior (o reiniciar si lleva más de 3 s). */}
-              <CoverSwipe className="w-[min(82vw,26rem,100cqh)]">
+              <CoverSwipe className="w-[min(70vw,280px,100cqh)] lg:w-[min(82vw,26rem,100cqh)]">
                 <Cover seed={current.id} src={coverSources(current, 'large')} eager className="aspect-square w-full rounded-lg shadow-2xl shadow-black/60" />
               </CoverSwipe>
             </div>
@@ -197,7 +199,7 @@ export function NowPlayingSheet() {
         </div>
         {/* Abajo, alto fijo: aviso de segundo plano, título, artista, progreso, controles y la pista de la cola. */}
         <div className="shrink-0">
-          <BackgroundNotice />
+          <div className="hidden lg:block"><BackgroundNotice /></div>
           <TrackInfo track={current} liked={liked} error={error} />
           <div className="lg:hidden"><QueueHint onOpen={() => setQueueOpen(true)} /></div>
         </div>
@@ -210,7 +212,7 @@ export function NowPlayingSheet() {
         </div>
       </aside>
 
-      <div className="lg:hidden"><QueuePanel open={queueOpen} top={panelTop} onClose={() => setQueueOpen(false)} /></div>
+      <div className="contents lg:hidden"><QueuePanel open={queueOpen} top={panelTop} onClose={() => setQueueOpen(false)} /></div>
       </div>
     </div>
   )

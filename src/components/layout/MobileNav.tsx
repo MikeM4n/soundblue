@@ -1,15 +1,13 @@
-import { useLayoutEffect, useRef, useSyncExternalStore } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import { NavLink } from 'react-router'
-import { sheetState } from '../../player/stage'
 import { libraryNav, mainNav } from './navItems'
 
 /**
- * Barra inferior del celular con las tres secciones. Se oculta durante «Sonando ahora» a pantalla completa y vuelve
- * al minimizar. Desde aquí, tocar una sección navega sin detener la música.
+ * Barra inferior fija del celular con las tres secciones; permanece visible también en «Sonando ahora».
+ * Desde aquí, tocar una sección navega sin detener la música.
  */
 export function MobileNav() {
   const ref = useRef<HTMLElement>(null)
-  const nowPlaying = useSyncExternalStore(sheetState.subscribe, sheetState.get)
 
   // Publica su alto (con la zona segura del teléfono) para que «Sonando ahora» no la tape. En el PC está oculta: 0.
   useLayoutEffect(() => {
@@ -25,13 +23,11 @@ export function MobileNav() {
     }
   }, [])
 
-  if (nowPlaying !== 'closed') return null
-
   return (
     <nav
       ref={ref}
       aria-label="Principal"
-      className="relative z-40 grid shrink-0 grid-cols-3 border-t border-contraste/5 bg-fondo pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed right-0 bottom-0 left-0 z-50 grid h-[70px] shrink-0 grid-cols-3 border-t border-contraste/5 bg-fondo pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       {[...mainNav, libraryNav].map(({ to, label, icon: Icon, end }) => (
         <NavLink
