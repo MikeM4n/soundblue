@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 import { NavLink } from 'react-router'
+import { sheetState } from '../../player/stage'
 import { libraryNav, mainNav } from './navItems'
 
 /**
@@ -36,7 +37,11 @@ export function MobileNav() {
           end={end}
           onClick={(event) => {
             const active = (event.currentTarget as HTMLAnchorElement).getAttribute('aria-current') === 'page'
-            if (active) { event.preventDefault(); document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' }); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+            if (active && sheetState.get() === 'closed') {
+              event.preventDefault()
+              document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' })
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }
           }}
           className={({ isActive }) =>
             `flex flex-col items-center gap-1 pt-2 pb-1.5 text-[11px] font-medium ${isActive ? 'text-texto' : 'text-texto-sec'}`

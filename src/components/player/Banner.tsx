@@ -1,5 +1,5 @@
 import { Heart, LoaderCircle, Pause, Play } from 'lucide-react'
-import { useSyncExternalStore } from 'react'
+import { useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { useLibrary } from '../../library/store'
 import { player } from '../../player/engine'
 import { sheetState } from '../../player/stage'
@@ -20,7 +20,22 @@ export function Banner() {
   const { favorites } = useLibrary()
   const sheet = useSyncExternalStore(sheetState.subscribe, sheetState.get)
   const { open } = useNowPlaying()
-  if (!current || sheet === 'open') return null
+  const bannerRef = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    const banner = bannerRef.current
+    if (!banner || !current || sheet !== 'closed') return
+    const updateHeight = () => document.documentElement.style.setProperty('--mobile-player-banner-h', `${banner.offsetHeight + 4}px`)
+    updateHeight()
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(banner)
+    return () => {
+      observer.disconnect()
+      document.documentElement.style.removeProperty('--mobile-player-banner-h')
+    }
+  }, [current?.id, sheet])
+
+  if (!current || sheet !== 'closed') return null
 
   const playing = status === 'playing' || status === 'buffering'
   const busy = status === 'loading' || status === 'buffering'
@@ -29,7 +44,7 @@ export function Banner() {
 
   return (
     // siempre-oscuro: va sobre la carátula difuminada, también con el tema claro.
-    <div className="siempre-oscuro relative mx-2 mb-1 shrink-0 overflow-hidden rounded-lg bg-elevado text-white lg:hidden">
+    <div ref={bannerRef} className="siempre-oscuro fixed right-2 bottom-[calc(var(--nav-h,70px)+4px)] left-2 z-40 overflow-hidden rounded-lg bg-elevado text-white lg:hidden">
       <Backdrop track={current} variant="barra" />
       <div className="relative flex items-center gap-1 py-2 pr-1 pl-2">
         <BarCarousel onOpen={open} showCover className="h-10 flex-1" />

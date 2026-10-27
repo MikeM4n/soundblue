@@ -31,7 +31,7 @@ export function AppLayout() {
       <div className="flex min-h-0 flex-1 lg:gap-2">
         <Sidebar />
         {/* min-w-0: sin esto los carruseles ensanchan la página en el celular */}
-        <main ref={mainRef} className="scroll-fino min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-panel pb-[var(--nav-h,70px)] lg:rounded-lg lg:pb-0">
+        <main ref={mainRef} className="scroll-fino min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-panel pb-[calc(var(--nav-h,70px)_+_var(--mobile-player-banner-h,0px))] lg:rounded-lg lg:pb-0">
           <Outlet />
         </main>
       </div>
