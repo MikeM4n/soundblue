@@ -128,7 +128,7 @@ export function NowPlayingSheet() {
 
   if (!current) {
     return (
-      <div className="fixed inset-x-0 top-0 bottom-[var(--nav-h,0px)] z-30 grid place-items-center bg-black p-8 text-center lg:left-[236px]">
+      <div className="fixed inset-0 z-50 grid h-dvh w-screen place-items-center bg-black p-8 text-center lg:inset-y-0 lg:right-0 lg:left-[236px] lg:h-auto lg:w-auto">
         <div>
           <p className="text-lg font-semibold">No hay nada sonando</p>
           <button type="button" onClick={close} className="mt-2 text-acento-texto hover:underline">
@@ -150,9 +150,9 @@ export function NowPlayingSheet() {
       role="dialog"
       aria-modal="true"
       aria-label="Sonando ahora"
-      // Toda la pantalla menos la barra inferior del celular (--nav-h, la publica MobileNav): esa barra sigue a la vista.
+      // En celular cubre toda la pantalla; en PC deja sitio para la barra lateral.
       // siempre-oscuro: va sobre la carátula difuminada, también con el tema claro.
-      className="siempre-oscuro fixed inset-x-0 top-0 bottom-[var(--nav-h,0px)] z-30 touch-none overflow-hidden overscroll-contain bg-black text-white select-none lg:right-0 lg:left-[236px] lg:touch-auto"
+      className="siempre-oscuro fixed inset-0 z-50 h-dvh w-screen touch-none overflow-hidden overscroll-contain bg-black text-white select-none lg:inset-y-0 lg:right-0 lg:left-[236px] lg:h-auto lg:w-auto lg:touch-auto"
       style={{ transform: `translateY(${offset})`, transition: dragY === null ? `transform ${SLIDE_MS}ms cubic-bezier(.2,.8,.2,1)` : 'none' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -172,7 +172,7 @@ export function NowPlayingSheet() {
               <ChevronDown className="size-6" aria-hidden="true" />
             </IconButton>
           </div>
-          <div className="min-w-0 flex-1 text-center">
+          <div className="hidden min-w-0 flex-1 text-center lg:block">
             <p className="text-[11px] font-semibold tracking-wider text-white/70 uppercase">Sonando desde</p>
             <p className="truncate text-sm font-bold">{contextName ?? 'Tu música'}</p>
           </div>
