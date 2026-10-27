@@ -13,7 +13,7 @@ import { Cover } from '../ui/Cover'
 /** Reproductor fijo de escritorio: lo que suena, controles y volumen. */
 export function PlayerBar() {
   return (
-    <footer aria-label="Reproductor" className="hidden h-20 shrink-0 grid-cols-[1fr_minmax(0,2fr)_1fr] items-center gap-4 px-2 lg:grid">
+    <footer aria-label="Reproductor" className="hidden h-20 shrink-0 grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_minmax(0,1.2fr)] items-center gap-4 px-2 lg:grid">
       <MiniPlayer />
       <div className="flex flex-col items-center gap-1">
         <TransportControls showFavorite />
@@ -34,7 +34,7 @@ function MiniPlayer() {
       type="button"
       aria-label={`Abrir reproducción: ${current.title} — ${current.artist}`}
       onClick={open}
-      className="flex w-[30%] min-w-[180px] items-center gap-3 overflow-hidden rounded-md text-left transition-all duration-200 hover:scale-[1.02] hover:bg-[#2a2a2a] active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+      className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-md text-left transition-all duration-200 hover:scale-[1.02] hover:bg-[#2a2a2a] active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
     >
       <Cover seed={current.id} src={coverSources(current)} eager className="size-12 shrink-0 rounded object-cover" />
       <span className="flex min-w-0 flex-1 flex-col">
