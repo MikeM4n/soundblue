@@ -112,7 +112,7 @@ export function ModePage() {
           Aleatorio
         </button>
       </div>
-      <p className="px-4 pt-2 text-xs text-texto-sec md:px-6">{mode.key === 'rumba' ? 'Solo videos musicales con más de 1 millón de reproducciones; sin covers ni artistas que sueles saltar.' : 'Sin covers, sin artistas que sueles saltar y como mucho 2 canciones por artista.'}</p>
+      <p className="px-4 pt-2 text-xs text-texto-sec md:px-6">{mode.key === 'rumba' ? 'Se priorizan videos musicales con más de 1 millón de reproducciones; si la API no está disponible, usamos playlists de YouTube Music. Sin covers ni artistas que sueles saltar.' : 'Sin covers, sin artistas que sueles saltar y como mucho 2 canciones por artista.'}</p>
 
       {list === undefined && <p className="mt-6 px-4 text-sm text-texto-sec md:px-6">Armando la lista…</p>}
       {list === 'error' && <p className="mt-6 px-4 text-sm text-texto-sec md:px-6">No se pudo armar la lista. Revisa tu conexión y vuelve a intentarlo.</p>}

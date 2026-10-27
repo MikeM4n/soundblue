@@ -5,7 +5,6 @@ import { artistKey, listening } from '../data/history'
 import { readRadioDiagnostics } from '../data/radio'
 import { readUsage } from '../lib/apiUsage'
 import { copyText } from '../lib/clipboard'
-import { clearDiagnostics, formatEvent, markTest, readDiagnostics } from '../lib/diagnostics'
 import { clearDuplicateLog, readDuplicateLog } from '../lib/duplicateLog'
 import { TAB_SWITCHER_TIP } from '../lib/tabSwitcherTip'
 import { BRAVE_LINKS } from '../lib/platform'
@@ -296,7 +295,7 @@ export function Help() {
             YouTube la había pausado, vuelve a sonar sola; y al abrir la app, si la última canción sonaba cuando la cerraste,
             también (en una pestaña normal el navegador puede pedirte que toques ▶). Si pausas con ⏸ en la app, lo respeta siempre;
             con ⏸ en la notificación, lo respeta si no hubo un intento en los últimos 15 s. YouTube puede bloquearlo en cualquier
-            momento: en «Diagnóstico de segundo plano» verás cada intento y si volvió a sonar.
+            momento; si pasa, puedes reanudar desde el aviso o el reproductor.
           </li>
           <li>
             Con Brave, los dos filtros y el reproductor desde youtube.com: abre las notificaciones y pulsa <B>▶</B>. La música vuelve
@@ -356,7 +355,6 @@ export function Help() {
         </p>
       </Section>
 
-      <DiagnosticsSection />
       <RecommendationsSection />
     </div>
   )
@@ -566,131 +564,6 @@ function BraveBackgroundSection() {
         <B>Si un día deja de funcionar:</B> actualiza Brave, revisa que las dos líneas sigan en «Filtros personalizados» y, en{' '}
         <B>Filtrado de contenido</B>, actualiza las listas si ves la opción.
       </p>
-    </Section>
-  )
-}
-
-const isInstalled = () => window.matchMedia('(display-mode: standalone)').matches
-
-/** El registro como texto (con el navegador y si la app está instalada), para pegarlo en un chat o un correo. */
-function diagnosticsReport(): string {
-  return [
-    `SoundBlue · ${window.location.href}`,
-    `Versión: ${__APP_VERSION__}`,
-    `Navegador: ${navigator.userAgent}`,
-    `Instalada: ${isInstalled() ? 'sí' : 'no'}`,
-    '',
-    ...readDiagnostics().map(formatEvent),
-  ].join('\n')
-}
-
-const copyReport = async () =>
-  showToast((await copyText(diagnosticsReport())) ? 'Registro copiado: pégalo en un chat o un correo' : 'No se pudo copiar el registro')
-
-/**
- * Solo al probar en el PC (`npm run dev` o `npm run dev:red`): manda el registro al servidor de desarrollo, que lo
- * guarda en diagnostico-telefono.json. Publicada no hay a dónde enviarlo; ahí se usa «Copiar registro».
- */
-async function sendToPc() {
-  try {
-    const response = await fetch('/diag-api', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ direccion: window.location.href, navegador: navigator.userAgent, instalada: isInstalled(), eventos: readDiagnostics() }),
-    })
-    showToast(response.ok ? 'Registro enviado al PC' : 'No se pudo enviar el registro')
-  } catch {
-    showToast('No se pudo enviar el registro al PC')
-  }
-}
-
-/**
- * Diagnóstico de segundo plano: qué pasó la última vez que se bloqueó la pantalla, para saber si quien pausa es
- * YouTube (la app recibe «en pausa» justo después de ocultarse la página) o el navegador (no llega ningún aviso).
- */
-function DiagnosticsSection() {
-  const [events, setEvents] = useState(readDiagnostics)
-  const latest = [...events].reverse().slice(0, 40)
-  return (
-    <Section id="ayuda-diagnostico" title="Diagnóstico de segundo plano">
-      <p>Para saber qué combinación mantiene el audio en tu teléfono, prueba en este orden y mira el registro de abajo:</p>
-      <Steps>
-        <li>Canción de YouTube con «Sonando ahora» abierta en vista «Letra». Bloquea la pantalla 30 segundos y desbloquéala.</li>
-        <li>Lo mismo en vista «Canción».</li>
-        <li>Repite con «Reproducción en segundo plano» de Brave activada y desactivada, y con el reproductor desde youtube.com y desde youtube-nocookie.com.</li>
-      </Steps>
-      <p>
-        Cómo leerlo: cada línea lleva los milisegundos desde que se abrió la página y lo que dice el navegador
-        (<B>hidden/true</B> = oculta, <B>visible/false</B> = a la vista). Si justo después de <B>«visibilitychange: hidden»</B> aparece{' '}
-        <B>«player.pauseVideo() detectado»</B>, quien pausó fue YouTube o Chrome: la app no pausa. Si después aparece{' '}
-        <B>«Reproducción confirmada con la página oculta»</B>, la app logró que volviera a sonar.
-      </p>
-      <p>
-        Versión de la app: <B>{__APP_VERSION__}</B>. Si hay una más nueva publicada, la app se actualiza sola al abrirla o al
-        volver a ella (si está sonando, te ofrece «Actualizar»). El registro guarda también las pruebas anteriores: las líneas
-        sin «[… ms]» son de una versión vieja. Para una prueba limpia, toca «Borrar registro» antes de empezar.
-      </p>
-      <p>
-        <B>Comparar manual y automática:</B> toca «Prueba manual iniciada», pon una canción, abre el selector de pestañas de Chrome
-        y desde ahí ve a Inicio. Después toca «Prueba automática iniciada», pon una canción y sal directo a Inicio. Copia el
-        registro y compara los milisegundos entre «visibilitychange: hidden», la pausa y la reproducción confirmada.
-      </p>
-      <div className="flex flex-wrap gap-2 pt-1">
-        <button
-          type="button"
-          onClick={() => {
-            markTest('manual')
-            setEvents([...readDiagnostics()])
-          }}
-          className="rounded-full bg-contraste/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-contraste/15"
-        >
-          Prueba manual iniciada
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            markTest('automática')
-            setEvents([...readDiagnostics()])
-          }}
-          className="rounded-full bg-contraste/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-contraste/15"
-        >
-          Prueba automática iniciada
-        </button>
-      </div>
-      <div className="flex flex-wrap gap-2 pt-1">
-        <button type="button" onClick={() => setEvents([...readDiagnostics()])} className="rounded-full bg-contraste/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-contraste/15">
-          Actualizar
-        </button>
-        <button type="button" onClick={() => void copyReport()} className="rounded-full bg-acento px-4 py-1.5 text-sm font-semibold text-white hover:bg-acento-hover">
-          Copiar registro
-        </button>
-        {import.meta.env.DEV && (
-          <button type="button" onClick={() => void sendToPc()} className="rounded-full bg-contraste/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-contraste/15">
-            Enviar registro al PC
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => {
-            clearDiagnostics()
-            setEvents([])
-          }}
-          className="rounded-full px-4 py-1.5 text-sm font-semibold text-texto-sec hover:text-texto"
-        >
-          Borrar registro
-        </button>
-      </div>
-      {latest.length === 0 ? (
-        <p>Todavía no hay nada registrado.</p>
-      ) : (
-        <ol aria-label="Registro de segundo plano" className="max-h-72 space-y-1 overflow-y-auto rounded-md bg-fondo/60 p-3 font-mono text-xs">
-          {latest.map((event, i) => (
-            <li key={`${event.t}-${i}`} className="text-texto">
-              {formatEvent(event)}
-            </li>
-          ))}
-        </ol>
-      )}
     </Section>
   )
 }

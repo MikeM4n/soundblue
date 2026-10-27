@@ -190,13 +190,25 @@ export async function modeTracks(mode: Mode, filterKey: string | null, limit = 5
   const sources = filterKey ? mode.filters.filter((f) => f.key === filterKey) : mode.filters
   const selected = favoriteGenres.get()
   const [lists, index, globalIndex] = await Promise.all([
-    Promise.all(sources.map((source) => (mode.key === 'rumba' ? youtubePopularTracks(source.queries[0]).catch(() => []) : sourceTracks(source)).then((tracks) => strictFilter(tracks, limit)).catch(() => []))),
+    Promise.all(sources.map((source) => tracksForMode(mode, source, limit).catch(() => []))),
     mode.genres ? genreIndexSoon(INDEX_WAIT_MS) : null,
     selected.length ? genreIndex().catch(() => null) : null,
   ])
   const scope = genreScope(new Set(mode.genres))
   const fits = (track: Track) => (!index || !clashes(track, index, scope)) && (!selected.length || (!!globalIndex && [...genresOf(track, globalIndex)].some((genre) => selected.includes(genre))))
   return strictFilter(interleave(lists.map((list) => list.filter(fits))), limit)
+}
+
+/** Rumba prioriza videos populares; si no hay Data API, falla o no encuentra pistas, usa playlists de YouTube Music. */
+async function tracksForMode(mode: Mode, source: GenreSource, limit: number): Promise<Track[]> {
+  if (mode.key !== 'rumba') return strictFilter(await sourceTracks(source), limit)
+  try {
+    const popular = strictFilter(await youtubePopularTracks(source.queries[0]), limit)
+    if (popular.length) return popular
+  } catch {
+    // La API oficial es opcional; el modo sigue con el catálogo normal de YouTube Music.
+  }
+  return strictFilter(await sourceTracks(source), limit)
 }
 
 /** Los filtros de las recomendaciones: sin covers, sin artistas que sueles saltar, 2 por artista y sin repetidas. */
