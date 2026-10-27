@@ -1,7 +1,8 @@
-import { LoaderCircle, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward } from 'lucide-react'
+import { Heart, LoaderCircle, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward } from 'lucide-react'
+import { useLibrary } from '../../library/store'
 import { player } from '../../player/engine'
 import { usePlayer } from '../../player/usePlayer'
-import { vibrate } from '../tracks/trackActions'
+import { toggleFavorite, vibrate } from '../tracks/trackActions'
 import { IconButton } from '../ui/IconButton'
 
 const REPEAT_LABEL = {
@@ -11,12 +12,14 @@ const REPEAT_LABEL = {
 } as const
 
 /** Aleatorio, anterior, reproducir/pausar, siguiente y repetir. `large` = versión del celular. */
-export function TransportControls({ large = false }: { large?: boolean }) {
+export function TransportControls({ large = false, showFavorite = false }: { large?: boolean; showFavorite?: boolean }) {
   const { current, status, shuffle, repeat } = usePlayer()
+  const { favorites } = useLibrary()
   const disabled = !current
   const playing = status === 'playing' || status === 'buffering'
   const busy = status === 'loading' || status === 'buffering'
   const icon = large ? 'size-6' : 'size-5'
+  const liked = current ? favorites.some((track) => track.id === current.id) : false
 
   return (
     <div className={`flex items-center ${large ? 'gap-5' : 'gap-2'}`}>
@@ -52,6 +55,9 @@ export function TransportControls({ large = false }: { large?: boolean }) {
       <IconButton label={REPEAT_LABEL[repeat]} active={repeat !== 'off'} onClick={() => player.cycleRepeat()} disabled={disabled}>
         {repeat === 'one' ? <Repeat1 className={large ? 'size-5' : 'size-4'} /> : <Repeat className={large ? 'size-5' : 'size-4'} />}
       </IconButton>
+      {showFavorite && current && <IconButton label={liked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta'} active={liked} onClick={() => toggleFavorite(current)}>
+        <Heart className={`${large ? 'size-5' : 'size-4'} ${liked ? 'fill-current' : ''}`} />
+      </IconButton>}
     </div>
   )
 }

@@ -63,6 +63,23 @@
   color-scheme: dark;
 }
 
+/* En la cola del reproductor, fondo negro uniforme; las filas recuperan un gris discreto al pasar el puntero. */
+.queue-pure-black {
+  --color-fondo: #000000;
+  --color-panel: #000000;
+  --color-tarjeta: #000000;
+  --color-elevado: #000000;
+  background-color: #000000;
+}
+
+.queue-pure-black .group:hover {
+  background-color: #1a1a1a;
+}
+
+.queue-pure-black [role='note'] {
+  background-color: #000000;
+}
+
 @layer base {
   html,
   body,

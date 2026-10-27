@@ -1,5 +1,8 @@
 import { AudioWaveform, Search as SearchIcon, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { usePlayer } from '../player/usePlayer'
+import { useLibrary } from '../library/store'
+import { listening } from '../data/history'
 import { Link } from 'react-router'
 import { SavePlaylistButton } from '../components/library/SavePlaylistButton'
 import { TrackList } from '../components/tracks/TrackList'
@@ -44,7 +47,18 @@ async function searchMusic(query: string): Promise<MusicResults> {
   const empty = { query, songs: [], videos: [], albums: [], artists: [], playlists: [] }
   let result: MusicResults
   try {
-    result = { ...empty, ...(await ytmSearch(query)), source: 'ytm', notice: null }
+    const ytm = await ytmSearch(query)
+    result = { ...empty, ...ytm, source: 'ytm', notice: null }
+    // YouTube Music can successfully return an empty parsed shelf. Treat that like a miss and
+    // ask the official API as a secondary source when configured.
+    if (!ytm.songs.length && !ytm.albums.length && !ytm.artists.length && !ytm.playlists.length && youtubeSearchEnabled) {
+      try {
+        const api = await youtubeSearch(query)
+        result = { ...result, songs: api.songs, videos: api.videos, source: 'api' }
+      } catch (error) {
+        result = { ...result, notice: youtubeErrorMessage(error) }
+      }
+    }
   } catch {
     if (!youtubeSearchEnabled) return { ...empty, source: 'ytm', notice: 'No se pudo conectar con el catálogo. Revisa tu conexión.' }
     try {
@@ -68,6 +82,8 @@ export function Search() {
   const [debounced, setDebounced] = useState('')
   const [music, setMusic] = useState<MusicResults | null>(null)
   const { open } = useNowPlaying()
+  const playerState = usePlayer()
+  const libraryState = useLibrary()
 
   // Espera a que dejes de escribir antes de buscar.
   useEffect(() => {
@@ -78,7 +94,9 @@ export function Search() {
   useEffect(() => {
     if (!debounced) return
     let alive = true
-    searchMusic(debounced).then((results) => alive && setMusic(results))
+    searchMusic(debounced)
+      .then((results) => alive && setMusic(results))
+      .catch((error) => alive && setMusic({ query: debounced, songs: [], videos: [], albums: [], artists: [], playlists: [], source: 'ytm', notice: youtubeErrorMessage(error) }))
     return () => {
       alive = false
     }
@@ -88,7 +106,21 @@ export function Search() {
   const fromMusic = music?.query === q ? music : null
   const searching = !!q && !fromMusic
 
-  const songs = fromMusic?.songs ?? []
+  const normalize = (value: string) => value.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
+  const normalizedQuery = normalize(q)
+  const localTracks = q ? [
+    playerState.current,
+    ...playerState.queue,
+    ...playerState.upcoming,
+    ...libraryState.favorites,
+    ...libraryState.playlists.flatMap((playlist) => playlist.tracks),
+    ...listening.entries().map((entry) => entry.track),
+  ].filter((track): track is Track => !!track) : []
+  const localMatches = [...new Map(localTracks
+    .filter((track) => normalizedQuery.length > 0 && `${normalize(track.title)} ${normalize(track.artist)}`.includes(normalizedQuery))
+    .map((track) => [track.id, track])).values()]
+  const remoteSongs = fromMusic?.songs ?? []
+  const songs = [...localMatches, ...remoteSongs.filter((track) => !localMatches.some((local) => local.id === track.id))]
   const videos = fromMusic?.videos ?? []
   const results = [...songs, ...videos] // en este orden sigue sonando al terminar cada una
 

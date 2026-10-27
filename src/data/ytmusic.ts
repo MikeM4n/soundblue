@@ -295,7 +295,8 @@ export function ytmHome(): Promise<YtmSection[]> {
 /** Búsqueda como en YouTube Music: canciones, álbumes, artistas y playlists. */
 export function ytmSearch(query: string): Promise<YtmSearchResults> {
   const q = query.trim().toLowerCase().replace(/\s+/g, ' ')
-  return remember(`buscar:${q}`, async () => {
+  // Cambiar la versión evita reutilizar búsquedas vacías guardadas antes de arreglar el parser.
+  return remember(`buscar:v2:${q}`, async () => {
     const [songs, albums, artists, featured, community] = await Promise.all([
       call('search', { query: q, params: FILTER.songs }),
       call('search', { query: q, params: FILTER.albums }).catch(() => null),

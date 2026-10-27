@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router'
 import { Banner } from '../player/Banner'
-import { NowPlayingPanel } from '../player/NowPlayingPanel'
 import { VideoStage } from '../player/VideoStage'
 import { Toaster } from '../ui/Toaster'
 import { BraveBanner } from './BraveBanner'
@@ -13,7 +12,7 @@ import { InstallBanner } from './InstallBanner'
 
 /**
  * Armazón de la app. Celular: contenido + barra banner (al minimizar) + menú inferior.
- * PC (lg): barra lateral + contenido + panel «Sonando ahora» + reproductor fijo abajo.
+ * PC (lg): barra lateral + contenido; la cola lateral solo vive en «Sonando ahora».
  * «Sonando ahora» en pantalla completa lo dibuja App encima de esto (ruta /reproduciendo).
  */
 export function AppLayout() {
@@ -35,7 +34,6 @@ export function AppLayout() {
         <main ref={mainRef} className="scroll-fino min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-panel lg:rounded-lg">
           <Outlet />
         </main>
-        <NowPlayingPanel />
       </div>
       <PlayerBar />
       <Banner />

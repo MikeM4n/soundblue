@@ -1,4 +1,4 @@
-import { ChevronUp, Heart, Users } from 'lucide-react'
+import { ChevronDown, ChevronUp, Heart, Users } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { lyricsOf, type Lyrics } from '../../data/lyrics'
@@ -17,14 +17,14 @@ import { TrackMenu } from '../tracks/TrackMenu'
 import { toggleFavorite } from '../tracks/trackActions'
 import { Cover } from '../ui/Cover'
 import { IconButton } from '../ui/IconButton'
-import { Backdrop } from './Backdrop'
 import { CoverSwipe } from './CoverSwipe'
 import { QueuePanel } from './QueuePanel'
+import { QueueSections } from '../tracks/QueueSections'
 import { SeekBar } from './SeekBar'
 import { TransportControls } from './TransportControls'
 
 const SLIDE_MS = 300
-const INTERACTIVE = 'button, a, input, [role="menu"], [data-queue-panel], [data-lyrics]'
+const INTERACTIVE = 'button, a, input, [role="menu"], [data-queue-panel], [data-queue-desktop], [data-lyrics]'
 
 /**
  * «Sonando ahora» en pantalla completa, como Spotify. Sube deslizándose al tocar una canción.
@@ -45,10 +45,18 @@ export function NowPlayingSheet() {
   const [closing, setClosing] = useState(false)
   const [dragY, setDragY] = useState<number | null>(null)
   const [queueOpen, setQueueOpen] = useState(false)
+  const [desktopLayout, setDesktopLayout] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
   const drag = useRef<{ pointerId: number; startY: number; startX: number; axis: 'x' | 'y' | null; dy: number } | null>(null)
   const closeTimer = useRef<number | undefined>(undefined)
   const rootRef = useRef<HTMLDivElement>(null)
   usePreventTouchMove(rootRef, () => drag.current?.axis === 'y')
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)')
+    const update = () => setDesktopLayout(media.matches)
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
 
   // Entrada: empieza abajo y sube.
   useEffect(() => {
@@ -120,7 +128,7 @@ export function NowPlayingSheet() {
 
   if (!current) {
     return (
-      <div className="fixed inset-x-0 top-0 bottom-[var(--nav-h,0px)] z-30 grid place-items-center bg-fondo p-8 text-center">
+      <div className="fixed inset-x-0 top-0 bottom-[var(--nav-h,0px)] z-30 grid place-items-center bg-black p-8 text-center lg:left-[236px]">
         <div>
           <p className="text-lg font-semibold">No hay nada sonando</p>
           <button type="button" onClick={close} className="mt-2 text-acento-texto hover:underline">
@@ -144,23 +152,26 @@ export function NowPlayingSheet() {
       aria-label="Sonando ahora"
       // Toda la pantalla menos la barra inferior del celular (--nav-h, la publica MobileNav): esa barra sigue a la vista.
       // siempre-oscuro: va sobre la carátula difuminada, también con el tema claro.
-      className="siempre-oscuro fixed inset-x-0 top-0 bottom-[var(--nav-h,0px)] z-30 touch-none overflow-hidden overscroll-contain bg-fondo text-white select-none"
+      className="siempre-oscuro fixed inset-x-0 top-0 bottom-[var(--nav-h,0px)] z-30 touch-none overflow-hidden overscroll-contain bg-black text-white select-none lg:right-0 lg:left-[236px] lg:touch-auto"
       style={{ transform: `translateY(${offset})`, transition: dragY === null ? `transform ${SLIDE_MS}ms cubic-bezier(.2,.8,.2,1)` : 'none' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      <Backdrop track={current} />
-
       {/* Tres partes: encabezado arriba, controles abajo con ALTO FIJO (título en 2 líneas como máximo) y, en medio,
           el espacio que sobra para la carátula o el video, centrados. Nada entra ni sale del flujo al deslizar o al
           cambiar de canción, así que el conjunto no salta y nunca hay scroll. */}
-      <div className="relative mx-auto flex h-full max-w-5xl flex-col pt-[env(safe-area-inset-top)] pb-2">
+      <div className="relative mx-auto grid h-full w-full max-w-[1600px] grid-cols-1 lg:grid-cols-[minmax(0,3fr)_minmax(280px,2fr)]">
+      <section aria-label="Reproductor" className="relative flex min-h-0 min-w-0 flex-col pt-[env(safe-area-inset-top)] pb-2 lg:pr-4">
         <header className="flex shrink-0 items-center gap-1 px-2 py-2">
           {/* Izquierda vacía (del ancho de los dos botones de la derecha, para que el título quede centrado); centro: de
               dónde suena; derecha: Jam y ⋮. Minimizar: deslizar hacia abajo o, en el PC, la tecla Esc. */}
-          <span className="w-20 shrink-0" aria-hidden="true" />
+          <div className="w-20 shrink-0">
+            <IconButton label="Minimizar reproductor" onClick={close} className="text-white">
+              <ChevronDown className="size-6" aria-hidden="true" />
+            </IconButton>
+          </div>
           <div className="min-w-0 flex-1 text-center">
             <p className="text-[11px] font-semibold tracking-wider text-white/70 uppercase">Sonando desde</p>
             <p className="truncate text-sm font-bold">{contextName ?? 'Tu música'}</p>
@@ -188,11 +199,19 @@ export function NowPlayingSheet() {
         <div className="shrink-0">
           <BackgroundNotice />
           <TrackInfo track={current} liked={liked} error={error} />
-          <QueueHint onOpen={() => setQueueOpen(true)} />
+          <div className="lg:hidden"><QueueHint onOpen={() => setQueueOpen(true)} /></div>
         </div>
-      </div>
+      </section>
 
-      <QueuePanel open={queueOpen} top={panelTop} onClose={() => setQueueOpen(false)} />
+      <aside data-queue-desktop aria-label="Próximas en sonar" className="queue-pure-black relative z-10 hidden min-h-0 min-w-0 flex-col border-l border-white/10 bg-black px-4 pt-[calc(env(safe-area-inset-top)+1.25rem)] text-white lg:flex">
+        <h2 className="shrink-0 text-xl font-bold">Próximas en sonar</h2>
+        <div className="queue-pure-black scroll-fino mt-2 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pb-8">
+          {desktopLayout && <QueueSections />}
+        </div>
+      </aside>
+
+      <div className="lg:hidden"><QueuePanel open={queueOpen} top={panelTop} onClose={() => setQueueOpen(false)} /></div>
+      </div>
     </div>
   )
 }
