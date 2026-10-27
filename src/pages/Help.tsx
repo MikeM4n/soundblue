@@ -406,94 +406,98 @@ function RecommendationsSection() {
           YouTube Data API hoy: <B>{usage.dataApi}</B> de 10 000 unidades (respaldo de búsqueda y popularidad de Rumba).
         </li>
       </ul>
-      <p>Artistas con sus canciones top guardadas ({entries.length}; se renuevan cada 24 h):</p>
-      {entries.length === 0 ? (
-        <p>Todavía ninguno.</p>
-      ) : (
-        <ul className="space-y-1 rounded-md bg-fondo/60 p-3 text-sm">
-          {entries.map(([id, entry]) => (
-            <li key={id}>
-              <B>{entry.name}</B> · {entry.tracks.length} canciones · {hoursAgo(entry.at)} · {entry.source === 'youtube-music' ? 'YouTube Music' : 'YouTube Data API'}
-            </li>
-          ))}
-        </ul>
-      )}
-      <p>Última radio (Buscar, «Iniciar radio», recomendadas o la cola infinita, a partir de la canción que sonaba):</p>
-      {!radio ? (
-        <p>Todavía ninguna.</p>
-      ) : (
-        <div className="space-y-2 rounded-md bg-fondo/60 p-3 text-sm">
+      {false && radio && (
+        <div className="space-y-2">
+          <p>Artistas con sus canciones top guardadas ({entries.length}; se renuevan cada 24 h):</p>
+          {entries.length === 0 ? (
+            <p>Todavía ninguno.</p>
+          ) : (
+            <ul className="space-y-1 rounded-md bg-fondo/60 p-3 text-sm">
+              {entries.map(([id, entry]) => (
+                <li key={id}>
+                  <B>{entry.name}</B> · {entry.tracks.length} canciones · {hoursAgo(entry.at)} · {entry.source === 'youtube-music' ? 'YouTube Music' : 'YouTube Data API'}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p>Última radio (Buscar, «Iniciar radio», recomendadas o la cola infinita, a partir de la canción que sonaba):</p>
+          {!radio ? (
+            <p>Todavía ninguna.</p>
+          ) : (
+            <div className="space-y-2 rounded-md bg-fondo/60 p-3 text-sm">
+              <p>
+                Semilla: <B>{radio?.seed}</B> · {hoursAgo(radio?.at ?? 0)}
+              </p>
+              {/* Diagnósticos guardados por versiones anteriores no traen género. */}
+              <p>
+                Género detectado: <B>{(radio?.genres ?? []).length ? (radio?.genres ?? []).join(', ') : 'no se conoce'}</B>
+                {radio?.guessed && ' (deducido de su radio)'}
+                {(radio?.accepts ?? []).length ? ` · acepta ${(radio?.accepts ?? []).join(', ')} (de cualquier año)` : ' (no se filtra por género: queda la radio de YouTube tal cual)'}
+              </p>
+              <p>
+                Descartadas:{' '}
+                {Object.entries(radio?.filtered ?? {})
+                  .map(([reason, n]) => `${reason}: ${n}`)
+                  .join(' · ')}
+              </p>
+              <ol className="list-decimal space-y-0.5 pl-5">
+                {(radio?.picks ?? []).map((pick, i) => (
+                  <li key={`${pick.title}-${i}`}>
+                    {pick.title} · {pick.artist}
+                    {pick.year ? ` (${pick.year})` : ''} — <span className="text-texto-sec">{pick.reason}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
           <p>
-            Semilla: <B>{radio.seed}</B> · {hoursAgo(radio.at)}
+            Artistas que sueles saltar (pasas a la siguiente antes de 30 s; no se recomiendan):{' '}
+            {skipped.length ? <B>{skipped.join(', ')}</B> : 'ninguno.'}
           </p>
-          {/* Diagnósticos guardados por versiones anteriores no traen género. */}
-          <p>
-            Género detectado: <B>{radio.genres?.length ? radio.genres.join(', ') : 'no se conoce'}</B>
-            {radio.guessed && ' (deducido de su radio)'}
-            {radio.accepts?.length ? ` · acepta ${radio.accepts.join(', ')} (de cualquier año)` : ' (no se filtra por género: queda la radio de YouTube tal cual)'}
-          </p>
-          <p>
-            Descartadas:{' '}
-            {Object.entries(radio.filtered)
-              .map(([reason, n]) => `${reason}: ${n}`)
-              .join(' · ')}
-          </p>
-          <ol className="list-decimal space-y-0.5 pl-5">
-            {radio.picks.map((pick, i) => (
-              <li key={`${pick.title}-${i}`}>
-                {pick.title} · {pick.artist}
-                {pick.year ? ` (${pick.year})` : ''} — <span className="text-texto-sec">{pick.reason}</span>
-              </li>
-            ))}
-          </ol>
+          <p>Canciones descartadas por duplicado (mismo video; las últimas {duplicates.length}, la más reciente primero):</p>
+          {duplicates.length === 0 ? (
+            <p>Ninguna todavía.</p>
+          ) : (
+            <ol className="space-y-0.5 rounded-md bg-fondo/60 p-3 text-sm">
+              {duplicates
+                .slice()
+                .reverse()
+                .map((entry, i) => (
+                  <li key={`${entry.at}-${i}`}>
+                    <span className="tabular-nums">{new Date(entry.at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}</span> ·{' '}
+                    {entry.title} · {entry.artist} — <span className="text-texto-sec">{entry.where}</span>
+                  </li>
+                ))}
+            </ol>
+          )}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button type="button" onClick={refresh} className="rounded-full bg-contraste/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-contraste/15">
+              Actualizar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearDuplicateLog()
+                refresh()
+              }}
+              className="rounded-full px-4 py-1.5 text-sm font-semibold text-texto-sec hover:text-texto"
+            >
+              Borrar registro de duplicados
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearTopCache()
+                refresh()
+                showToast('Canciones guardadas borradas: se vuelven a pedir al abrir Inicio')
+              }}
+              className="rounded-full px-4 py-1.5 text-sm font-semibold text-texto-sec hover:text-texto"
+            >
+              Borrar canciones guardadas
+            </button>
+          </div>
         </div>
       )}
-      <p>
-        Artistas que sueles saltar (pasas a la siguiente antes de 30 s; no se recomiendan):{' '}
-        {skipped.length ? <B>{skipped.join(', ')}</B> : 'ninguno.'}
-      </p>
-      <p>Canciones descartadas por duplicado (mismo video; las últimas {duplicates.length}, la más reciente primero):</p>
-      {duplicates.length === 0 ? (
-        <p>Ninguna todavía.</p>
-      ) : (
-        <ol className="space-y-0.5 rounded-md bg-fondo/60 p-3 text-sm">
-          {duplicates
-            .slice()
-            .reverse()
-            .map((entry, i) => (
-              <li key={`${entry.at}-${i}`}>
-                <span className="tabular-nums">{new Date(entry.at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}</span> ·{' '}
-                {entry.title} · {entry.artist} — <span className="text-texto-sec">{entry.where}</span>
-              </li>
-            ))}
-        </ol>
-      )}
-      <div className="flex flex-wrap gap-2 pt-1">
-        <button type="button" onClick={refresh} className="rounded-full bg-contraste/10 px-4 py-1.5 text-sm font-semibold text-texto hover:bg-contraste/15">
-          Actualizar
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            clearDuplicateLog()
-            refresh()
-          }}
-          className="rounded-full px-4 py-1.5 text-sm font-semibold text-texto-sec hover:text-texto"
-        >
-          Borrar registro de duplicados
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            clearTopCache()
-            refresh()
-            showToast('Canciones guardadas borradas: se vuelven a pedir al abrir Inicio')
-          }}
-          className="rounded-full px-4 py-1.5 text-sm font-semibold text-texto-sec hover:text-texto"
-        >
-          Borrar canciones guardadas
-        </button>
-      </div>
     </Section>
   )
 }
